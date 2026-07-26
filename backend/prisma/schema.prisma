@@ -1,0 +1,124 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String            @id @default(uuid())
+  email         String            @unique
+  password      String
+  role          String            @default("USER") // "ADMIN", "USER"
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  workspaces    Workspace[]
+  sessions      TerminalSession[]
+  notifications Notification[]
+  logs          ActivityLog[]
+  preferences   UserPreference?
+  conversations AIConversation[]
+}
+
+model Workspace {
+  id           String         @id @default(uuid())
+  name         String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  projects     Project[]
+  installedApps InstalledApp[]
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  name        String
+  repoUrl     String?
+  tfConfig    String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model InstalledApp {
+  id            String    @id @default(uuid())
+  appId         String    // e.g. "docker", "git"
+  name          String
+  icon          String
+  status        String    @default("stopped") // "running", "stopped"
+  installed     Boolean   @default(false)
+  running       Boolean   @default(false)
+  category      String
+  launchCommand String?
+  website       String?
+  description   String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model TerminalSession {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  status    String   @default("active") // "active", "closed"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String   @db.Text
+  type      String   @default("info") // "info", "success", "warning", "error"
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  action    String   // e.g. "USER_LOGIN", "APP_OPEN"
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserPreference {
+  id         String  @id @default(uuid())
+  theme      String  @default("dark")
+  wallpaper  String?
+  volume     Int     @default(80)
+  brightness Int     @default(90)
+  
+  userId     String  @unique
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AIConversation {
+  id        String   @id @default(uuid())
+  title     String?
+  messages  Json     // JSON array of message objects: [{role: string, content: string, timestamp: string}]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
