@@ -27,6 +27,13 @@ import DashboardApp from './apps/DashboardApp';
 import BrowserApp from './apps/BrowserApp';
 import NautilusApp from './apps/NautilusApp';
 import SystemMonitorApp from './apps/SystemMonitorApp';
+import DockerApp from './apps/DockerApp';
+import AwsApp from './apps/AwsApp';
+import AzureApp from './apps/AzureApp';
+import TerraformApp from './apps/TerraformApp';
+import GitApp from './apps/GitApp';
+import KubernetesApp from './apps/KubernetesApp';
+import VscodeApp from './apps/VscodeApp';
 
 // Brand SVG Logos
 const TerraformLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
@@ -45,6 +52,12 @@ const KubernetesLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className}>
     <path fill="#326CE5" d="M12.44 2.1a1.23 1.23 0 00-.88 0L3.18 5.5a1.24 1.24 0 00-.73 1.05v9.9a1.24 1.24 0 00.73 1.05l8.38 3.4a1.23 1.23 0 00.88 0l8.38-3.4a1.24 1.24 0 00.73-1.05v-9.9a1.24 1.24 0 00-.73-1.05z" />
     <path fill="#FFFFFF" d="M12 4.45l6.53 2.65v2.96L12 7.42zm-6.53 2.65L12 4.45v2.97L5.47 10.06zM4.65 8.9v6.2l3.4-1.38V7.52zm4.24 4.9L12 12.46l3.11 1.26v2.96L12 15.42zm4.23-1.34L19.35 8.9V13.8l-3.4 1.38zm7.34 2.74l-6.53 2.65v-2.96l6.53-2.65zm-16.92 0L12 18.06V20.7l-6.53-2.65zm6.53-5.26v2.96L5.47 12.8v-2.96z" />
+  </svg>
+);
+
+const VscodeLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <path fill="#007acc" d="M23.98 6.55L21.3 3.86c-.19-.19-.51-.19-.7 0L14.72 9.5 8.04 3.52c-.19-.19-.51-.19-.7 0L.1 10.64c-.19.19-.19.51 0 .7l2.69 2.69c.19.19.51.19.7 0l5.73-5.73 6.7 6c.19.19.51.19.7 0l7.1-7.1c.19-.2.19-.52-.04-.65z" />
   </svg>
 );
 
@@ -397,7 +410,6 @@ export default function Desktop() {
 
 
 
-  // Window Manager States (Includes Browser, Nautilus, and System Monitor states)
   const [windows, setWindows] = useState<AppWindow[]>([
     {
       id: 'terminal',
@@ -464,6 +476,72 @@ export default function Desktop() {
       theme: 'dark',
       width: 720,
       height: 450
+    },
+    {
+      id: 'docker',
+      title: 'Docker Hub',
+      isOpen: false,
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: 2,
+      theme: 'dark',
+      width: 800,
+      height: 500
+    },
+    {
+      id: 'kubernetes',
+      title: 'Kubernetes Engine',
+      isOpen: false,
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: 2,
+      theme: 'dark',
+      width: 820,
+      height: 520
+    },
+    {
+      id: 'aws',
+      title: 'AWS Cloud Console',
+      isOpen: false,
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: 2,
+      theme: 'light',
+      width: 880,
+      height: 540
+    },
+    {
+      id: 'azure',
+      title: 'Azure Cloud Dashboard',
+      isOpen: false,
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: 2,
+      theme: 'light',
+      width: 880,
+      height: 540
+    },
+    {
+      id: 'github',
+      title: 'Git Integration',
+      isOpen: false,
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: 2,
+      theme: 'dark',
+      width: 800,
+      height: 500
+    },
+    {
+      id: 'vscode',
+      title: 'VS Code Editor',
+      isOpen: false,
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: 2,
+      theme: 'dark',
+      width: 900,
+      height: 560
     }
   ]);
 
@@ -493,6 +571,7 @@ export default function Desktop() {
     { id: 'cost', name: 'Cost Optimizer', icon: CostIcon, desc: 'Budget right-sizing rules', category: 'Finance' },
     { id: 'identity', name: 'Identity Lock', icon: IdentityIcon, desc: 'IAM access control lists', category: 'Security' },
     { id: 'automations', name: 'Automations', icon: AutomationsIcon, desc: 'Cron deployment workers', category: 'System' },
+    { id: 'vscode', name: 'VS Code Editor', icon: VscodeLogo, desc: 'Launch VS Code inside workspace directories', category: 'System' },
     { id: 'settings', name: 'Settings Control', icon: SettingsIcon, desc: 'Cloud OS preferences', category: 'System' }
   ];
 
@@ -500,30 +579,20 @@ export default function Desktop() {
   const openApp = (appId: string) => {
     setShowAppDrawer(false);
 
-    // Map integration apps to their layout window equivalents and slide workspaces
-    let targetWindowId = appId;
+    // Map integration apps to their sliding workspaces
     let targetWorkspaceIdx = 0;
-    if (['terraform', 'kubernetes', 'aws', 'azure', 'github'].includes(appId)) {
-      targetWindowId = 'dashboard';
-      targetWorkspaceIdx = 1;
-    } else if (['grafana', 'prometheus'].includes(appId)) {
-      targetWindowId = 'monitoring';
-      targetWorkspaceIdx = 2;
-    } else if (appId === 'docker') {
-      targetWindowId = 'terminal';
+    if (['terminal', 'nautilus', 'docker', 'github'].includes(appId)) {
       targetWorkspaceIdx = 0;
-    } else if (appId === 'terminal' || appId === 'nautilus') {
-      targetWorkspaceIdx = 0;
-    } else if (appId === 'dashboard' || appId === 'browser') {
+    } else if (['dashboard', 'browser', 'aws', 'azure', 'vscode'].includes(appId)) {
       targetWorkspaceIdx = 1;
-    } else if (appId === 'monitoring' || appId === 'sysmonitor') {
+    } else if (['monitoring', 'sysmonitor', 'kubernetes'].includes(appId)) {
       targetWorkspaceIdx = 2;
     }
 
     setActiveWorkspace(targetWorkspaceIdx);
 
     setWindows(prev => prev.map(win => {
-      if (win.id === targetWindowId) {
+      if (win.id === appId) {
         const nextZ = topZIndex + 1;
         setTopZIndex(nextZ);
         return { ...win, isOpen: true, isMinimized: false, zIndex: nextZ };
@@ -536,9 +605,9 @@ export default function Desktop() {
     const nextZ = topZIndex + 1;
     setTopZIndex(nextZ);
 
-    if (id === 'terminal' || id === 'nautilus') setActiveWorkspace(0);
-    else if (id === 'dashboard' || id === 'browser') setActiveWorkspace(1);
-    else if (id === 'monitoring' || id === 'sysmonitor') setActiveWorkspace(2);
+    if (['terminal', 'nautilus', 'docker', 'github'].includes(id)) setActiveWorkspace(0);
+    else if (['dashboard', 'browser', 'aws', 'azure', 'vscode'].includes(id)) setActiveWorkspace(1);
+    else if (['monitoring', 'sysmonitor', 'kubernetes'].includes(id)) setActiveWorkspace(2);
 
     setWindows(prev => prev.map(win => {
       if (win.id === id) {
@@ -943,12 +1012,15 @@ export default function Desktop() {
                 <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.193 22 16.44 22 12.017 22 6.484 17.522 2 12 2z" />
               </svg>
             </button>
+            {windows.find(w => w.id === 'github')?.isOpen && (
+              <span className="absolute left-1 top-4.5 w-1 h-1 rounded-full bg-white shadow-sm shadow-white/80" />
+            )}
           </div>
 
           {/* AWS / Azure Cloud launcher (Official Colors, side-by-side) */}
           <div className="relative group w-full flex justify-center">
             <button
-              onClick={() => handleDockClick('dashboard')}
+              onClick={() => handleDockClick('aws')}
               className="w-10 h-10 rounded-xl bg-[#1e1e1e] hover:bg-neutral-800 border border-white/5 flex items-center justify-center p-1 space-x-1 group-hover:scale-105 active:scale-95 transition-all duration-200 shadow-md cursor-pointer"
               title="AWS / Azure Cloud Console"
             >
@@ -963,7 +1035,7 @@ export default function Desktop() {
                 <path fill="#50e6ff" d="M117.2 108.8H10.8l52.5-25.5z" />
               </svg>
             </button>
-            {windows.find(w => w.id === 'dashboard')?.isOpen && (
+            {(windows.find(w => w.id === 'aws')?.isOpen || windows.find(w => w.id === 'azure')?.isOpen) && (
               <span className="absolute left-1 top-4.5 w-1 h-1 rounded-full bg-white shadow-sm shadow-white/80" />
             )}
           </div>
@@ -979,12 +1051,15 @@ export default function Desktop() {
                 <path fill="#844FBA" d="M1.5 0h7v7h-7zM15.5 0h7v7h-7zM8.5 7h7v7h-7zM1.5 14h7v7h-7zM15.5 14h7v7h-7z" />
               </svg>
             </button>
+            {windows.find(w => w.id === 'dashboard')?.isOpen && (
+              <span className="absolute left-1 top-4.5 w-1 h-1 rounded-full bg-white shadow-sm shadow-white/80" />
+            )}
           </div>
 
           {/* Docker (Official Blue Whale Logo) */}
           <div className="relative group w-full flex justify-center">
             <button
-              onClick={() => handleDockClick('terminal')}
+              onClick={() => handleDockClick('docker')}
               className="w-10 h-10 rounded-xl bg-[#1e1e1e] hover:bg-neutral-800 border border-white/5 flex items-center justify-center group-hover:scale-105 active:scale-95 transition-all duration-200 shadow-md cursor-pointer"
               title="Docker Containerizer"
             >
@@ -992,12 +1067,15 @@ export default function Desktop() {
                 <path fill="#0db7ed" d="M22.3 10.05c-.34-.73-.91-1.3-1.61-1.67-.18-.1-.38-.17-.58-.23a4.23 4.23 0 0 0-.28-1.57c-.24-.55-.65-1.02-1.18-1.32-.47-.27-1.02-.38-1.55-.32-.23-.83-.73-1.54-1.42-2-.68-.45-1.5-.64-2.3-.53h-.03v1.89h.03c.53-.06 1.08.06 1.53.36.42.28.71.72.82 1.22l.06.28.28.03c.66.08 1.25.46 1.58 1.04.18.32.28.69.29 1.06v.06h1.92v-.03c0-.12.02-.24.03-.36l.01-.22zM8.99 7.62h1.61v-1.6H8.99v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm-7.02 2.34h1.61v-1.6H6.65v1.6zm2.34 0h1.61v-1.6H8.99v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm-11.7 2.34h1.61v-1.6H4.31v1.6zm2.34 0h1.61v-1.6H6.65v1.6zm2.34 0h1.61v-1.6H8.99v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm-14.04 2.34c0 1.9 1.53 3.44 3.44 3.44h11.23c3.1 0 5.66-2.4 5.86-5.46.02-.3.17-.57.43-.73.66-.43 1.25-1.04 1.52-1.76.27-.72.11-1.5-.18-1.89-.46-.52-1.14-.82-1.81-.82-.09 0-.17.01-.26.02-.45.04-.84-.13-1.12-.48l-.51-.38-.51.38c-.28.35-.67.52-1.12.48a1.64 1.64 0 0 0-1.12.48l-.51.38v-4.3c0-.1-.08-.18-.18-.18H8.38c-.1 0-.18.08-.18.18v5.43c0 .1-.08.18-.18.18H6.41c-.1 0-.18-.08-.18-.18v-5.43c0-.1-.08-.18-.18-.18H4.44c-.1 0-.18.08-.18.18v5.43c0 .1-.08.18-.18.18H2.47c-.1 0-.18-.08-.18-.18v-3.25c0-.1-.08-.18-.18-.18H.3c-.1 0-.18.08-.18.18v1.36c0 1.9 1.53 3.44 3.44 3.44h1.76v-.06z" />
               </svg>
             </button>
+            {windows.find(w => w.id === 'docker')?.isOpen && (
+              <span className="absolute left-1 top-4.5 w-1 h-1 rounded-full bg-white shadow-sm shadow-white/80" />
+            )}
           </div>
 
           {/* Kubernetes (Official Blue Wheel Logo) */}
           <div className="relative group w-full flex justify-center">
             <button
-              onClick={() => handleDockClick('dashboard')}
+              onClick={() => handleDockClick('kubernetes')}
               className="w-10 h-10 rounded-xl bg-[#1e1e1e] hover:bg-neutral-800 border border-white/5 flex items-center justify-center group-hover:scale-105 active:scale-95 transition-all duration-200 shadow-md cursor-pointer"
               title="Kubernetes Orchestrator"
             >
@@ -1006,6 +1084,9 @@ export default function Desktop() {
                 <path fill="#FFFFFF" d="M12 4.45l6.53 2.65v2.96L12 7.42zm-6.53 2.65L12 4.45v2.97L5.47 10.06zM4.65 8.9v6.2l3.4-1.38V7.52zm4.24 4.9L12 12.46l3.11 1.26v2.96L12 15.42zm4.23-1.34L19.35 8.9V13.8l-3.4 1.38zm7.34 2.74l-6.53 2.65v-2.96l6.53-2.65zm-16.92 0L12 18.06V20.7l-6.53-2.65zm6.53-5.26v2.96L5.47 12.8v-2.96z" />
               </svg>
             </button>
+            {windows.find(w => w.id === 'kubernetes')?.isOpen && (
+              <span className="absolute left-1 top-4.5 w-1 h-1 rounded-full bg-white shadow-sm shadow-white/80" />
+            )}
           </div>
 
           {/* Grafana / Prometheus (Official Logos, side-by-side) */}
@@ -1068,42 +1149,88 @@ export default function Desktop() {
           className="absolute inset-0 p-4"
         >
           {/* AI Terminal Window */}
-          <WindowFrame
-            id="terminal"
-            title="linux@caelum-os:~ (AI Terminal)"
-            isOpen={windows[0].isOpen}
-            isMinimized={windows[0].isMinimized}
-            isMaximized={windows[0].isMaximized}
-            zIndex={windows[0].zIndex}
-            onClose={() => closeWindow('terminal')}
-            onMinimize={() => toggleWindowMinimize('terminal')}
-            onMaximize={() => toggleWindowMaximize('terminal')}
-            onFocus={() => focusWindow('terminal')}
-            theme="dark"
-            defaultWidth={680}
-            defaultHeight={440}
-          >
-            <TerminalApp onOpenApp={openApp} />
-          </WindowFrame>
+          {windows.find(w => w.id === 'terminal')?.isOpen && (
+            <WindowFrame
+              id="terminal"
+              title="linux@caelum-os:~ (AI Terminal)"
+              isOpen={windows.find(w => w.id === 'terminal')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'terminal')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'terminal')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'terminal')?.zIndex || 10}
+              onClose={() => closeWindow('terminal')}
+              onMinimize={() => toggleWindowMinimize('terminal')}
+              onMaximize={() => toggleWindowMaximize('terminal')}
+              onFocus={() => focusWindow('terminal')}
+              theme="dark"
+              defaultWidth={680}
+              defaultHeight={440}
+            >
+              <TerminalApp onOpenApp={openApp} />
+            </WindowFrame>
+          )}
 
           {/* Nautilus explorer App Window */}
-          <WindowFrame
-            id="nautilus"
-            title="Files (Nautilus Manager)"
-            isOpen={windows[4].isOpen}
-            isMinimized={windows[4].isMinimized}
-            isMaximized={windows[4].isMaximized}
-            zIndex={windows[4].zIndex}
-            onClose={() => closeWindow('nautilus')}
-            onMinimize={() => toggleWindowMinimize('nautilus')}
-            onMaximize={() => toggleWindowMaximize('nautilus')}
-            onFocus={() => focusWindow('nautilus')}
-            theme="light"
-            defaultWidth={760}
-            defaultHeight={460}
-          >
-            <NautilusApp />
-          </WindowFrame>
+          {windows.find(w => w.id === 'nautilus')?.isOpen && (
+            <WindowFrame
+              id="nautilus"
+              title="Files (Nautilus Manager)"
+              isOpen={windows.find(w => w.id === 'nautilus')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'nautilus')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'nautilus')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'nautilus')?.zIndex || 4}
+              onClose={() => closeWindow('nautilus')}
+              onMinimize={() => toggleWindowMinimize('nautilus')}
+              onMaximize={() => toggleWindowMaximize('nautilus')}
+              onFocus={() => focusWindow('nautilus')}
+              theme="light"
+              defaultWidth={760}
+              defaultHeight={460}
+            >
+              <NautilusApp />
+            </WindowFrame>
+          )}
+
+          {/* Docker Hub App Window */}
+          {windows.find(w => w.id === 'docker')?.isOpen && (
+            <WindowFrame
+              id="docker"
+              title="Docker Hub"
+              isOpen={windows.find(w => w.id === 'docker')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'docker')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'docker')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'docker')?.zIndex || 2}
+              onClose={() => closeWindow('docker')}
+              onMinimize={() => toggleWindowMinimize('docker')}
+              onMaximize={() => toggleWindowMaximize('docker')}
+              onFocus={() => focusWindow('docker')}
+              theme="dark"
+              defaultWidth={800}
+              defaultHeight={500}
+            >
+              <DockerApp />
+            </WindowFrame>
+          )}
+
+          {/* Git Integration Window */}
+          {windows.find(w => w.id === 'github')?.isOpen && (
+            <WindowFrame
+              id="github"
+              title="Git Integration"
+              isOpen={windows.find(w => w.id === 'github')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'github')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'github')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'github')?.zIndex || 2}
+              onClose={() => closeWindow('github')}
+              onMinimize={() => toggleWindowMinimize('github')}
+              onMaximize={() => toggleWindowMaximize('github')}
+              onFocus={() => focusWindow('github')}
+              theme="dark"
+              defaultWidth={800}
+              defaultHeight={500}
+            >
+              <GitApp />
+            </WindowFrame>
+          )}
         </motion.div>
 
         {/* Workspace 1: Staging Workspace Panel */}
@@ -1112,43 +1239,110 @@ export default function Desktop() {
           transition={{ type: 'spring', damping: 28, stiffness: 180 }}
           className="absolute inset-0 p-4"
         >
-          {/* Cloud Deploy Dashboard Window */}
-          <WindowFrame
-            id="dashboard"
-            title="CaelumOS Cloud Deploy Dashboard"
-            isOpen={windows[1].isOpen}
-            isMinimized={windows[1].isMinimized}
-            isMaximized={windows[1].isMaximized}
-            zIndex={windows[1].zIndex}
-            onClose={() => closeWindow('dashboard')}
-            onMinimize={() => toggleWindowMinimize('dashboard')}
-            onMaximize={() => toggleWindowMaximize('dashboard')}
-            onFocus={() => focusWindow('dashboard')}
-            theme="light"
-            defaultWidth={1050}
-            defaultHeight={600}
-          >
-            <DashboardApp />
-          </WindowFrame>
+          {/* Terraform Provisioner Window */}
+          {windows.find(w => w.id === 'dashboard')?.isOpen && (
+            <WindowFrame
+              id="dashboard"
+              title="Terraform Provisioner"
+              isOpen={windows.find(w => w.id === 'dashboard')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'dashboard')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'dashboard')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'dashboard')?.zIndex || 5}
+              onClose={() => closeWindow('dashboard')}
+              onMinimize={() => toggleWindowMinimize('dashboard')}
+              onMaximize={() => toggleWindowMaximize('dashboard')}
+              onFocus={() => focusWindow('dashboard')}
+              theme="dark"
+              defaultWidth={1050}
+              defaultHeight={600}
+            >
+              <TerraformApp />
+            </WindowFrame>
+          )}
 
           {/* Web Browser App Window */}
-          <WindowFrame
-            id="browser"
-            title="Firefox Web Browser"
-            isOpen={windows[3].isOpen}
-            isMinimized={windows[3].isMinimized}
-            isMaximized={windows[3].isMaximized}
-            zIndex={windows[3].zIndex}
-            onClose={() => closeWindow('browser')}
-            onMinimize={() => toggleWindowMinimize('browser')}
-            onMaximize={() => toggleWindowMaximize('browser')}
-            onFocus={() => focusWindow('browser')}
-            theme="light"
-            defaultWidth={850}
-            defaultHeight={520}
-          >
-            <BrowserApp />
-          </WindowFrame>
+          {windows.find(w => w.id === 'browser')?.isOpen && (
+            <WindowFrame
+              id="browser"
+              title="Firefox Web Browser"
+              isOpen={windows.find(w => w.id === 'browser')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'browser')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'browser')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'browser')?.zIndex || 6}
+              onClose={() => closeWindow('browser')}
+              onMinimize={() => toggleWindowMinimize('browser')}
+              onMaximize={() => toggleWindowMaximize('browser')}
+              onFocus={() => focusWindow('browser')}
+              theme="light"
+              defaultWidth={850}
+              defaultHeight={520}
+            >
+              <BrowserApp />
+            </WindowFrame>
+          )}
+
+          {/* AWS Cloud Console Window */}
+          {windows.find(w => w.id === 'aws')?.isOpen && (
+            <WindowFrame
+              id="aws"
+              title="AWS Cloud Console"
+              isOpen={windows.find(w => w.id === 'aws')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'aws')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'aws')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'aws')?.zIndex || 2}
+              onClose={() => closeWindow('aws')}
+              onMinimize={() => toggleWindowMinimize('aws')}
+              onMaximize={() => toggleWindowMaximize('aws')}
+              onFocus={() => focusWindow('aws')}
+              theme="light"
+              defaultWidth={880}
+              defaultHeight={540}
+            >
+              <AwsApp />
+            </WindowFrame>
+          )}
+
+          {/* Azure Cloud Dashboard Window */}
+          {windows.find(w => w.id === 'azure')?.isOpen && (
+            <WindowFrame
+              id="azure"
+              title="Azure Cloud Dashboard"
+              isOpen={windows.find(w => w.id === 'azure')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'azure')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'azure')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'azure')?.zIndex || 2}
+              onClose={() => closeWindow('azure')}
+              onMinimize={() => toggleWindowMinimize('azure')}
+              onMaximize={() => toggleWindowMaximize('azure')}
+              onFocus={() => focusWindow('azure')}
+              theme="light"
+              defaultWidth={880}
+              defaultHeight={540}
+            >
+              <AzureApp />
+            </WindowFrame>
+          )}
+
+          {/* VS Code Editor Window */}
+          {windows.find(w => w.id === 'vscode')?.isOpen && (
+            <WindowFrame
+              id="vscode"
+              title="VS Code Editor"
+              isOpen={windows.find(w => w.id === 'vscode')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'vscode')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'vscode')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'vscode')?.zIndex || 2}
+              onClose={() => closeWindow('vscode')}
+              onMinimize={() => toggleWindowMinimize('vscode')}
+              onMaximize={() => toggleWindowMaximize('vscode')}
+              onFocus={() => focusWindow('vscode')}
+              theme="dark"
+              defaultWidth={900}
+              defaultHeight={560}
+            >
+              <VscodeApp />
+            </WindowFrame>
+          )}
         </motion.div>
 
         {/* Workspace 2: Production Workspace Panel */}
@@ -1158,127 +1352,152 @@ export default function Desktop() {
           className="absolute inset-0 p-4"
         >
           {/* Grafana Monitor Window */}
-          <WindowFrame
-            id="monitoring"
-            title="Grafana Monitor - Caelum Live Infrastructure"
-            isOpen={windows[2].isOpen}
-            isMinimized={windows[2].isMinimized}
-            isMaximized={windows[2].isMaximized}
-            zIndex={windows[2].zIndex}
-            onClose={() => closeWindow('monitoring')}
-            onMinimize={() => toggleWindowMinimize('monitoring')}
-            onMaximize={() => toggleWindowMaximize('monitoring')}
-            onFocus={() => focusWindow('monitoring')}
-            theme="dark"
-            defaultWidth={780}
-            defaultHeight={460}
-          >
-            <div className="flex-1 flex flex-col bg-[#111111] text-[#dfdbd2] p-5 overflow-y-auto space-y-5">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                <div className="flex items-center space-x-2">
-                  <Activity className="w-5 h-5 text-amber-500" />
-                  <span className="font-bold text-sm text-slate-100">Core Node Clusters Status</span>
+          {windows.find(w => w.id === 'monitoring')?.isOpen && (
+            <WindowFrame
+              id="monitoring"
+              title="Grafana Monitor - Caelum Live Infrastructure"
+              isOpen={windows.find(w => w.id === 'monitoring')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'monitoring')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'monitoring')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'monitoring')?.zIndex || 1}
+              onClose={() => closeWindow('monitoring')}
+              onMinimize={() => toggleWindowMinimize('monitoring')}
+              onMaximize={() => toggleWindowMaximize('monitoring')}
+              onFocus={() => focusWindow('monitoring')}
+              theme="dark"
+              defaultWidth={780}
+              defaultHeight={460}
+            >
+              <div className="flex-1 flex flex-col bg-[#111111] text-[#dfdbd2] p-5 overflow-y-auto space-y-5">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="w-5 h-5 text-amber-500" />
+                    <span className="font-bold text-sm text-slate-100">Core Node Clusters Status</span>
+                  </div>
+                  <span className="text-[10px] bg-green-500/20 border border-green-500/30 text-green-400 px-2 py-0.5 rounded font-bold uppercase">
+                    Healthy
+                  </span>
                 </div>
-                <span className="text-[10px] bg-green-500/20 border border-green-500/30 text-green-400 px-2 py-0.5 rounded font-bold uppercase">
-                  Healthy
-                </span>
-              </div>
 
-              {/* Quick Chart Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">CPU Allocation</span>
-                  <p className="text-2xl font-extrabold text-slate-100">22.4%</p>
-                  <div className="w-full bg-[#2a2a2a] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-amber-500 h-full w-[22%]" />
+                {/* Quick Chart Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">CPU Allocation</span>
+                    <p className="text-2xl font-extrabold text-slate-100">22.4%</p>
+                    <div className="w-full bg-[#2a2a2a] h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-amber-500 h-full w-[22%]" />
+                    </div>
+                  </div>
+                  <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Memory Allocation</span>
+                    <p className="text-2xl font-extrabold text-slate-100">46.8%</p>
+                    <div className="w-full bg-[#2a2a2a] h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-amber-500 h-full w-[46%]" />
+                    </div>
+                  </div>
+                  <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Network Traffic</span>
+                    <p className="text-2xl font-extrabold text-slate-100">8.4 MB/s</p>
+                    <div className="w-full bg-[#2a2a2a] h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-amber-500 h-full w-[35%]" />
+                    </div>
                   </div>
                 </div>
-                <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Memory Allocation</span>
-                  <p className="text-2xl font-extrabold text-slate-100">46.8%</p>
-                  <div className="w-full bg-[#2a2a2a] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-amber-500 h-full w-[46%]" />
-                  </div>
-                </div>
-                <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Network Traffic</span>
-                  <p className="text-2xl font-extrabold text-slate-100">8.4 MB/s</p>
-                  <div className="w-full bg-[#2a2a2a] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-amber-500 h-full w-[35%]" />
-                  </div>
-                </div>
-              </div>
 
-              {/* Chart Graphic representation */}
-              <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-4 flex flex-col justify-between h-44">
-                <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
-                  <span>Grafana Live Chart - Streamed Rates</span>
-                  <span>Interval: 1s</span>
+                {/* Chart Graphic representation */}
+                <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-4 flex flex-col justify-between h-44">
+                  <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+                    <span>Grafana Live Chart - Streamed Rates</span>
+                    <span>Interval: 1s</span>
+                  </div>
+                  {/* Simulated Sine Wave SVGs */}
+                  <div className="flex-1 w-full flex items-end">
+                    <svg className="w-full h-24 overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
+                      <path
+                        d="M0,80 Q25,30 50,60 T100,50 T150,75 T200,30 T250,90 T300,50 T350,20 T400,60 T450,40 T500,70"
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth="3.5"
+                        className="drop-shadow-[0_2px_8px_rgba(245,158,11,0.2)]"
+                      />
+                      <path
+                        d="M0,80 Q25,30 50,60 T100,50 T150,75 T200,30 T250,90 T300,50 T350,20 T400,60 T450,40 T500,70 L500,100 L0,100 Z"
+                        fill="url(#gradient-yellow)"
+                        opacity="0.08"
+                      />
+                      <defs>
+                        <linearGradient id="gradient-yellow" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f59e0b" />
+                          <stop offset="100%" stopColor="transparent" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
                 </div>
-                {/* Simulated Sine Wave SVGs */}
-                <div className="flex-1 w-full flex items-end">
-                  <svg className="w-full h-24 overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
-                    <path
-                      d="M0,80 Q25,30 50,60 T100,50 T150,75 T200,30 T250,90 T300,50 T350,20 T400,60 T450,40 T500,70"
-                      fill="none"
-                      stroke="#f59e0b"
-                      strokeWidth="3.5"
-                      className="drop-shadow-[0_2px_8px_rgba(245,158,11,0.2)]"
-                    />
-                    <path
-                      d="M0,80 Q25,30 50,60 T100,50 T150,75 T200,30 T250,90 T300,50 T350,20 T400,60 T450,40 T500,70 L500,100 L0,100 Z"
-                      fill="url(#gradient-yellow)"
-                      opacity="0.08"
-                    />
-                    <defs>
-                      <linearGradient id="gradient-yellow" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f59e0b" />
-                        <stop offset="100%" stopColor="transparent" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
+                
+                {/* Process nodes log list */}
+                <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-2">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Live Node Statuses</span>
+                  <div className="space-y-1.5 text-xs text-slate-300 leading-none">
+                    <div className="flex justify-between py-1 border-b border-neutral-800/40">
+                      <span>aws-us-east-cluster-node-1</span>
+                      <span className="text-green-400 font-semibold">Running</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-neutral-800/40">
+                      <span>aws-us-east-cluster-node-2</span>
+                      <span className="text-green-400 font-semibold">Running</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-neutral-800/40">
+                      <span>db-postgre-production-replica-1</span>
+                      <span className="text-green-400 font-semibold">Running</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              {/* Process nodes log list */}
-              <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Live Node Statuses</span>
-                <div className="space-y-1.5 text-xs text-slate-300 leading-none">
-                  <div className="flex justify-between py-1 border-b border-neutral-800/40">
-                    <span>aws-us-east-cluster-node-1</span>
-                    <span className="text-green-400 font-semibold">Running</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-neutral-800/40">
-                    <span>aws-us-east-cluster-node-2</span>
-                    <span className="text-green-400 font-semibold">Running</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-neutral-800/40">
-                    <span>db-postgre-production-replica-1</span>
-                    <span className="text-green-400 font-semibold">Running</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </WindowFrame>
+            </WindowFrame>
+          )}
 
           {/* System Monitor App Window */}
-          <WindowFrame
-            id="sysmonitor"
-            title="System Monitor"
-            isOpen={windows[5].isOpen}
-            isMinimized={windows[5].isMinimized}
-            isMaximized={windows[5].isMaximized}
-            zIndex={windows[5].zIndex}
-            onClose={() => closeWindow('sysmonitor')}
-            onMinimize={() => toggleWindowMinimize('sysmonitor')}
-            onMaximize={() => toggleWindowMaximize('sysmonitor')}
-            onFocus={() => focusWindow('sysmonitor')}
-            theme="dark"
-            defaultWidth={720}
-            defaultHeight={450}
-          >
-            <SystemMonitorApp />
-          </WindowFrame>
+          {windows.find(w => w.id === 'sysmonitor')?.isOpen && (
+            <WindowFrame
+              id="sysmonitor"
+              title="System Monitor"
+              isOpen={windows.find(w => w.id === 'sysmonitor')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'sysmonitor')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'sysmonitor')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'sysmonitor')?.zIndex || 3}
+              onClose={() => closeWindow('sysmonitor')}
+              onMinimize={() => toggleWindowMinimize('sysmonitor')}
+              onMaximize={() => toggleWindowMaximize('sysmonitor')}
+              onFocus={() => focusWindow('sysmonitor')}
+              theme="dark"
+              defaultWidth={720}
+              defaultHeight={450}
+            >
+              <SystemMonitorApp />
+            </WindowFrame>
+          )}
+
+          {/* Kubernetes Engine App Window */}
+          {windows.find(w => w.id === 'kubernetes')?.isOpen && (
+            <WindowFrame
+              id="kubernetes"
+              title="Kubernetes Engine"
+              isOpen={windows.find(w => w.id === 'kubernetes')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'kubernetes')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'kubernetes')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'kubernetes')?.zIndex || 2}
+              onClose={() => closeWindow('kubernetes')}
+              onMinimize={() => toggleWindowMinimize('kubernetes')}
+              onMaximize={() => toggleWindowMaximize('kubernetes')}
+              onFocus={() => focusWindow('kubernetes')}
+              theme="dark"
+              defaultWidth={820}
+              defaultHeight={520}
+            >
+              <KubernetesApp />
+            </WindowFrame>
+          )}
         </motion.div>
 
       </div>
