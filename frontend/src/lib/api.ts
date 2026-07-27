@@ -97,3 +97,18 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
   return response.json();
 }
+
+import { io, Socket } from 'socket.io-client';
+
+let socketInstance: Socket | null = null;
+
+export function getSocket(): Socket {
+  if (socketInstance) return socketInstance;
+  
+  socketInstance = io(API_BASE, {
+    transports: ['websocket'],
+    autoConnect: true,
+  });
+  
+  return socketInstance;
+}

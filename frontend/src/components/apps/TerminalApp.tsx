@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Terminal, Shield, Sparkles } from 'lucide-react';
+import { apiRequest, getSocket } from '../../lib/api';
+import { Terminal as TermIcon, Shield, Sparkles } from 'lucide-react';
 
 interface TerminalAppProps {
   onOpenApp: (appId: string) => void;
@@ -58,17 +59,59 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
   const [inputVal, setInputVal] = useState("");
   const [typingCode, setTypingCode] = useState(false);
   const [currentCode, setCurrentCode] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs, currentCode]);
 
+  // Connect to PTY Session over REST and WebSockets
+  useEffect(() => {
+    let activeSessionId: string | null = null;
+    let socket: any = null;
+
+    const initTerminal = async () => {
+      try {
+        const res = await apiRequest('/terminal/session', {
+          method: 'POST',
+        });
+        activeSessionId = res.sessionId;
+        setSessionId(activeSessionId);
+        
+        socket = getSocket();
+        
+        // Listen to backend PTY stdout stream
+        socket.on('terminal-output', (payload: { sessionId: string; data: string }) => {
+          if (payload.sessionId === activeSessionId) {
+            setLogs(prev => [...prev, { text: payload.data, type: 'output' }]);
+          }
+        });
+
+        // Seed initial terminal line command
+        socket.emit('terminal-input', { sessionId: activeSessionId, data: 'echo "[CaelumOS] PTY Shell established successfully."\r\n' });
+      } catch (err) {
+        console.warn('Backend terminal API down, using client-side fallback simulation.', err);
+      }
+    };
+
+    initTerminal();
+
+    return () => {
+      if (socket) {
+        socket.off('terminal-output');
+      }
+      if (activeSessionId) {
+        // Cleanup session
+        apiRequest(`/terminal/session/${activeSessionId}`, { method: 'DELETE' }).catch(() => {});
+      }
+    };
+  }, []);
+
   // Syntax Highlighter
   const highlightSyntax = (code: string) => {
     const lines = code.split('\n');
     return lines.map((line, lineIdx) => {
-      // tokenize lines by keywords, variables, numbers, strings, and comments
       const parts = line.split(/(\s+|[{}\[\]()=:",]|\bresource\b|\bprovider\b|\bname\b|\bvalue\b|\bimage\b|\bports\b|\bcontainerPort\b|\bhostPort\b|\bessential\b|\btrue\b|\bfalse\b)/);
       return (
         <div key={lineIdx} className="min-h-[1.25rem] font-mono whitespace-pre">
@@ -103,7 +146,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
     setCurrentCode("");
     
     let charIndex = 0;
-    const speed = 14; // characters per interval tick
+    const speed = 14;
     const interval = setInterval(() => {
       if (charIndex < STREAM_CODE_TEMPLATE.length) {
         const chunk = STREAM_CODE_TEMPLATE.slice(charIndex, charIndex + speed);
@@ -131,6 +174,19 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
     const trimmed = cmd.trim();
     if (!trimmed || typingCode) return;
 
+    // 1. If backend PTY session is connected, forward inputs directly to the shell
+    if (sessionId) {
+      try {
+        const socket = getSocket();
+        socket.emit('terminal-input', { sessionId, data: trimmed + '\r\n' });
+        setInputVal("");
+        return;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // 2. Client-side simulation fallback if no backend PTY is active
     const newLogs = [...logs, { text: `linux@caelum-os:~$ ${trimmed}`, type: 'input' as const }];
     setLogs(newLogs);
     setInputVal("");
@@ -189,7 +245,6 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
         }, 600);
 
       } else {
-        // Default prompt deployment trigger
         setLogs(prev => [
           ...prev,
           { text: `[CaelumOS AI] Interpreting command as deploy task: "${trimmed}"`, type: 'info' },
@@ -255,7 +310,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
             }
           }}
           disabled={typingCode}
-          placeholder={typingCode ? "Streaming code..." : "Type 'help' or deploy infrastructure..."}
+          placeholder={typingCode ? "Streaming code..." : "Type command..."}
           className="flex-1 bg-transparent border-none outline-none text-[#dfdbd2] font-mono text-xs sm:text-sm caret-orange-500 disabled:opacity-50"
           autoFocus
         />

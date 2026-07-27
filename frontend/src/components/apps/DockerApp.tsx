@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
-import { Play, Square, RotateCw, Terminal, Cpu, Database, Network, RefreshCw } from 'lucide-react';
+import { Play, Square, RotateCw, Terminal, Cpu, Database, Network, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface Container {
   id: string;
@@ -19,18 +19,21 @@ export default function DockerApp() {
   const [selectedId, setSelectedId] = useState<string>('');
   const [logs, setLogs] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   const fetchContainers = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await apiRequest('/docker/containers');
       setContainers(data);
       if (data.length > 0 && !selectedId) {
         setSelectedId(data[0].id);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError('Unable to connect to Docker.');
     } finally {
       setLoading(false);
     }
@@ -70,6 +73,30 @@ export default function DockerApp() {
       fetchLogs(selectedId);
     }
   }, [selectedId]);
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0c0c0e] text-slate-350 p-6 select-text">
+        <div className="max-w-md w-full bg-[#121215] border border-neutral-800 shadow-xl rounded-2xl p-6 text-center space-y-5">
+          <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-200">Connection Failure</h3>
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+              {error} Please check if the Docker daemon is active on the host machine.
+            </p>
+          </div>
+          <button
+            onClick={fetchContainers}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white text-xs font-bold rounded-xl cursor-pointer"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex bg-[#0c0c0e] text-slate-100 min-h-0 select-text font-sans">

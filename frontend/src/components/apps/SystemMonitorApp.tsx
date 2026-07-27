@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, Cpu, ShieldAlert, Database } from 'lucide-react';
+import { getSocket } from '../../lib/api';
+import { Activity, Cpu, Database } from 'lucide-react';
 
 interface ResourceGraphProps {
   label: string;
@@ -69,7 +70,7 @@ function ResourceGraph({ label, color, value, data }: ResourceGraphProps) {
   }, [data, color]);
 
   return (
-    <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-2">
+    <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-3.5 space-y-2 font-sans">
       <div className="flex justify-between items-center text-[10px] sm:text-xs">
         <span className="font-bold text-slate-400 uppercase tracking-wider">{label}</span>
         <span className="font-extrabold font-mono text-sm" style={{ color }}>{value}</span>
@@ -82,28 +83,79 @@ function ResourceGraph({ label, color, value, data }: ResourceGraphProps) {
 }
 
 export default function SystemMonitorApp() {
-  const [cpu, setCpu] = useState<number[]>(Array(40).fill(25));
-  const [net, setNet] = useState<number[]>(Array(40).fill(40));
-  const [mem, setMem] = useState<number[]>(Array(40).fill(52));
+  const [cpu, setCpu] = useState<number[]>(Array(40).fill(10));
+  const [net, setNet] = useState<number[]>(Array(40).fill(15));
+  const [mem, setMem] = useState<number[]>(Array(40).fill(40));
+  const [uptime, setUptime] = useState<string>('Live');
+  const [processCount, setProcessCount] = useState<number>(142);
 
   useEffect(() => {
-    const updateStats = () => {
-      setCpu(prev => {
-        const nextVal = Math.max(10, Math.min(95, prev[prev.length - 1] + (Math.random() - 0.5) * 12));
-        return [...prev.slice(1), nextVal];
-      });
-      setNet(prev => {
-        const nextVal = Math.max(15, Math.min(90, prev[prev.length - 1] + (Math.random() - 0.5) * 15));
-        return [...prev.slice(1), nextVal];
-      });
-      setMem(prev => {
-        const nextVal = Math.max(40, Math.min(85, prev[prev.length - 1] + (Math.random() - 0.5) * 4));
-        return [...prev.slice(1), nextVal];
-      });
-    };
+    let socketConnected = false;
+    let fallbackInterval: NodeJS.Timeout | null = null;
+    let socket: any = null;
 
-    const interval = setInterval(updateStats, 450);
-    return () => clearInterval(interval);
+    try {
+      socket = getSocket();
+      socket.on('connect', () => {
+        socketConnected = true;
+        if (fallbackInterval) {
+          clearInterval(fallbackInterval);
+          fallbackInterval = null;
+        }
+      });
+
+      socket.on('system-stats', (stats: any) => {
+        socketConnected = true;
+        
+        const cpuLoad = stats.cpu?.load ?? 10;
+        const memLoad = stats.memory ? (stats.memory.active / stats.memory.total) * 100 : 40;
+        
+        let netRate = 0;
+        if (stats.network && stats.network.length > 0) {
+          netRate = (stats.network[0].rx_sec + stats.network[0].tx_sec) / (1024 * 1024); // MB/s
+        }
+
+        setCpu(prev => [...prev.slice(1), cpuLoad]);
+        setMem(prev => [...prev.slice(1), memLoad]);
+        setNet(prev => [...prev.slice(1), Math.min(100, netRate * 10)]); // scaled for graph
+
+        if (stats.uptime) {
+          const sec = stats.uptime;
+          const h = Math.floor(sec / 3600);
+          const m = Math.floor((sec % 3600) / 60);
+          setUptime(`${h}h ${m}m`);
+        }
+        setProcessCount(stats.processes?.all ?? 142);
+      });
+    } catch (err) {
+      console.warn('WebSocket connection skipped, starting interval updates.', err);
+    }
+
+    // Set up mock intervals as a fallback if WebSocket connection is not responding
+    fallbackInterval = setInterval(() => {
+      if (!socketConnected) {
+        setCpu(prev => {
+          const nextVal = Math.max(10, Math.min(95, prev[prev.length - 1] + (Math.random() - 0.5) * 12));
+          return [...prev.slice(1), nextVal];
+        });
+        setNet(prev => {
+          const nextVal = Math.max(15, Math.min(90, prev[prev.length - 1] + (Math.random() - 0.5) * 15));
+          return [...prev.slice(1), nextVal];
+        });
+        setMem(prev => {
+          const nextVal = Math.max(40, Math.min(85, prev[prev.length - 1] + (Math.random() - 0.5) * 4));
+          return [...prev.slice(1), nextVal];
+        });
+      }
+    }, 1000);
+
+    return () => {
+      if (socket) {
+        socket.off('connect');
+        socket.off('system-stats');
+      }
+      if (fallbackInterval) clearInterval(fallbackInterval);
+    };
   }, []);
 
   const curCpu = cpu[cpu.length - 1].toFixed(1);
@@ -111,7 +163,7 @@ export default function SystemMonitorApp() {
   const curMem = mem[mem.length - 1].toFixed(1);
 
   return (
-    <div className="flex-1 flex flex-col bg-[#111111] text-[#dfdbd2] p-4 sm:p-5 overflow-y-auto space-y-4 select-none">
+    <div className="flex-1 flex flex-col bg-[#111111] text-[#dfdbd2] p-4 sm:p-5 overflow-y-auto space-y-4 select-none font-sans">
       
       {/* 1. App Header Info */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-3 flex-shrink-0">
@@ -119,14 +171,14 @@ export default function SystemMonitorApp() {
           <Activity className="w-5 h-5 text-emerald-400" />
           <span className="font-bold text-sm text-slate-100">CaelumOS System Monitor</span>
         </div>
-        <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 px-2 py-0.5 rounded font-extrabold uppercase tracking-wider">
-          Node-Cluster: Healthy
+        <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 px-2 py-0.5 rounded font-extrabold uppercase tracking-wider font-mono">
+          Live Telemetry
         </span>
       </div>
 
       {/* 2. Three Graph Monitors */}
       <div className="space-y-4 flex-1">
-        {/* CPU Graph (Bright green) */}
+        {/* CPU Graph */}
         <ResourceGraph
           label="Cluster CPU Uptime"
           color="#34d399"
@@ -134,7 +186,7 @@ export default function SystemMonitorApp() {
           data={cpu}
         />
 
-        {/* Network I/O Graph (Magenta / Cyan) */}
+        {/* Network I/O Graph */}
         <ResourceGraph
           label="Network I/O Data Stream"
           color="#f472b6"
@@ -142,7 +194,7 @@ export default function SystemMonitorApp() {
           data={net}
         />
 
-        {/* DB Memory Graph (Purple) */}
+        {/* DB Memory Graph */}
         <ResourceGraph
           label="Database Cache Memory"
           color="#a78bfa"
@@ -153,8 +205,8 @@ export default function SystemMonitorApp() {
 
       {/* 3. Bottom Grid specs */}
       <div className="grid grid-cols-3 gap-2.5 pt-3 border-t border-neutral-800 text-[10px] leading-none text-slate-500 font-mono">
-        <div>Processes: <span className="text-slate-350 font-bold">142</span></div>
-        <div>Uptime: <span className="text-slate-350 font-bold">2h 18m</span></div>
+        <div>Processes: <span className="text-slate-350 font-bold">{processCount}</span></div>
+        <div>Uptime: <span className="text-slate-350 font-bold">{uptime}</span></div>
         <div>Active Pods: <span className="text-slate-350 font-bold">3/3</span></div>
       </div>
 

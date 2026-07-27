@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
-import { Network, RefreshCw, Cpu, Layers, Server } from 'lucide-react';
+import { Network, RefreshCw, Cpu, Layers, Server, AlertCircle } from 'lucide-react';
 
 interface Pod {
   name: string;
@@ -27,19 +27,25 @@ export default function KubernetesApp() {
   const [pods, setPods] = useState<Pod[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'pods' | 'deployments'>('pods');
 
   const fetchClusterInfo = async () => {
     setLoading(true);
+    setError(null);
     try {
       const nsList = await apiRequest('/kubernetes/namespaces');
       setNamespaces(nsList);
+      
+      let nextNs = activeNamespace;
       if (nsList.length > 0 && !nsList.includes(activeNamespace)) {
-        setActiveNamespace(nsList[0]);
+        nextNs = nsList[0];
+        setActiveNamespace(nextNs);
       }
-      await fetchNamespacedResources(activeNamespace);
-    } catch (e) {
+      await fetchNamespacedResources(nextNs);
+    } catch (e: any) {
       console.error(e);
+      setError('Unable to connect to Kubernetes cluster.');
     } finally {
       setLoading(false);
     }
@@ -63,10 +69,34 @@ export default function KubernetesApp() {
   }, []);
 
   useEffect(() => {
-    if (activeNamespace) {
+    if (activeNamespace && namespaces.length > 0) {
       fetchNamespacedResources(activeNamespace);
     }
   }, [activeNamespace]);
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0c0c0e] text-slate-350 p-6 select-text font-sans">
+        <div className="max-w-md w-full bg-[#121215] border border-neutral-800 shadow-xl rounded-2xl p-6 text-center space-y-5">
+          <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-200">Kubernetes Connection Error</h3>
+            <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+              {error} Ensure kubeconfig properties are registered or active on host.
+            </p>
+          </div>
+          <button
+            onClick={fetchClusterInfo}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white text-xs font-bold rounded-xl cursor-pointer"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex bg-[#0c0c0e] text-slate-100 min-h-0 select-text font-sans">

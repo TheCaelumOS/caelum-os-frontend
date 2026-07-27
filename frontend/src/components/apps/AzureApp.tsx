@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
-import { Cloud, RefreshCw, LayoutGrid, Server, HardDrive } from 'lucide-react';
+import { Cloud, RefreshCw, LayoutGrid, Server, HardDrive, AlertCircle } from 'lucide-react';
 
 interface VM {
   id: string;
@@ -32,10 +32,12 @@ export default function AzureApp() {
   const [storageAccounts, setStorageAccounts] = useState<StorageAcct[]>([]);
   const [resourceGroups, setResourceGroups] = useState<ResourceGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'vms' | 'storage' | 'rgs'>('vms');
 
   const fetchResources = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [vmData, storageData, rgData] = await Promise.all([
         apiRequest('/azure/vms'),
@@ -45,8 +47,9 @@ export default function AzureApp() {
       setVms(vmData);
       setStorageAccounts(storageData);
       setResourceGroups(rgData);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError('Unable to fetch Azure Resource Manager data.');
     } finally {
       setLoading(false);
     }
@@ -56,8 +59,32 @@ export default function AzureApp() {
     fetchResources();
   }, []);
 
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#f0f4f8] text-slate-700 p-6 select-text font-sans">
+        <div className="max-w-md w-full bg-white border border-slate-200 shadow-xl rounded-2xl p-6 text-center space-y-5">
+          <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Azure Connection Error</h3>
+            <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+              {error} Please check configuration settings on backend.
+            </p>
+          </div>
+          <button
+            onClick={fetchResources}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white text-xs font-bold rounded-xl cursor-pointer"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 flex flex-col bg-[#f0f4f8] text-slate-800 min-h-0 select-text">
+    <div className="flex-1 flex flex-col bg-[#f0f4f8] text-slate-800 min-h-0 select-text font-sans">
       {/* Header bar */}
       <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
@@ -65,7 +92,7 @@ export default function AzureApp() {
             <Cloud className="w-5 h-5" />
           </div>
           <div>
-            <span className="font-extrabold text-xs block text-slate-800 font-sans">Azure Dashboard</span>
+            <span className="font-extrabold text-xs block text-slate-800">Azure Dashboard</span>
             <span className="text-[9px] font-bold text-blue-500 uppercase font-mono">Subscription Active</span>
           </div>
         </div>
