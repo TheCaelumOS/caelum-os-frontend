@@ -1,264 +1,227 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import AIInput from '../AIInput';
-import IntegrationEcosystem from '../IntegrationEcosystem';
-import MetricCard from '../MetricCard';
-import CodeViewer from '../CodeViewer';
-import ActionCenter from '../ActionCenter';
-import { PRESETS } from '../../lib/data';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, CheckCircle2, RefreshCw, X, Terminal } from 'lucide-react';
+import { getSocket } from '../../lib/api';
+import { Cloud, Cpu, Database, Network, HardDrive, RefreshCw, Layers, ShieldCheck, Heart } from 'lucide-react';
+
+interface SummaryData {
+  aws: string;
+  azure: string;
+  docker: string;
+  k8s: string;
+  cpu: number;
+  ram: number;
+  storage: number;
+  network: string;
+  health: string;
+}
 
 export default function DashboardApp() {
-  const [activePresetKey, setActivePresetKey] = useState<string>('aws_ecs');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [deploySuccess, setDeploySuccess] = useState(false);
-  
-  const [prevSecurityScore, setPrevSecurityScore] = useState(50);
-  const [prevCostScore, setPrevCostScore] = useState(50);
-
-  const activePreset = PRESETS[activePresetKey];
-
-  const handleGenerate = (prompt: string) => {
-    setIsGenerating(true);
-    setDeploySuccess(false);
-
-    setPrevSecurityScore(activePreset.security.score);
-    setPrevCostScore(activePreset.cost.score);
-
-    setTimeout(() => {
-      const lowerPrompt = prompt.toLowerCase();
-      if (lowerPrompt.includes('kubernetes') || lowerPrompt.includes('k8s') || lowerPrompt.includes('azure') || lowerPrompt.includes('aks')) {
-        setActivePresetKey('azure_k8s');
-      } else if (lowerPrompt.includes('postgres') || lowerPrompt.includes('db') || lowerPrompt.includes('database') || lowerPrompt.includes('sql')) {
-        setActivePresetKey('postgres_db');
-      } else {
-        setActivePresetKey('aws_ecs');
-      }
-      setIsGenerating(false);
-    }, 1800);
-  };
-
-  const handleDeploy = () => {
-    setIsDeploying(true);
-    setTimeout(() => {
-      setIsDeploying(false);
-      setDeploySuccess(true);
-    }, 4000);
-  };
-
-  const handleReset = () => {
-    setDeploySuccess(false);
-    setIsDeploying(false);
-    setActivePresetKey('aws_ecs');
-    setPrevSecurityScore(50);
-    setPrevCostScore(50);
-  };
-
-  // Deployment Logs state simulation
-  const [logIndex, setLogIndex] = useState(0);
-  const deployLogs = [
-    "[CaelumOS] Initiating cloud connection...",
-    "[Terraform] Executing: terraform init -upgrade",
-    "[Terraform] Plugins installed: aws v5.12.0, random v3.5.1",
-    "[Security Engine] Running static code analysis (tfsec)...",
-    "[Security Engine] Compliance: CIS AWS Foundations Benchmark v1.4.0 passed.",
-    "[Terraform] Executing: terraform apply -auto-approve",
-    "[AWS] Creating Virtual Private Cloud (VPC)... [ID: vpc-0a47f12e]",
-    "[AWS] Creating Application Load Balancer... [DNS: caelum-alb-129.us-east-1.elb.amazonaws.com]",
-    "[AWS] Deploying Fargate containers... [Count: 3 replicas running]",
-    "[CaelumOS] Deployment succeeded! Mapping live URL..."
-  ];
+  const [data, setData] = useState<SummaryData>({
+    aws: ' us-east-1 | 2 EC2 Instances | 4 S3 Buckets | 1 RDS Db',
+    azure: ' Pay-As-You-Go | 1 VM | 2 Storage Accounts | 5 RGs',
+    docker: ' 3 Containers Active | 8 Images | 3 Volumes',
+    k8s: ' k8s-caelum-cluster-1 | 3 Pods running | 1 Deploy',
+    cpu: 12.4,
+    ram: 42.1,
+    storage: 35.0,
+    network: '2.4 MB/s',
+    health: '100% Operational'
+  });
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isDeploying) {
-      setLogIndex(0);
-      const interval = setInterval(() => {
-        setLogIndex((prev) => {
-          if (prev < deployLogs.length - 1) {
-            return prev + 1;
-          }
-          clearInterval(interval);
-          return prev;
-        });
-      }, 350);
-      return () => clearInterval(interval);
+    let socket: any = null;
+    try {
+      socket = getSocket();
+      socket.on('system-stats', (stats: any) => {
+        // Dynamically feed live CPU/RAM metrics from telemetry gateway
+        const cpuLoad = stats.cpu?.load ?? 12.4;
+        const memLoad = stats.memory ? (stats.memory.active / stats.memory.total) * 100 : 42.1;
+        
+        let netRate = 0;
+        if (stats.network && stats.network.length > 0) {
+          netRate = (stats.network[0].rx_sec + stats.network[0].tx_sec) / (1024 * 1024); // MB/s
+        }
+
+        setData(prev => ({
+          ...prev,
+          cpu: parseFloat(cpuLoad.toFixed(1)),
+          ram: parseFloat(memLoad.toFixed(1)),
+          network: `${netRate.toFixed(1)} MB/s`
+        }));
+      });
+    } catch (e) {
+      console.warn('Dashboard socket listener connection skipped.', e);
     }
-  }, [isDeploying]);
+
+    return () => {
+      if (socket) {
+        socket.off('system-stats');
+      }
+    };
+  }, []);
+
+  const handleRefresh = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 800);
+  };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#fcfbfe] flex flex-col relative select-text">
-      
-      <div className="max-w-7xl mx-auto px-6 py-8 w-full space-y-10 flex-grow">
-        {/* Hero Section */}
-        <AIInput onGenerate={handleGenerate} isGenerating={isGenerating} />
+    <div className="flex-1 overflow-y-auto bg-[#f8f9fa] text-slate-800 p-6 space-y-6 select-text font-sans">
+      {/* Hero bar */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-800">CaelumOS Deploy Center</h2>
+          <p className="text-[11px] text-slate-400 font-medium mt-0.5">Aggregate status metrics and cluster health metrics</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="p-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-800 transition-colors shadow-sm cursor-pointer"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
-        {/* Ecosystem Integrations */}
-        <IntegrationEcosystem />
-
-        {/* Dashboard Metrics and Code Area */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-          {/* Scorecards */}
-          <div className="xl:col-span-1 flex flex-col gap-6">
-            <MetricCard
-              title="Security Grade"
-              score={activePreset.security.score}
-              previousScore={prevSecurityScore}
-              type="security"
-              subMetrics={activePreset.security.subMetrics}
-              recommendation={activePreset.security.recommendation}
-            />
-            
-            <MetricCard
-              title="Cost Efficiency"
-              score={activePreset.cost.score}
-              previousScore={prevCostScore}
-              type="cost"
-              subMetrics={activePreset.cost.subMetrics}
-              recommendation={activePreset.cost.recommendation}
-            />
+      {/* Summaries Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        {/* AWS Summary Card */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center space-x-3 text-orange-600">
+            <div className="w-10 h-10 bg-orange-50 border border-orange-100 rounded-xl flex items-center justify-center">
+              <Cloud className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <span className="text-xs font-extrabold text-slate-800 block">AWS Summary</span>
+              <span className="text-[9px] text-green-500 font-bold uppercase block font-mono">Sync Active</span>
+            </div>
           </div>
+          <p className="text-xs text-slate-500 font-mono leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+            {data.aws}
+          </p>
+        </div>
 
-          {/* Multi-Tab Code Viewer */}
-          <div className="xl:col-span-2">
-            <CodeViewer
-              files={activePreset.files}
-              explanations={activePreset.explanations}
-              isGenerating={isGenerating}
-            />
+        {/* Azure Summary Card */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center space-x-3 text-blue-600">
+            <div className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center">
+              <Cloud className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <span className="text-xs font-extrabold text-slate-800 block">Azure Summary</span>
+              <span className="text-[9px] text-blue-500 font-bold uppercase block font-mono">Connected</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 font-mono leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+            {data.azure}
+          </p>
+        </div>
+
+        {/* Docker Summary Card */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center space-x-3 text-cyan-600">
+            <div className="w-10 h-10 bg-cyan-50 border border-cyan-100 rounded-xl flex items-center justify-center">
+              <Database className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <span className="text-xs font-extrabold text-slate-800 block">Docker Summary</span>
+              <span className="text-[9px] text-cyan-500 font-bold uppercase block font-mono">Daemon Online</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 font-mono leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+            {data.docker}
+          </p>
+        </div>
+
+        {/* Kubernetes Summary Card */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center space-x-3 text-indigo-600">
+            <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center">
+              <Layers className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <span className="text-xs font-extrabold text-slate-800 block">Kubernetes Summary</span>
+              <span className="text-[9px] text-indigo-500 font-bold uppercase block font-mono">Kubeconfig Loaded</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 font-mono leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+            {data.k8s}
+          </p>
+        </div>
+
+        {/* CPU Uptime Progress */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <Cpu className="w-5 h-5 text-emerald-500" />
+              <span className="text-xs font-extrabold text-slate-800">CPU Uptime Load</span>
+            </div>
+            <span className="text-xs font-extrabold font-mono text-emerald-500">{data.cpu}%</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2">
+            <div className="bg-emerald-500 h-2 rounded-full transition-all duration-500" style={{ width: `${data.cpu}%` }} />
           </div>
         </div>
+
+        {/* RAM Memory Gauge */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <Database className="w-5 h-5 text-purple-500" />
+              <span className="text-xs font-extrabold text-slate-800">Memory Allocation</span>
+            </div>
+            <span className="text-xs font-extrabold font-mono text-purple-500">{data.ram}%</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2">
+            <div className="bg-purple-500 h-2 rounded-full transition-all duration-500" style={{ width: `${data.ram}%` }} />
+          </div>
+        </div>
+
+        {/* Storage Volume Gauge */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <HardDrive className="w-5 h-5 text-amber-500" />
+              <span className="text-xs font-extrabold text-slate-800">Storage Volume</span>
+            </div>
+            <span className="text-xs font-extrabold font-mono text-amber-500">{data.storage}%</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2">
+            <div className="bg-amber-500 h-2 rounded-full transition-all duration-500" style={{ width: `${data.storage}%` }} />
+          </div>
+        </div>
+
+        {/* Network Bandwidth Gauge */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5">
+          <div className="flex items-center space-x-2.5 text-cyan-600">
+            <div className="w-10 h-10 bg-cyan-50 border border-cyan-100 rounded-xl flex items-center justify-center">
+              <Network className="w-5.5 h-5.5" />
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Network Bandwidth</span>
+              <span className="text-xs font-extrabold text-slate-700 font-mono mt-0.5 block">{data.network}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* System Health */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3.5">
+          <div className="flex items-center space-x-3 text-red-500">
+            <div className="w-10 h-10 bg-red-50 border border-red-100 rounded-xl flex items-center justify-center">
+              <Heart className="w-5.5 h-5.5 fill-current" />
+            </div>
+            <div>
+              <span className="text-xs font-extrabold text-slate-800 block">System Health</span>
+              <span className="text-[10px] text-emerald-500 font-extrabold uppercase block font-mono mt-0.5">{data.health}</span>
+            </div>
+          </div>
+        </div>
+
       </div>
-
-      {/* Sticky Bottom Action Center inside this App Window */}
-      <div className="sticky bottom-0 z-35 mt-10">
-        <ActionCenter
-          summary={activePreset.summary}
-          onDeploy={handleDeploy}
-          isDeploying={isDeploying}
-          deploySuccess={deploySuccess}
-        />
-      </div>
-
-      {/* Deployment Modal Overlay inside App Window */}
-      <AnimatePresence>
-        {(isDeploying || deploySuccess) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#0f0b18]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 10 }}
-              className="bg-white border border-slate-100 rounded-2xl w-full max-w-lg shadow-2xl p-6 overflow-hidden flex flex-col max-h-[420px]"
-            >
-              
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <div className="flex items-center space-x-2">
-                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-purple-50 text-purple-600">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800 text-xs">CaelumOS Deploy Console</h3>
-                  </div>
-                </div>
-                {!isDeploying && (
-                  <button
-                    onClick={() => setDeploySuccess(false)}
-                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
-                  >
-                    <X className="w-4.5 h-4.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Logs / Success Display */}
-              <div className="flex-1 flex flex-col justify-between overflow-hidden">
-                {isDeploying ? (
-                  <div className="flex-1 flex flex-col bg-[#0f0b18] text-[#f8f6fc] font-mono text-[10px] leading-relaxed p-3.5 rounded-xl overflow-y-auto mb-3.5 border border-purple-950/20 shadow-inner">
-                    <div className="flex items-center justify-between border-b border-purple-950/40 pb-1.5 mb-2 text-slate-500 text-[9px] font-bold tracking-wider uppercase">
-                      <span>Console Logs</span>
-                      <span className="flex items-center space-x-1">
-                        <span className="w-1 h-1 rounded-full bg-purple-500 animate-ping" />
-                        <span>LIVE</span>
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {deployLogs.slice(0, logIndex + 1).map((log, idx) => (
-                        <motion.div
-                          key={idx}
-                          initial={{ opacity: 0, x: -3 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className={`${log.startsWith('[Security') ? 'text-purple-300' : log.startsWith('[AWS') ? 'text-blue-300' : 'text-slate-300'}`}
-                        >
-                          {log}
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-green-50 text-green-500 flex items-center justify-center shadow-inner">
-                      <CheckCircle2 className="w-7 h-7 stroke-[2.5]" />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <h4 className="text-base font-bold text-slate-800">Deployment Successful!</h4>
-                      <p className="text-xs text-slate-500">
-                        All resources successfully provisioned on AWS in VPC <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono text-[10px]">vpc-0a47f12e</code>.
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 w-full text-left space-y-1">
-                      <div className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">Live Endpoint</div>
-                      <a
-                        href="https://prod-app.caelum.os"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-bold text-purple-600 hover:text-purple-800 hover:underline flex items-center space-x-1"
-                      >
-                        <span>https://prod-app.caelum.os</span>
-                      </a>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Footer Controls inside Modal */}
-                {!isDeploying && (
-                  <div className="flex items-center justify-end space-x-2 pt-2">
-                    <button
-                      onClick={handleReset}
-                      className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>Reset</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => setDeploySuccess(false)}
-                      className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-500/10 transition-all cursor-pointer"
-                    >
-                      <span>Close</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }

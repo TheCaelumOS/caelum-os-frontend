@@ -8,6 +8,7 @@ if (typeof window !== 'undefined') {
 
 // Auto-authenticate developer account on start
 export async function ensureAuthenticated() {
+  if (typeof window === 'undefined') return '';
   if (jwtToken) return jwtToken;
 
   const credentials = {
@@ -60,7 +61,13 @@ export async function ensureAuthenticated() {
 }
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
-  const token = await ensureAuthenticated();
+  if (typeof window === 'undefined') return null;
+  let token = '';
+  try {
+    token = await ensureAuthenticated();
+  } catch (err) {
+    console.warn('Authentication token fetch failed, continuing without token.', err);
+  }
   
   const headers: Record<string, string> = {};
 
@@ -86,16 +93,25 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (err: any) {
+    console.error('Fetch operation failed:', err);
+    // Graceful error handling for offline backend:
+    if (err.name === 'TypeError' || err.message?.includes('fetch') || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+      throw new Error('Backend is unavailable. Please start the backend server.');
+    }
+    throw err;
   }
-
-  return response.json();
 }
 
 import { io, Socket } from 'socket.io-client';

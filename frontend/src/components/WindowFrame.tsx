@@ -41,6 +41,19 @@ export default function WindowFrame({
   const [width, setWidth] = useState(defaultWidth);
   const [height, setHeight] = useState(defaultHeight);
   const windowRef = useRef<HTMLDivElement>(null);
+  
+  // Viewport centering coordinates on mount
+  const [position, setPosition] = useState({ x: 50, y: 50 });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const workspaceWidth = window.innerWidth - 76;
+      const workspaceHeight = window.innerHeight - 28;
+      const x = Math.max(10, (workspaceWidth - defaultWidth) / 2);
+      const y = Math.max(10, (workspaceHeight - defaultHeight) / 2);
+      setPosition({ x, y });
+    }
+  }, []);
 
   // Reset dimensions if maximized changes
   useEffect(() => {
@@ -99,12 +112,10 @@ export default function WindowFrame({
       style={{
         zIndex,
         width: isMaximized ? '100%' : width,
-        height: isMaximized ? 'calc(100vh - 28px)' : height, // 28px top panel
-        top: isMaximized ? '28px' : undefined,
-        left: isMaximized ? '0px' : undefined,
+        height: isMaximized ? '100%' : height,
+        top: isMaximized ? '0px' : position.y,
+        left: isMaximized ? '0px' : position.x,
         position: 'absolute',
-        // Default position offset for non-maximized
-        ...(!isMaximized ? { x: id === 'terminal' ? 80 : 180, y: id === 'terminal' ? 50 : 80 } : {})
       }}
       className={`rounded-t-lg shadow-2xl border ${
         theme === 'dark' 
