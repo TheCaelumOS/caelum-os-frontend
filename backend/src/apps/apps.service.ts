@@ -16,9 +16,13 @@ export class AppsService implements OnModuleInit {
 
   // Seed default applications in database on module boot
   async onModuleInit() {
-    const workspaces = await this.prisma.workspace.findMany();
-    for (const workspace of workspaces) {
-      await this.seedAppsForWorkspace(workspace.id);
+    try {
+      const workspaces = await this.prisma.workspace.findMany();
+      for (const workspace of workspaces) {
+        await this.seedAppsForWorkspace(workspace.id);
+      }
+    } catch (err: any) {
+      console.warn('[AppsService] Seeding failed due to database connection issue:', err.message);
     }
   }
 
