@@ -8,27 +8,133 @@ import { WebSiteManagementClient } from '@azure/arm-appservice';
 import { SqlManagementClient } from '@azure/arm-sql';
 import { KeyVaultManagementClient } from '@azure/arm-keyvault';
 import { ContainerRegistryManagementClient } from '@azure/arm-containerregistry';
+import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import * as crypto from 'crypto';
+
+const ALGORITHM = 'aes-256-cbc';
+
+function encrypt(text: string, keyString: string): string {
+  const hash = crypto.createHash('sha256');
+  hash.update(keyString);
+  const key = hash.digest();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return `${iv.toString('hex')}:${encrypted}`;
+}
+
+function decrypt(encryptedText: string, keyString: string): string {
+  try {
+    const parts = encryptedText.split(':');
+    if (parts.length !== 2) return '';
+    const iv = Buffer.from(parts[0], 'hex');
+    const hash = crypto.createHash('sha256');
+    hash.update(keyString);
+    const key = hash.digest();
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    let decrypted = decipher.update(parts[1], 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    return '';
+  }
+}
 
 @Injectable()
 export class AzureService {
-  private getCredential() {
-    const clientId = process.env.AZURE_CLIENT_ID;
-    const clientSecret = process.env.AZURE_CLIENT_SECRET;
-    const tenantId = process.env.AZURE_TENANT_ID;
+  private credentialsMap = new Map<string, any>();
 
-    if (clientId && clientSecret && tenantId) {
-      return new ClientSecretCredential(tenantId, clientId, clientSecret);
+  private async loadCredentials(userId: string) {
+    if (this.credentialsMap.has(userId)) {
+      return this.credentialsMap.get(userId);
     }
-    return new DefaultAzureCredential();
+    const dataDir = join(process.cwd(), 'data');
+    const filePath = join(dataDir, 'azure_credentials.json');
+    try {
+      if (!existsSync(filePath)) return null;
+      const fileData = await fs.readFile(filePath, 'utf8');
+      const allCreds = JSON.parse(fileData);
+      const encryptedStr = allCreds[userId];
+      if (!encryptedStr) return null;
+
+      const secret = process.env.JWT_SECRET || 'caelum-azure-encryption-fallback-key-2026';
+      const decryptedStr = decrypt(encryptedStr, secret);
+      if (!decryptedStr) return null;
+
+      const creds = JSON.parse(decryptedStr);
+      this.credentialsMap.set(userId, creds);
+      return creds;
+    } catch (err) {
+      console.error('[AzureService] Failed to load credentials for user:', userId, err);
+      return null;
+    }
   }
 
-  private getCredentialType(): string {
-    return process.env.AZURE_CLIENT_ID ? 'ClientSecretCredential' : 'DefaultAzureCredential';
+  private async saveCredentials(userId: string, creds: any) {
+    this.credentialsMap.set(userId, creds);
+    const dataDir = join(process.cwd(), 'data');
+    const filePath = join(dataDir, 'azure_credentials.json');
+    try {
+      if (!existsSync(dataDir)) {
+        await fs.mkdir(dataDir, { recursive: true });
+      }
+      let allCreds: any = {};
+      if (existsSync(filePath)) {
+        const fileData = await fs.readFile(filePath, 'utf8');
+        allCreds = JSON.parse(fileData);
+      }
+
+      const secret = process.env.JWT_SECRET || 'caelum-azure-encryption-fallback-key-2026';
+      const encryptedStr = encrypt(JSON.stringify(creds), secret);
+      allCreds[userId] = encryptedStr;
+      await fs.writeFile(filePath, JSON.stringify(allCreds, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[AzureService] Failed to save credentials for user:', userId, err);
+    }
   }
 
-  private async getSubscriptionIdAuto(credential: any): Promise<string> {
-    if (process.env.AZURE_SUBSCRIPTION_ID) {
-      return process.env.AZURE_SUBSCRIPTION_ID;
+  private async removeCredentials(userId: string) {
+    this.credentialsMap.delete(userId);
+    const dataDir = join(process.cwd(), 'data');
+    const filePath = join(dataDir, 'azure_credentials.json');
+    try {
+      if (!existsSync(filePath)) return;
+      const fileData = await fs.readFile(filePath, 'utf8');
+      const allCreds = JSON.parse(fileData);
+      delete allCreds[userId];
+      await fs.writeFile(filePath, JSON.stringify(allCreds, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[AzureService] Failed to remove credentials for user:', userId, err);
+    }
+  }
+
+  private async getCredential(userId: string) {
+    const creds = await this.loadCredentials(userId);
+    if (!creds) {
+      throw new HttpException('No Azure account connected for this user.', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (creds.authMethod === 'cli') {
+      return new DefaultAzureCredential();
+    } else if (creds.authMethod === 'servicePrincipal') {
+      return new ClientSecretCredential(creds.tenantId, creds.clientId, creds.clientSecret);
+    }
+
+    throw new HttpException('Invalid authentication method.', HttpStatus.BAD_REQUEST);
+  }
+
+  private getCredentialType(creds: any): string {
+    if (!creds) return 'None';
+    return creds.authMethod === 'cli' ? 'DefaultAzureCredential (CLI)' : 'ServicePrincipal';
+  }
+
+  private async getSubscriptionIdAuto(credential: any, userId: string): Promise<string> {
+    const creds = await this.loadCredentials(userId);
+    if (creds && creds.subscriptionId) {
+      return creds.subscriptionId;
     }
 
     try {
@@ -76,13 +182,85 @@ export class AzureService {
     }
   }
 
-  async getHealth() {
-    try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
-      const subName = await this.getSubscriptionName(credential, subId);
+  async connect(userId: string, body: any) {
+    const { authMethod, clientId, clientSecret, tenantId, subscriptionId } = body;
+    console.log(`[AzureService] Connect request received for user: ${userId}. Method: ${authMethod}, Subscription: ${subscriptionId || 'Auto-Discover'}`);
 
-      // Fetch basic counts to verify complete SDK connectivity
+    let credential: any;
+    if (authMethod === 'cli') {
+      credential = new DefaultAzureCredential();
+    } else if (authMethod === 'servicePrincipal') {
+      if (!clientId || !clientSecret || !tenantId) {
+        console.warn('[AzureService] Connection rejected: Missing SP details.');
+        throw new HttpException('Client ID, Client Secret, and Tenant ID are required for Service Principal.', HttpStatus.BAD_REQUEST);
+      }
+      credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    } else {
+      console.warn(`[AzureService] Connection rejected: Invalid authMethod: ${authMethod}`);
+      throw new HttpException('Invalid authentication method.', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      console.log('[AzureService] Validating Azure credentials token extraction...');
+      const targetSubId = subscriptionId || await this.getSubscriptionIdAuto(credential, userId);
+      const tokenRes = await credential.getToken('https://management.azure.com/.default');
+      const response = await fetch(
+        `https://management.azure.com/subscriptions/${targetSubId}?api-version=2020-01-01`,
+        {
+          headers: {
+            Authorization: `Bearer ${tokenRes.token}`,
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Azure API error: ${response.statusText}`);
+      }
+      const data: any = await response.json();
+      console.log(`[AzureService] Connection validated successfully! Subscription detected: ${data.displayName} (${targetSubId})`);
+
+      const savedCreds = {
+        authMethod,
+        clientId,
+        clientSecret,
+        tenantId,
+        subscriptionId: targetSubId,
+      };
+      await this.saveCredentials(userId, savedCreds);
+
+      return {
+        connected: true,
+        subscriptionId: targetSubId,
+        subscriptionName: data.displayName,
+      };
+    } catch (err: any) {
+      console.error('[AzureService] Connection validation failed with SDK exception:', err.message);
+      throw new HttpException(`Azure Connection Failed: ${err.message}`, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  async disconnect(userId: string) {
+    console.log(`[AzureService] Disconnecting Azure account for user: ${userId}`);
+    await this.removeCredentials(userId);
+    return { connected: false };
+  }
+
+  async getHealth(userId: string) {
+    console.log(`[AzureService] Health status check requested for user: ${userId}`);
+    const creds = await this.loadCredentials(userId);
+    if (!creds) {
+      console.log('[AzureService] Health status: Not Connected');
+      return {
+        connected: false,
+        reason: 'No Azure account connected. Please connect your Azure credentials.',
+      };
+    }
+
+    try {
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
+      const subName = await this.getSubscriptionName(credential, subId);
+      console.log(`[AzureService] Health validation succeeded. Subscription: ${subName} (${subId})`);
+
       const rgClient = new ResourceManagementClient(credential, subId);
       let rgCount = 0;
       for await (const rg of rgClient.resourceGroups.list()) {
@@ -101,9 +279,10 @@ export class AzureService {
         storageCount++;
       }
 
+      console.log(`[AzureService] Counts fetched - ResourceGroups: ${rgCount}, VMs: ${vmCount}, StorageAccounts: ${storageCount}`);
       return {
         connected: true,
-        credential: this.getCredentialType(),
+        credential: this.getCredentialType(creds),
         subscriptionId: subId,
         subscriptionName: subName,
         resourceGroups: rgCount,
@@ -111,19 +290,20 @@ export class AzureService {
         storageAccounts: storageCount,
       };
     } catch (e: any) {
-      console.warn('[AzureService] Health check failed:', e.message);
+      console.error('[AzureService] Health validation failed with credentials check error:', e.message);
       return {
         connected: false,
-        credential: this.getCredentialType(),
-        error: e.message,
+        credential: this.getCredentialType(creds),
+        reason: `Connection error: ${e.message}`,
       };
     }
   }
 
-  async getSubscription() {
+  async getSubscription(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const tokenRes = await credential.getToken('https://management.azure.com/.default');
       const response = await fetch(
@@ -140,7 +320,8 @@ export class AzureService {
       const data: any = await response.json();
 
       console.log(`GET /azure/subscription`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  Status: Connected`);
@@ -159,10 +340,11 @@ export class AzureService {
     }
   }
 
-  async listResourceGroups() {
+  async listResourceGroups(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new ResourceManagementClient(credential, subId);
       const rgs = [];
@@ -175,7 +357,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/resource-groups`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  Resource Groups Count: ${rgs.length}`);
@@ -190,10 +373,11 @@ export class AzureService {
     }
   }
 
-  async listVirtualMachines() {
+  async listVirtualMachines(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new ComputeManagementClient(credential, subId);
       const vms = [];
@@ -211,7 +395,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/virtual-machines`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  VM Count: ${vms.length}`);
@@ -226,10 +411,11 @@ export class AzureService {
     }
   }
 
-  async listStorageAccounts() {
+  async listStorageAccounts(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new StorageManagementClient(credential, subId);
       const accts = [];
@@ -246,7 +432,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/storage-accounts`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  Storage Accounts Count: ${accts.length}`);
@@ -261,10 +448,11 @@ export class AzureService {
     }
   }
 
-  async listVirtualNetworks() {
+  async listVirtualNetworks(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new NetworkManagementClient(credential, subId);
       const vnets = [];
@@ -281,7 +469,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/virtual-networks`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  VNet Count: ${vnets.length}`);
@@ -296,10 +485,11 @@ export class AzureService {
     }
   }
 
-  async listNetworkSecurityGroups() {
+  async listNetworkSecurityGroups(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new NetworkManagementClient(credential, subId);
       const nsgs = [];
@@ -315,7 +505,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/network-security-groups`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  NSG Count: ${nsgs.length}`);
@@ -330,10 +521,11 @@ export class AzureService {
     }
   }
 
-  async listPublicIps() {
+  async listPublicIps(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new NetworkManagementClient(credential, subId);
       const ips = [];
@@ -350,7 +542,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/public-ips`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  Public IP Count: ${ips.length}`);
@@ -365,10 +558,11 @@ export class AzureService {
     }
   }
 
-  async listAppServices() {
+  async listAppServices(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new WebSiteManagementClient(credential, subId);
       const apps = [];
@@ -385,7 +579,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/app-services`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  App Services Count: ${apps.length}`);
@@ -400,10 +595,11 @@ export class AzureService {
     }
   }
 
-  async listSqlDatabases() {
+  async listSqlDatabases(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new SqlManagementClient(credential, subId);
       const dbs = [];
@@ -432,7 +628,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/sql-databases`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  SQL Databases Count: ${dbs.length}`);
@@ -447,10 +644,11 @@ export class AzureService {
     }
   }
 
-  async listKeyVaults() {
+  async listKeyVaults(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new KeyVaultManagementClient(credential, subId);
       const vaults = [];
@@ -465,7 +663,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/key-vaults`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  Key Vaults Count: ${vaults.length}`);
@@ -480,10 +679,11 @@ export class AzureService {
     }
   }
 
-  async listContainerRegistries() {
+  async listContainerRegistries(userId: string) {
     try {
-      const credential = this.getCredential();
-      const subId = await this.getSubscriptionIdAuto(credential);
+      const creds = await this.loadCredentials(userId);
+      const credential = await this.getCredential(userId);
+      const subId = await this.getSubscriptionIdAuto(credential, userId);
       const subName = await this.getSubscriptionName(credential, subId);
       const client = new ContainerRegistryManagementClient(credential, subId);
       const registries = [];
@@ -500,7 +700,8 @@ export class AzureService {
       }
 
       console.log(`GET /azure/container-registries`);
-      console.log(`  Credential: ${this.getCredentialType()}`);
+      console.log(`  User: ${userId}`);
+      console.log(`  Credential: ${this.getCredentialType(creds)}`);
       console.log(`  Subscription ID: ${subId}`);
       console.log(`  Subscription Name: ${subName}`);
       console.log(`  Container Registries Count: ${registries.length}`);

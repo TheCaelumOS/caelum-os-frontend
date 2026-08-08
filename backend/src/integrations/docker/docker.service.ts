@@ -3,16 +3,37 @@ import { execSync } from 'child_process';
 
 @Injectable()
 export class DockerService {
-  private readonly mockContainers = [
-    { id: 'c1b820fa929e', name: 'caelum-postgres', image: 'postgres:15-alpine', status: 'running', state: 'running', ports: '0.0.0.0:5432->5432/tcp', created: '2 hours ago' },
-    { id: 'a98f12cc20a1', name: 'caelum-redis', image: 'redis:7-alpine', status: 'running', state: 'running', ports: '0.0.0.0:6379->6379/tcp', created: '2 hours ago' },
-    { id: 'dd8837e411b9', name: 'caelum-api-gateway', image: 'caelum/nestjs-api:latest', status: 'exited (0) 5 mins ago', state: 'exited', ports: '0.0.0.0:4000->4000/tcp', created: '1 day ago' },
-    { id: 'f002a9bc7211', name: 'caelum-ai-service', image: 'caelum/python-fastapi:latest', status: 'running', state: 'running', ports: '0.0.0.0:8000->8000/tcp', created: '3 hours ago' },
-  ];
+  
+  private checkConnection() {
+    try {
+      execSync('docker info', { stdio: 'ignore', timeout: 2000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getStatus() {
+    const connected = this.checkConnection();
+    if (!connected) {
+      return { connected: false, version: 'Unknown', error: 'Docker Engine is not running or unreachable.' };
+    }
+    try {
+      const versionOutput = execSync('docker version --format "{{.Server.Version}}"', { encoding: 'utf8', timeout: 2000 });
+      return {
+        connected: true,
+        version: versionOutput.trim(),
+      };
+    } catch (err: any) {
+      return { connected: false, version: 'Unknown', error: err.message };
+    }
+  }
 
   async listContainers() {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
     try {
-      // Attempt to invoke system docker ps CLI command
       const output = execSync('docker ps -a --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
       if (!output.trim()) return [];
       return output.trim().split('\n').map(line => {
@@ -27,54 +48,111 @@ export class DockerService {
           created: item.CreatedAt,
         };
       });
-    } catch {
-      // Fallback gracefully to mock container profiles
-      return this.mockContainers;
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to list Docker containers: ${err.message}`);
     }
   }
 
-  async controlContainer(containerId: string, action: 'start' | 'stop' | 'restart') {
+  async listImages() {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
     try {
-      execSync(`docker ${action} ${containerId}`, { timeout: 4000 });
+      const output = execSync('docker images --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      if (!output.trim()) return [];
+      return output.trim().split('\n').map(line => {
+        const item = JSON.parse(line);
+        return {
+          repository: item.Repository,
+          tag: item.Tag,
+          size: item.Size,
+          id: item.ID,
+          created: item.CreatedAt,
+        };
+      });
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to list Docker images: ${err.message}`);
+    }
+  }
+
+  async listNetworks() {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
+    try {
+      const output = execSync('docker network ls --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      if (!output.trim()) return [];
+      return output.trim().split('\n').map(line => {
+        const item = JSON.parse(line);
+        return {
+          id: item.ID,
+          name: item.Name,
+          driver: item.Driver,
+          scope: item.Scope,
+        };
+      });
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to list Docker networks: ${err.message}`);
+    }
+  }
+
+  async listVolumes() {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
+    try {
+      const output = execSync('docker volume ls --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      if (!output.trim()) return [];
+      return output.trim().split('\n').map(line => {
+        const item = JSON.parse(line);
+        return {
+          name: item.Name,
+          driver: item.Driver,
+          scope: item.Scope || 'local',
+        };
+      });
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to list Docker volumes: ${err.message}`);
+    }
+  }
+
+  async getDaemonLogs() {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
+    try {
+      const output = execSync('docker events --since 60m --until 1s', { encoding: 'utf8', timeout: 3000 });
+      return output.trim() || 'No recent Docker events recorded in the last 60 minutes.';
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to fetch Docker daemon logs: ${err.message}`);
+    }
+  }
+
+  async controlContainer(containerId: string, action: 'start' | 'stop' | 'restart' | 'remove') {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
+    try {
+      if (action === 'remove') {
+        execSync(`docker rm -f ${containerId}`, { timeout: 5000 });
+      } else {
+        execSync(`docker ${action} ${containerId}`, { timeout: 5000 });
+      }
       return { containerId, action, success: true };
-    } catch {
-      // Fallback mockup updates
-      const container = this.mockContainers.find(c => c.id === containerId);
-      if (!container) {
-        throw new BadRequestException(`Container '${containerId}' not found`);
-      }
-      if (action === 'start') {
-        container.status = 'running';
-        container.state = 'running';
-      } else if (action === 'stop') {
-        container.status = 'exited (137)';
-        container.state = 'exited';
-      } else if (action === 'restart') {
-        container.status = 'running';
-        container.state = 'running';
-      }
-      return { containerId, action, success: true, mode: 'mock' };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to execute action '${action}' on container ${containerId}: ${err.message}`);
     }
   }
 
   async getContainerLogs(containerId: string) {
+    if (!this.checkConnection()) {
+      throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
+    }
     try {
       const logs = execSync(`docker logs --tail 100 ${containerId}`, { encoding: 'utf8', timeout: 3000 });
       return { containerId, logs };
-    } catch {
-      // Fallback mocked container logs
-      const container = this.mockContainers.find(c => c.id === containerId);
-      if (!container) {
-        throw new BadRequestException(`Container '${containerId}' not found`);
-      }
-      const timestamp = new Date().toISOString();
-      const mockLogs = [
-        `[${timestamp}] INFO: Starting CaelumOS Docker environment engine...`,
-        `[${timestamp}] INFO: Database schema migrations executed cleanly.`,
-        `[${timestamp}] DEBUG: Server is listening on port ${container.ports}`,
-        `[${timestamp}] WARN: Redis caching layer latency is normal.`,
-      ].join('\n');
-      return { containerId, logs: mockLogs };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to get logs for container ${containerId}: ${err.message}`);
     }
   }
 }

@@ -12,8 +12,20 @@ export class TerraformValidateDto {
 }
 
 export class ContainerActionDto {
-  @ApiProperty({ example: 'start', description: 'Action to perform on container: start, stop, restart' })
+  @ApiProperty({ example: 'start', description: 'Action to perform on container: start, stop, restart, remove' })
   @IsString()
   @IsNotEmpty()
-  action: 'start' | 'stop' | 'restart';
+  action: 'start' | 'stop' | 'restart' | 'remove';
+}
+
+export class TerraformActionDto {
+  @ApiProperty({ example: 'init', description: 'Terraform action: init, validate, fmt, plan, apply, destroy' })
+  @IsString()
+  @IsNotEmpty()
+  action: 'init' | 'validate' | 'fmt' | 'plan' | 'apply' | 'destroy';
+
+  @ApiProperty({ example: 'provider "aws" {}', description: 'Terraform configuration content' })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
 }

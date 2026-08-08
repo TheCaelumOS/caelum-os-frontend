@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
-import { Cloud, RefreshCw, LayoutGrid, Server, HardDrive, AlertCircle, Key, Network, AppWindow, Database, CheckCircle, XCircle } from 'lucide-react';
+import { Cloud, RefreshCw, LayoutGrid, Server, HardDrive, AlertCircle, Key, Network, AppWindow, Database, CheckCircle, XCircle, LogOut } from 'lucide-react';
 
 interface Subscription {
   subscriptionId: string;
@@ -109,6 +109,14 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<string>('Never');
 
+  // Wizard States
+  const [authMethod, setAuthMethod] = useState<'cli' | 'servicePrincipal'>('cli');
+  const [clientId, setClientId] = useState<string>('');
+  const [clientSecret, setClientSecret] = useState<string>('');
+  const [tenantId, setTenantId] = useState<string>('');
+  const [subscriptionId, setSubscriptionId] = useState<string>('');
+  const [connectLoading, setConnectLoading] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<string>(initialSubPath || 'sub');
 
   const tabs = [
@@ -121,21 +129,18 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
     { id: 'db', name: 'Databases & Vaults' },
   ];
 
-  const fetchResources = async () => {
+  const fetchResources = async (isOnLoad = false) => {
     setLoading(true);
-    setError(null);
-    setConnected(false);
+    if (isOnLoad) {
+      setError(null);
+    }
 
     try {
-      console.log('[AzureFrontend] Calling /azure/health endpoint...');
       const health = await apiRequest('/azure/health');
-      console.log('[AzureFrontend] Health check response:', health);
-
       if (health && health.connected) {
         setConnected(true);
         setError(null);
 
-        console.log('[AzureFrontend] Loading real Azure SDK resources...');
         const [
           subData,
           rgData,
@@ -176,14 +181,60 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
         setLastRefreshed(new Date().toLocaleTimeString());
       } else {
         setConnected(false);
-        setError(health?.error || 'Azure authentication failed or backend is down.');
+        if (!isOnLoad) {
+          setError(health?.reason || 'Azure account not connected.');
+        }
         clearAllData();
       }
     } catch (e: any) {
-      console.error('[AzureFrontend] Resource query failed:', e.message);
       setConnected(false);
-      setError('Backend connection failed. Please ensure your NestJS backend server is running.');
+      if (!isOnLoad) {
+        setError('Connection failed. Please ensure the backend is running.');
+      }
       clearAllData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConnectLoading(true);
+    setError(null);
+
+    try {
+      const res = await apiRequest('/azure/connect', {
+        method: 'POST',
+        body: JSON.stringify({
+          authMethod,
+          clientId: authMethod === 'servicePrincipal' ? clientId : undefined,
+          clientSecret: authMethod === 'servicePrincipal' ? clientSecret : undefined,
+          tenantId: authMethod === 'servicePrincipal' ? tenantId : undefined,
+          subscriptionId: subscriptionId || undefined
+        })
+      });
+
+      if (res && res.connected) {
+        setConnected(true);
+        await fetchResources();
+      } else {
+        setError(res?.message || 'Authentication failed. Please verify credentials.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Connection attempt failed.');
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setLoading(true);
+    try {
+      await apiRequest('/azure/disconnect', { method: 'POST' });
+      setConnected(false);
+      clearAllData();
+    } catch (err: any) {
+      setError('Failed to disconnect Azure account.');
     } finally {
       setLoading(false);
     }
@@ -204,7 +255,7 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
   };
 
   useEffect(() => {
-    fetchResources();
+    fetchResources(true);
   }, []);
 
   useEffect(() => {
@@ -230,8 +281,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
             <div>
               <span className="font-extrabold text-xs text-slate-800 block">Azure Console</span>
               <div className="flex items-center space-x-1 mt-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className={`text-[8px] uppercase font-bold font-mono ${connected ? 'text-green-600' : 'text-red-500'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-amber-500'}`} />
+                <span className={`text-[8px] uppercase font-bold font-mono ${connected ? 'text-green-600' : 'text-amber-600'}`}>
                   {connected ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
@@ -242,9 +293,9 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
               <button
                 key={t.id}
                 onClick={() => selectTab(t.id)}
-                disabled={!connected && t.id !== 'sub'}
+                disabled={!connected}
                 className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  !connected && t.id !== 'sub' 
+                  !connected 
                     ? 'opacity-40 cursor-not-allowed text-slate-400' 
                     : activeTab === t.id 
                       ? 'bg-blue-600/10 text-blue-600' 
@@ -257,63 +308,182 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
           </div>
         </div>
         <div className="space-y-2">
-          <div className="px-3 py-1 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-[7.5px] uppercase font-bold text-slate-400 block">Last Refreshed</span>
-            <span className="text-[9px] font-mono text-slate-600 font-bold block mt-0.5">{lastRefreshed}</span>
-          </div>
-          <button
-            onClick={fetchResources}
-            className="w-full py-1.5 border border-slate-200 hover:bg-slate-50 transition-colors text-slate-500 hover:text-slate-800 text-[10px] font-bold rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Console</span>
-          </button>
+          {connected && (
+            <>
+              <div className="px-3 py-1 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-[7.5px] uppercase font-bold text-slate-400 block">Last Refreshed</span>
+                <span className="text-[9px] font-mono text-slate-600 font-bold block mt-0.5">{lastRefreshed}</span>
+              </div>
+              <button
+                onClick={() => fetchResources(false)}
+                className="w-full py-1.5 border border-slate-200 hover:bg-slate-50 transition-colors text-slate-500 hover:text-slate-800 text-[10px] font-bold rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh Data</span>
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="w-full py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 hover:text-red-700 transition-colors text-[10px] font-bold rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Disconnect Azure</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Main Content Pane */}
       <div className="flex-grow overflow-y-auto p-5 min-h-0 bg-[#f4f7f6]">
-        {!connected && !loading && (
-          <div className="mb-6 p-5 bg-white border border-red-100 rounded-2xl shadow-sm max-w-xl space-y-4">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <h4 className="font-extrabold text-sm text-slate-800">Azure Subscription Offline</h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Unable to connect to a live Azure account. Please review the configuration steps.
-                </p>
-                <div className="mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs font-mono text-slate-655 space-y-1.5">
-                  <div className="font-bold text-[10px] text-slate-400 uppercase tracking-wider mb-1">Troubleshooting Tips:</div>
-                  <div>• Verify that your NestJS backend server is running.</div>
-                  <div>• Execute <span className="bg-slate-200 px-1 py-0.5 rounded text-[10px] font-bold">az login</span> inside your local CLI.</div>
-                  <div>• Configure Service Principal environment variables if desired.</div>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end pt-2">
-              <button 
-                onClick={fetchResources}
-                className="px-4 py-1.5 bg-blue-600 text-white hover:bg-blue-700 text-xs font-extrabold rounded-xl cursor-pointer transition-all shadow-sm flex items-center space-x-1.5"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Retry Connection</span>
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {loading ? (
+        {loading && subscription === null ? (
           <div className="text-center py-20 text-xs text-slate-400 font-bold flex flex-col items-center justify-center space-y-2">
             <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-            <span>Querying Azure Resource Manager...</span>
+            <span>Verifying Azure Account connection...</span>
           </div>
         ) : !connected ? (
-          <div className="text-center py-16 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl max-w-xl bg-white/50 shadow-sm flex flex-col items-center justify-center p-6 space-y-3">
-            <Cloud className="w-10 h-10 text-slate-300" />
-            <span>No active subscription connection details. Configure Azure and Retry.</span>
+          /* Connection Setup Wizard */
+          <div className="max-w-md mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="text-center space-y-1.5">
+              <div className="inline-flex items-center justify-center p-3 bg-blue-50 border border-blue-100 rounded-2xl text-blue-600">
+                <Cloud className="w-8 h-8" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-800">Connect Azure Account</h3>
+              <p className="text-xs text-slate-450 px-4">
+                Connect your account to access and view real-time subscriptions, virtual machines, and storage.
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-start space-x-2 text-xs text-red-800">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConnect} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Authentication Method</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('cli')}
+                    className={`py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      authMethod === 'cli' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Azure CLI (Dev)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('servicePrincipal')}
+                    className={`py-1.5 text-xs font-bold rounded-xl transition-all ${
+                      authMethod === 'servicePrincipal' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Service Principal
+                  </button>
+                </div>
+              </div>
+
+              {authMethod === 'cli' ? (
+                <div className="bg-slate-50 border border-slate-150/60 rounded-2xl p-3.5 text-xs text-slate-500 space-y-2">
+                  <p className="font-bold text-slate-700">Azure CLI Credentials (Development Mode)</p>
+                  <p>
+                    Ensures connection to your local backend server session using the authenticated Azure CLI profile.
+                  </p>
+                  <p>
+                    Ensure you have run <code className="bg-slate-200 px-1 py-0.5 rounded font-mono font-bold text-[10px]">az login</code> locally.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-450 uppercase block">Tenant ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={tenantId}
+                      onChange={(e) => setTenantId(e.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-450 uppercase block">Client (Application) ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={clientId}
+                      onChange={(e) => setClientId(e.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-455 uppercase block">Client Secret</label>
+                    <input
+                      type="password"
+                      required
+                      value={clientSecret}
+                      onChange={(e) => setClientSecret(e.target.value)}
+                      placeholder="••••••••••••••••••••••••"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-450 uppercase block">
+                  Subscription ID <span className="text-[8.5px] text-slate-400 capitalize">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={subscriptionId}
+                  onChange={(e) => setSubscriptionId(e.target.value)}
+                  placeholder="Auto-discover if left blank"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={connectLoading}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {connectLoading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Verifying Credentials...</span>
+                  </>
+                ) : (
+                  <span>Connect Azure Account</span>
+                )}
+              </button>
+            </form>
           </div>
         ) : (
+          /* Connected Live Metrics Console Dashboard */
           <>
+            {/* Connection Status Card */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm mb-6 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-green-50 rounded-xl border border-green-200/50 text-green-600">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Connection Status</span>
+                  <span className="text-xs font-extrabold text-slate-800">Connected to Live Subscription</span>
+                </div>
+              </div>
+              {subscription && (
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Active Account</span>
+                  <span className="text-xs font-extrabold text-blue-600 block">{subscription.displayName}</span>
+                </div>
+              )}
+            </div>
+
             {/* Resource Counters / Metrics Dashboard Card */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
@@ -364,8 +534,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
               <div className="space-y-4">
                 <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Resource Groups</h4>
                 {rgs.length === 0 ? (
-                  <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm">
-                    No resources found
+                  <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm animate-pulse">
+                    No Resource Groups found
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -389,8 +559,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
               <div className="space-y-4">
                 <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Virtual Machines</h4>
                 {vms.length === 0 ? (
-                  <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm">
-                    No resources found
+                  <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm animate-pulse">
+                    No Virtual Machines found
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -424,8 +594,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
               <div className="space-y-4">
                 <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Storage Accounts</h4>
                 {storage.length === 0 ? (
-                  <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm">
-                    No resources found
+                  <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm animate-pulse">
+                    No Storage Accounts found
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -458,7 +628,7 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                   <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Virtual Networks (VNET)</h4>
                   {vnets.length === 0 ? (
                     <div className="bg-white border border-slate-250/60 rounded-2xl p-6 text-center text-xs text-slate-400 font-bold shadow-sm">
-                      No resources found
+                      No Virtual Networks found
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3">
@@ -466,7 +636,7 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                         <div key={vn.name} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 font-mono text-xs">
                           <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                             <span className="font-bold text-slate-700">{vn.name}</span>
-                            <span className="text-slate-450 text-[10px]">Address Space: {vn.addressSpace}</span>
+                            <span className="text-slate-455 text-[10px]">Address Space: {vn.addressSpace}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
                             <div>Resource Group: <span className="font-bold text-slate-700">{vn.resourceGroup}</span></div>
@@ -483,7 +653,7 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Network Security Groups (NSG)</h4>
                     {nsgs.length === 0 ? (
                       <div className="bg-white border border-slate-250/60 rounded-2xl p-6 text-center text-xs text-slate-400 font-bold shadow-sm font-sans">
-                        No resources found
+                        No Network Security Groups found
                       </div>
                     ) : (
                       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
@@ -504,7 +674,7 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                     <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Public IP Addresses</h4>
                     {publicIps.length === 0 ? (
                       <div className="bg-white border border-slate-250/60 rounded-2xl p-6 text-center text-xs text-slate-400 font-bold shadow-sm font-sans">
-                        No resources found
+                        No Public IPs found
                       </div>
                     ) : (
                       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
@@ -529,8 +699,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                 <div className="space-y-3">
                   <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">App Services (Web Apps)</h4>
                   {appServices.length === 0 ? (
-                    <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm">
-                      No resources found
+                    <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm animate-pulse">
+                      No App Services found
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -558,8 +728,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                 <div className="space-y-3">
                   <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Container Registries (ACR)</h4>
                   {registries.length === 0 ? (
-                    <div className="bg-white border border-slate-250/60 rounded-2xl p-6 text-center text-xs text-slate-400 font-bold shadow-sm font-sans">
-                      No resources found
+                    <div className="bg-white border border-slate-250/60 rounded-2xl p-6 text-center text-xs text-slate-400 font-bold shadow-sm font-sans animate-pulse">
+                      No Container Registries found
                     </div>
                   ) : (
                     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
@@ -583,8 +753,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                 <div className="space-y-3">
                   <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">SQL Databases</h4>
                   {sqlDbs.length === 0 ? (
-                    <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm font-sans">
-                      No resources found
+                    <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm font-sans animate-pulse">
+                      No SQL Databases found
                     </div>
                   ) : (
                     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
@@ -604,8 +774,8 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
                 <div className="space-y-3">
                   <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Key Vaults</h4>
                   {vaults.length === 0 ? (
-                    <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm font-sans">
-                      No resources found
+                    <div className="bg-white border border-slate-250/60 rounded-2xl p-8 text-center text-xs text-slate-400 font-bold shadow-sm font-sans animate-pulse">
+                      No Key Vaults found
                     </div>
                   ) : (
                     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">

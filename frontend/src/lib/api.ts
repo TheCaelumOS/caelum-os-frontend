@@ -7,9 +7,15 @@ if (typeof window !== 'undefined') {
 }
 
 // Auto-authenticate developer account on start
-export async function ensureAuthenticated() {
+export async function ensureAuthenticated(force = false) {
   if (typeof window === 'undefined') return '';
-  if (jwtToken) return jwtToken;
+  if (jwtToken && !force) return jwtToken;
+
+  if (force) {
+    jwtToken = '';
+    localStorage.removeItem('caelum_token');
+    console.log('[API] Forcing re-authentication, cleared cached token.');
+  }
 
   const credentials = {
     email: 'dev@caelum-os.io',
@@ -17,6 +23,7 @@ export async function ensureAuthenticated() {
   };
 
   try {
+    console.log('[API] Authenticating with developer credentials...');
     // Attempt Login
     const loginRes = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -28,6 +35,7 @@ export async function ensureAuthenticated() {
       const data = await loginRes.json();
       jwtToken = data.accessToken;
       localStorage.setItem('caelum_token', jwtToken);
+      console.log('[API] Authentication successful.');
       return jwtToken;
     }
 
@@ -50,11 +58,12 @@ export async function ensureAuthenticated() {
         const data = await retryRes.json();
         jwtToken = data.accessToken;
         localStorage.setItem('caelum_token', jwtToken);
+        console.log('[API] Registration and authentication successful.');
         return jwtToken;
       }
     }
   } catch (err) {
-    console.warn('Backend server unreachable. Running applications in fallback mock mode.', err);
+    console.warn('[API] Backend server unreachable during authentication. Fallback to offline mock mode allowed.', err);
   }
 
   return '';
@@ -69,43 +78,56 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     console.warn('Authentication token fetch failed, continuing without token.', err);
   }
   
-  const headers: Record<string, string> = {};
+  const makeRequest = async (authToken: string) => {
+    const headers: Record<string, string> = {};
 
-  if (options.headers) {
-    if (options.headers instanceof Headers) {
-      options.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-    } else if (Array.isArray(options.headers)) {
-      options.headers.forEach(([key, value]) => {
-        headers[key] = value;
-      });
-    } else {
-      Object.assign(headers, options.headers);
+    if (options.headers) {
+      if (options.headers instanceof Headers) {
+        options.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+      } else if (Array.isArray(options.headers)) {
+        options.headers.forEach(([key, value]) => {
+          headers[key] = value;
+        });
+      } else {
+        Object.assign(headers, options.headers);
+      }
     }
-  }
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
 
-  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    return await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
     });
+  };
+
+  try {
+    console.log(`[API] Sending request to ${endpoint}`);
+    let response = await makeRequest(token);
+
+    if (response.status === 401) {
+      console.warn(`[API] Received 401 Unauthorized on ${endpoint}. Clearing credentials and retrying...`);
+      token = await ensureAuthenticated(true);
+      response = await makeRequest(token);
+    }
 
     if (!response.ok) {
       throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log(`[API] Received successful response from ${endpoint}`);
+    return data;
   } catch (err: any) {
-    console.error('Fetch operation failed:', err);
+    console.error(`[API] Fetch operation failed for ${endpoint}:`, err);
     // Graceful error handling for offline backend:
     if (err.name === 'TypeError' || err.message?.includes('fetch') || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
       throw new Error('Backend is unavailable. Please start the backend server.');
