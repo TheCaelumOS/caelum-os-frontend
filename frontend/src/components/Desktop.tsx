@@ -164,8 +164,8 @@ export default function Desktop() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const path = window.location.pathname;
-    if (!path || path === '/') return;
-    const parts = path.split('/').filter(Boolean);
+    if (!path || path === '/' || path === '/os') return;
+    const parts = path.split('/').filter(p => p && p !== 'os');
     const mainApp = parts[0];
     const subpath = parts[1] || '';
 
@@ -193,8 +193,8 @@ export default function Desktop() {
     if (typeof window === 'undefined') return;
     const handlePopState = () => {
       const path = window.location.pathname;
-      if (path === '/') return;
-      const parts = path.split('/').filter(Boolean);
+      if (!path || path === '/' || path === '/os') return;
+      const parts = path.split('/').filter(p => p && p !== 'os');
       const mainApp = parts[0];
       const subpath = parts[1] || '';
 
@@ -281,7 +281,7 @@ export default function Desktop() {
       return w;
     }));
     if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', '/');
+      window.history.pushState(null, '', '/os');
     }
   };
 
@@ -341,7 +341,7 @@ export default function Desktop() {
     if (id === 'logout') {
       alert('Logging out of CaelumOS...');
       if (typeof window !== 'undefined') {
-        window.history.pushState(null, '', '/');
+        window.location.href = '/';
       }
       return;
     }
@@ -365,8 +365,15 @@ export default function Desktop() {
       {/* 1. GNOME Top Panel Header Bar */}
       <div className="absolute top-0 left-0 right-0 h-7 bg-neutral-950/85 border-b border-white/5 flex items-center justify-between px-4 z-40 text-xs font-medium">
         {/* Left Activities menu */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <span className="hover:text-white cursor-pointer font-bold text-[11px] text-slate-200">Activities</span>
+          <a
+            href="/"
+            className="text-[10px] text-slate-400 hover:text-cyan-400 font-mono flex items-center space-x-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 transition-colors"
+            title="Return to CaelumOS Website"
+          >
+            <span>&larr; caleum.me</span>
+          </a>
         </div>
 
         {/* Center Clock */}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../../lib/api';
 import { Play, Square, RotateCw, Trash2, Database, RefreshCw, AlertCircle } from 'lucide-react';
 
@@ -23,9 +23,16 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const [containers, setContainers] = useState<Container[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [logs, setLogs] = useState<string>('');
+  const [logsLoading, setLogsLoading] = useState<boolean>(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  // References to track active requests and prevent stale async overwrites
+  const selectedIdRef = useRef<string>('');
+  const activeRequestIdRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Tabs mapping
   const [activeTab, setActiveTab] = useState<string>(initialSubPath || 'containers');
@@ -35,6 +42,11 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const [volumes, setVolumes] = useState<any[]>([]);
   const [daemonLogs, setDaemonLogs] = useState<string>('');
   const [engineStatus, setEngineStatus] = useState<{ connected: boolean; version?: string; error?: string } | null>(null);
+
+  // Keep selectedIdRef in sync with state
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const tabs = [
     { id: 'containers', name: 'Containers' },
@@ -47,26 +59,66 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
 
   const checkStatus = async () => {
     try {
-      const data = await apiRequest('/docker/status');
+      const data = await apiRequest('/docker/health');
       setEngineStatus(data);
       if (data && !data.connected) {
         setError(data.error || 'Docker Engine is unreachable.');
+        clearAllData();
       } else {
         setError(null);
       }
     } catch (err: any) {
       setEngineStatus({ connected: false, error: 'Cannot reach backend server.' });
       setError('Cannot reach backend server.');
+      clearAllData();
     }
   };
 
+  const clearAllData = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    activeRequestIdRef.current += 1;
+    setContainers([]);
+    setImages([]);
+    setNetworks([]);
+    setVolumes([]);
+    setDaemonLogs('');
+    setLogs('');
+    setLogsLoading(false);
+    setLogsError(null);
+    setSelectedId('');
+    selectedIdRef.current = '';
+  };
+
   const fetchContainers = async () => {
+    if (engineStatus && !engineStatus.connected) {
+      clearAllData();
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiRequest('/docker/containers');
-      setContainers(data || []);
-      if (data && data.length > 0 && !selectedId) {
-        setSelectedId(data[0].id);
+      const containerList: Container[] = Array.isArray(data) ? data : [];
+      setContainers(containerList);
+
+      if (containerList.length > 0) {
+        // If current selectedId is missing or invalid, select first container
+        const currentSelected = selectedIdRef.current;
+        const exists = containerList.some(c => c.id === currentSelected);
+        if (!currentSelected || !exists) {
+          const firstId = containerList[0].id;
+          setSelectedId(firstId);
+          selectedIdRef.current = firstId;
+          setLogs('');
+          setLogsLoading(true);
+        }
+      } else {
+        setSelectedId('');
+        selectedIdRef.current = '';
+        setLogs('');
+        setLogsLoading(false);
       }
     } catch (e: any) {
       console.error('Failed to fetch containers:', e);
@@ -77,6 +129,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   };
 
   const fetchImages = async () => {
+    if (engineStatus && !engineStatus.connected) {
+      clearAllData();
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiRequest('/docker/images');
@@ -90,6 +146,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   };
 
   const fetchNetworks = async () => {
+    if (engineStatus && !engineStatus.connected) {
+      clearAllData();
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiRequest('/docker/networks');
@@ -103,6 +163,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   };
 
   const fetchVolumes = async () => {
+    if (engineStatus && !engineStatus.connected) {
+      clearAllData();
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiRequest('/docker/volumes');
@@ -116,6 +180,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   };
 
   const fetchDaemonLogs = async () => {
+    if (engineStatus && !engineStatus.connected) {
+      clearAllData();
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiRequest('/docker/daemon-logs');
@@ -128,17 +196,68 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     }
   };
 
-  const fetchLogs = async (id: string) => {
-    try {
-      const data = await apiRequest(`/docker/container/${id}/logs`);
-      setLogs(data.logs || 'No logs registered.');
-    } catch (e) {
-      console.error(e);
-      setLogs('Error fetching container stdout logs.');
+  // Immediate selection change with log reset
+  const handleSelectContainer = (id: string) => {
+    if (id === selectedId) return;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
+    activeRequestIdRef.current += 1;
+    setSelectedId(id);
+    selectedIdRef.current = id;
+    setLogs('');
+    setLogsError(null);
+    setLogsLoading(true);
   };
 
+  // Safe container log fetcher with race condition rejection
+  const fetchLogsForContainer = useCallback(async (id: string) => {
+    if (!id) {
+      setLogs('');
+      setLogsLoading(false);
+      setLogsError(null);
+      return;
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const requestId = ++activeRequestIdRef.current;
+    setLogsLoading(true);
+    setLogsError(null);
+
+    try {
+      const data = await apiRequest(`/docker/container/${id}/logs?t=${Date.now()}`, {
+        signal: controller.signal,
+      });
+
+      // Strict validation: check that request is still active and matches current container
+      if (requestId === activeRequestIdRef.current && id === selectedIdRef.current) {
+        if (data && data.containerId && data.containerId !== id) {
+          return;
+        }
+        setLogs(typeof data?.logs === 'string' ? data.logs : '');
+        setLogsLoading(false);
+        setLogsError(null);
+      }
+    } catch (e: any) {
+      if (controller.signal.aborted || e.name === 'AbortError') {
+        return;
+      }
+      if (requestId === activeRequestIdRef.current && id === selectedIdRef.current) {
+        console.error('Log fetch error for container', id, e);
+        setLogsError(e.message || 'Failed to fetch container logs.');
+        setLogsLoading(false);
+      }
+    }
+  }, []);
+
   const handleAction = async (id: string, action: 'start' | 'stop' | 'restart' | 'remove') => {
+    if (!id || actionLoading) return;
     setActionLoading(true);
     try {
       await apiRequest(`/docker/container/${id}/action`, {
@@ -146,17 +265,19 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         body: JSON.stringify({ action }),
       });
       if (action === 'remove') {
-        if (selectedId === id) {
+        if (selectedIdRef.current === id) {
           setSelectedId('');
+          selectedIdRef.current = '';
           setLogs('');
         }
       }
       await fetchContainers();
-      if (action !== 'remove') {
-        await fetchLogs(id);
+      if (action !== 'remove' && selectedIdRef.current === id) {
+        await fetchLogsForContainer(id);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || `Failed to ${action} container.`);
     } finally {
       setActionLoading(false);
     }
@@ -167,24 +288,39 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'containers') {
-      fetchContainers();
-    } else if (activeTab === 'images') {
-      fetchImages();
-    } else if (activeTab === 'networks') {
-      fetchNetworks();
-    } else if (activeTab === 'volumes') {
-      fetchVolumes();
-    } else if (activeTab === 'logs') {
-      fetchDaemonLogs();
+    if (engineStatus?.connected) {
+      if (activeTab === 'containers') {
+        fetchContainers();
+      } else if (activeTab === 'images') {
+        fetchImages();
+      } else if (activeTab === 'networks') {
+        fetchNetworks();
+      } else if (activeTab === 'volumes') {
+        fetchVolumes();
+      } else if (activeTab === 'logs') {
+        fetchDaemonLogs();
+      }
+    } else {
+      clearAllData();
     }
-  }, [activeTab]);
+  }, [activeTab, engineStatus]);
 
   useEffect(() => {
-    if (selectedId && activeTab === 'containers') {
-      fetchLogs(selectedId);
+    if (selectedId && activeTab === 'containers' && engineStatus?.connected) {
+      fetchLogsForContainer(selectedId);
+    } else if (!selectedId) {
+      setLogs('');
+      setLogsLoading(false);
+      setLogsError(null);
     }
-  }, [selectedId, activeTab]);
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, [selectedId, activeTab, engineStatus?.connected, fetchLogsForContainer]);
 
   useEffect(() => {
     if (initialSubPath && initialSubPath !== activeTab) {
@@ -209,7 +345,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
             <div>
               <span className="font-extrabold text-xs text-slate-200 block">Docker Hub</span>
               <span className={`text-[8px] uppercase font-bold font-mono ${(!engineStatus || !engineStatus.connected) ? 'text-red-500 font-extrabold animate-pulse' : 'text-cyan-400'}`}>
-                {(!engineStatus || !engineStatus.connected) ? 'Engine: Offline' : `Engine: Connected (${engineStatus.version})`}
+                {(!engineStatus || !engineStatus.connected) ? 'Docker: Not Connected' : `Docker: Connected (${engineStatus.version})`}
               </span>
             </div>
           </div>
@@ -232,11 +368,6 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         <button
           onClick={() => {
             checkStatus();
-            if (activeTab === 'containers') fetchContainers();
-            else if (activeTab === 'images') fetchImages();
-            else if (activeTab === 'networks') fetchNetworks();
-            else if (activeTab === 'volumes') fetchVolumes();
-            else if (activeTab === 'logs') fetchDaemonLogs();
           }}
           className="w-full py-1.5 border border-neutral-850 hover:bg-neutral-900 transition-colors text-slate-400 hover:text-slate-200 text-[10px] font-bold rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer"
         >
@@ -254,7 +385,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
               <span className="font-semibold text-red-300">Docker Daemon disconnected: {engineStatus.error}</span>
             </div>
             <button 
-              onClick={() => { checkStatus(); fetchContainers(); }}
+              onClick={() => { checkStatus(); }}
               className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-red-500/30"
             >
               Retry
@@ -277,18 +408,19 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                 ) : (
                   containers.map(c => {
                     const isRunning = c.state === 'running';
+                    const isSelected = selectedId === c.id;
                     return (
                       <div
                         key={c.id}
-                        onClick={() => setSelectedId(c.id)}
-                        className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
-                          selectedId === c.id 
-                            ? 'bg-blue-600/10 border-blue-500/30' 
-                            : 'bg-neutral-900/40 border-neutral-850 hover:border-neutral-800'
+                        onClick={() => handleSelectContainer(c.id)}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                          isSelected 
+                            ? 'bg-blue-600/20 border-blue-500 shadow-sm ring-1 ring-blue-500/40' 
+                            : 'bg-neutral-900/40 border-neutral-850 hover:border-neutral-750 hover:bg-neutral-900/60'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs truncate max-w-[110px]">{c.name}</span>
+                          <span className="font-bold text-xs truncate max-w-[130px] text-slate-200">{c.name}</span>
                           <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${
                             isRunning ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
                           }`}>
@@ -296,6 +428,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                           </span>
                         </div>
                         <div className="text-[9px] text-slate-400 font-mono mt-1 truncate">{c.image}</div>
+                        <div className="text-[9px] text-slate-500 font-mono mt-0.5 truncate">ID: {c.id}</div>
                       </div>
                     );
                   })
@@ -309,17 +442,53 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                 <>
                   {(() => {
                     const c = containers.find(item => item.id === selectedId);
-                    if (!c) return null;
+                    if (!c) {
+                      return (
+                        <div className="p-4 border-b border-neutral-850 bg-[#0f0f12] flex items-center justify-between flex-shrink-0">
+                          <div className="truncate flex-1 min-w-0 mr-2">
+                            <h3 className="text-xs font-bold text-slate-200 truncate">Container: {selectedId}</h3>
+                            <span className="text-[9px] font-mono text-slate-400 truncate block mt-0.5">ID: {selectedId}</span>
+                          </div>
+                          <div className="flex items-center space-x-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => fetchLogsForContainer(selectedId)}
+                              disabled={logsLoading}
+                              className="p-1.5 rounded-lg bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700 text-slate-300 disabled:opacity-40 cursor-pointer"
+                              title="Refresh Logs"
+                            >
+                              <RefreshCw className={`w-3.5 h-3.5 ${logsLoading ? 'animate-spin' : ''}`} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
                     const isRunning = c.state === 'running';
                     return (
                       <div className="p-4 border-b border-neutral-850 bg-[#0f0f12] flex items-center justify-between flex-shrink-0">
-                        <div className="truncate max-w-[130px]">
-                          <h3 className="text-xs font-bold text-slate-200 truncate">{c.name}</h3>
-                          <span className="text-[9px] font-mono text-slate-400 truncate block mt-0.5">ID: {c.id}</span>
+                        <div className="truncate flex-1 min-w-0 mr-2">
+                          <div className="flex items-center space-x-2">
+                            <h3 className="text-xs font-bold text-slate-200 truncate">{c.name}</h3>
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                              isRunning ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}>
+                              {c.state}
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-mono text-slate-400 truncate block mt-0.5">
+                            ID: <span className="text-cyan-400 font-bold">{c.id}</span> &bull; {c.image}
+                          </span>
                         </div>
                         <div className="flex items-center space-x-1.5 flex-shrink-0">
                           <button
-                            onClick={() => handleAction(c.id, 'start')}
+                            onClick={() => fetchLogsForContainer(selectedId)}
+                            disabled={logsLoading}
+                            className="p-1.5 rounded-lg bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700 text-slate-300 disabled:opacity-40 cursor-pointer"
+                            title="Refresh Logs"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${logsLoading ? 'animate-spin' : ''}`} />
+                          </button>
+                          <button
+                            onClick={() => handleAction(selectedId, 'start')}
                             disabled={isRunning || actionLoading}
                             className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/25 border border-green-500/30 text-green-400 disabled:opacity-30 cursor-pointer"
                             title="Start"
@@ -327,7 +496,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                             <Play className="w-3.5 h-3.5 fill-current" />
                           </button>
                           <button
-                            onClick={() => handleAction(c.id, 'stop')}
+                            onClick={() => handleAction(selectedId, 'stop')}
                             disabled={!isRunning || actionLoading}
                             className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 disabled:opacity-30 cursor-pointer"
                             title="Stop"
@@ -335,15 +504,15 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                             <Square className="w-3.5 h-3.5 fill-current" />
                           </button>
                           <button
-                            onClick={() => handleAction(c.id, 'restart')}
+                            onClick={() => handleAction(selectedId, 'restart')}
                             disabled={actionLoading}
                             className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 cursor-pointer"
                             title="Restart"
                           >
-                            <RotateCw className="w-3.5 h-3.5" />
+                            <RotateCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
                           </button>
                           <button
-                            onClick={() => handleAction(c.id, 'remove')}
+                            onClick={() => handleAction(selectedId, 'remove')}
                             disabled={actionLoading}
                             className="p-1.5 rounded-lg bg-red-600/10 hover:bg-red-600/25 border border-red-500/30 text-red-500 cursor-pointer"
                             title="Remove"
@@ -357,13 +526,27 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
 
                   <div className="flex-1 flex flex-col min-h-0 bg-[#08080a] p-3 font-mono text-xs">
                     <pre className="flex-grow overflow-auto text-[10px] leading-relaxed text-slate-300 p-2 bg-black/45 rounded-lg border border-neutral-900 whitespace-pre-wrap select-all">
-                      {logs || 'No logs registered.'}
+                      {logsLoading ? (
+                        <span className="text-cyan-400 flex items-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin inline mr-1" />
+                          Loading logs for container {selectedId}...
+                        </span>
+                      ) : logsError ? (
+                        <span className="text-red-400">
+                          Error: {logsError}
+                        </span>
+                      ) : logs && logs.trim().length > 0 ? (
+                        logs
+                      ) : (
+                        <span className="text-slate-500 italic">No logs available for this container.</span>
+                      )}
                     </pre>
                   </div>
                 </>
               ) : (
-                <div className="flex-grow flex items-center justify-center text-slate-500 text-xs font-bold">
-                  Select a container to manage.
+                <div className="flex-grow flex flex-col items-center justify-center text-slate-500 text-xs font-bold space-y-2 p-6">
+                  <Database className="w-8 h-8 text-neutral-700" />
+                  <span>No container selected. Select a container from the list to view details and logs.</span>
                 </div>
               )}
             </div>

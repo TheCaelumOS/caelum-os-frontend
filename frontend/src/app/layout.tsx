@@ -13,8 +13,37 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CaelumOS Dashboard | AI Operating System for Engineering Teams",
-  description: "Deploy, secure, monitor, and optimize your cloud infrastructure in plain English. AI-native orchestration for DevOps and Engineering teams.",
+  metadataBase: new URL("https://caleum.me"),
+  title: "CaelumOS — Your Infrastructure. One Unified Environment.",
+  description: "CaelumOS is a unified developer environment for cloud infrastructure, containers, infrastructure-as-code, and modern DevOps workflows.",
+  alternates: {
+    canonical: "https://caleum.me",
+  },
+  openGraph: {
+    title: "CaelumOS — Your Infrastructure. One Unified Environment.",
+    description: "CaelumOS is a unified developer environment for cloud infrastructure, containers, infrastructure-as-code, and modern DevOps workflows.",
+    url: "https://caleum.me",
+    siteName: "CaelumOS",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CaelumOS — Your Infrastructure. One Unified Environment.",
+    description: "CaelumOS is a unified developer environment for cloud infrastructure, containers, infrastructure-as-code, and modern DevOps workflows.",
+  },
+  keywords: [
+    "CaelumOS",
+    "cloud infrastructure",
+    "developer environment",
+    "Docker",
+    "Terraform",
+    "Kubernetes",
+    "AWS",
+    "Azure",
+    "DevOps",
+    "infrastructure as code"
+  ]
 };
 
 export default function RootLayout({
@@ -25,9 +54,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
-      <body className="min-h-full flex flex-col bg-[#fcfbfe] text-[#0f0b18]">
+      <body className="min-h-full flex flex-col bg-[#09090b] text-[#f8fafc]">
         {children}
       </body>
     </html>

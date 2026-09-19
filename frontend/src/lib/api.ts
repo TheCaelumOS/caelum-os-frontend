@@ -104,6 +104,7 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     }
 
     return await fetch(`${API_BASE}${endpoint}`, {
+      cache: 'no-store',
       ...options,
       headers,
     });
@@ -127,6 +128,9 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     console.log(`[API] Received successful response from ${endpoint}`);
     return data;
   } catch (err: any) {
+    if (err.name === 'AbortError' || options.signal?.aborted) {
+      throw err;
+    }
     console.error(`[API] Fetch operation failed for ${endpoint}:`, err);
     // Graceful error handling for offline backend:
     if (err.name === 'TypeError' || err.message?.includes('fetch') || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {

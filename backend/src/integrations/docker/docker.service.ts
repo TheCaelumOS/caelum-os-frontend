@@ -4,25 +4,47 @@ import { execSync } from 'child_process';
 @Injectable()
 export class DockerService {
   
-  private checkConnection() {
+  private checkConnection(): boolean {
     try {
-      execSync('docker info', { stdio: 'ignore', timeout: 2000 });
-      return true;
+      const output = execSync('docker version', { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'ignore'] });
+      return output.includes('Server:');
     } catch {
       return false;
     }
   }
 
-  async getStatus() {
-    const connected = this.checkConnection();
-    if (!connected) {
-      return { connected: false, version: 'Unknown', error: 'Docker Engine is not running or unreachable.' };
-    }
+  async getHealth() {
     try {
-      const versionOutput = execSync('docker version --format "{{.Server.Version}}"', { encoding: 'utf8', timeout: 2000 });
+      const output = execSync('docker version', { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'ignore'] });
+      const serverSection = output.split(/Server:/i)[1] || '';
+      const versionMatch = serverSection.match(/Version:\s*([0-9.]+)/i);
+      const version = versionMatch ? versionMatch[1] : 'Unknown';
+      const connected = output.includes('Server:');
       return {
-        connected: true,
-        version: versionOutput.trim(),
+        connected,
+        version: connected ? version : '',
+        status: connected ? 'running' : 'stopped'
+      };
+    } catch (err: any) {
+      return {
+        connected: false,
+        version: '',
+        status: 'stopped',
+        error: err.message
+      };
+    }
+  }
+
+  async getStatus() {
+    try {
+      const output = execSync('docker version', { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'ignore'] });
+      const serverSection = output.split(/Server:/i)[1] || '';
+      const versionMatch = serverSection.match(/Version:\s*([0-9.]+)/i);
+      const version = versionMatch ? versionMatch[1] : 'Unknown';
+      const connected = output.includes('Server:');
+      return {
+        connected,
+        version: connected ? version : 'Unknown',
       };
     } catch (err: any) {
       return { connected: false, version: 'Unknown', error: err.message };
@@ -34,7 +56,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker ps -a --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      const output = execSync('docker ps -a --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
       if (!output.trim()) return [];
       return output.trim().split('\n').map(line => {
         const item = JSON.parse(line);
@@ -58,7 +80,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker images --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      const output = execSync('docker images --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
       if (!output.trim()) return [];
       return output.trim().split('\n').map(line => {
         const item = JSON.parse(line);
@@ -80,7 +102,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker network ls --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      const output = execSync('docker network ls --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
       if (!output.trim()) return [];
       return output.trim().split('\n').map(line => {
         const item = JSON.parse(line);
@@ -101,7 +123,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker volume ls --format "{{json .}}"', { encoding: 'utf8', timeout: 3000 });
+      const output = execSync('docker volume ls --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
       if (!output.trim()) return [];
       return output.trim().split('\n').map(line => {
         const item = JSON.parse(line);
@@ -121,7 +143,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker events --since 60m --until 1s', { encoding: 'utf8', timeout: 3000 });
+      const output = execSync('docker events --since 60m --until 1s', { encoding: 'utf8', timeout: 15000 });
       return output.trim() || 'No recent Docker events recorded in the last 60 minutes.';
     } catch (err: any) {
       throw new BadRequestException(`Failed to fetch Docker daemon logs: ${err.message}`);
@@ -132,11 +154,23 @@ export class DockerService {
     if (!this.checkConnection()) {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
+    
+    // Strict input validation
+    const containerIdRegex = /^[a-zA-Z0-9_.-]+$/;
+    if (!containerIdRegex.test(containerId)) {
+      throw new BadRequestException('Invalid container ID or name format.');
+    }
+
+    const allowedActions = ['start', 'stop', 'restart', 'remove'];
+    if (!allowedActions.includes(action)) {
+      throw new BadRequestException('Invalid container control action.');
+    }
+
     try {
       if (action === 'remove') {
-        execSync(`docker rm -f ${containerId}`, { timeout: 5000 });
+        execSync(`docker rm -f ${containerId}`, { timeout: 15000 });
       } else {
-        execSync(`docker ${action} ${containerId}`, { timeout: 5000 });
+        execSync(`docker ${action} ${containerId}`, { timeout: 15000 });
       }
       return { containerId, action, success: true };
     } catch (err: any) {
@@ -148,10 +182,21 @@ export class DockerService {
     if (!this.checkConnection()) {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
+
+    // Strict input validation
+    const containerIdRegex = /^[a-zA-Z0-9_.-]+$/;
+    if (!containerIdRegex.test(containerId)) {
+      throw new BadRequestException('Invalid container ID or name format.');
+    }
+
     try {
-      const logs = execSync(`docker logs --tail 100 ${containerId}`, { encoding: 'utf8', timeout: 3000 });
+      const logs = execSync(`docker logs --tail 100 ${containerId} 2>&1`, { encoding: 'utf8', timeout: 15000 });
       return { containerId, logs };
     } catch (err: any) {
+      const errMsg = err.message || '';
+      if (errMsg.includes('No such container') || (err.stderr && err.stderr.toString().includes('No such container'))) {
+        throw new BadRequestException(`Container '${containerId}' no longer exists.`);
+      }
       throw new BadRequestException(`Failed to get logs for container ${containerId}: ${err.message}`);
     }
   }
