@@ -6,10 +6,14 @@ import React from 'react';
  */
 export const CaleumLogo = ({ className = "w-7 h-7" }: { className?: string }) => (
   <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <rect width="32" height="32" rx="7.5" fill="#0A1128" />
+    <rect width="32" height="32" rx="8" fill="#040C1C" />
     <path 
-      d="M16 6.5C16 11.5 19.5 16 25.5 16C19.5 16 16 20.5 16 25.5C16 20.5 12.5 16 6.5 16C12.5 16 16 11.5 16 6.5Z" 
+      d="M16 6.5C16 11.5 12.5 16 6.5 16C12.5 16 16 20.5 16 25.5Z" 
       fill="#FFFFFF" 
+    />
+    <path 
+      d="M16 6.5C16 11.5 19.5 16 25.5 16C19.5 16 16 20.5 16 25.5Z" 
+      fill="#3293FD" 
     />
   </svg>
 );

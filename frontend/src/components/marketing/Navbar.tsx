@@ -131,11 +131,11 @@ export default function Navbar() {
         <div className="flex items-center space-x-8">
           <Link 
             href="/" 
-            className="flex items-center space-x-2.5 focus:outline-none focus:ring-2 focus:ring-slate-400 rounded-lg p-0.5"
+            className="flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-slate-400 rounded-lg p-0.5"
             aria-label="Caleum Home"
           >
-            <CaleumLogo className="w-7 h-7 flex-shrink-0" />
-            <span className="font-sans text-xl font-extrabold tracking-tight text-slate-900">
+            <CaleumLogo className="w-8 h-8 flex-shrink-0" />
+            <span className="font-sans text-[22px] font-extrabold tracking-tight text-[#040C1C]">
               Caleum
             </span>
           </Link>

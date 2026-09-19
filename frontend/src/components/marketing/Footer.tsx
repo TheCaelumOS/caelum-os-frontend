@@ -16,8 +16,8 @@ export default function Footer() {
           {/* Col 1 & 2: Brand Information */}
           <div className="col-span-2 space-y-4">
             <Link href="/" className="inline-flex items-center space-x-2.5">
-              <CaleumLogo className="w-6 h-6 flex-shrink-0" />
-              <span className="font-sans text-lg font-extrabold tracking-tight text-slate-900">
+              <CaleumLogo className="w-7 h-7 flex-shrink-0" />
+              <span className="font-sans text-xl font-extrabold tracking-tight text-[#040C1C]">
                 Caleum
               </span>
             </Link>

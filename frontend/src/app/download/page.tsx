@@ -32,9 +32,9 @@ export default function DownloadPage() {
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 py-3.5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center space-x-2.5 group">
-            <CaleumLogo className="w-7 h-7 flex-shrink-0 group-hover:scale-105 transition-transform" />
-            <span className="font-sans text-xl font-extrabold tracking-tight text-slate-900">
+          <Link href="/" className="inline-flex items-center space-x-3 group">
+            <CaleumLogo className="w-8 h-8 flex-shrink-0 group-hover:scale-105 transition-transform" />
+            <span className="font-sans text-[22px] font-extrabold tracking-tight text-[#040C1C]">
               Caleum
             </span>
           </Link>
