@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { 
   AppWindow, 
   Layers, 
@@ -55,7 +54,7 @@ export default function CloudWorkspaceSection() {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
-            An OS-style developer environment running natively in your browser, built for high-throughput infrastructure multitasking.
+            An integrated operating environment designed for high-throughput infrastructure multitasking, coordinating host daemons and multi-cloud providers.
           </p>
         </div>
 
@@ -75,30 +74,41 @@ export default function CloudWorkspaceSection() {
           })}
         </div>
 
-        {/* Interactive Workspace Callout Panel */}
+        {/* Engineering Showcase Callout Panel */}
         <div className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center space-x-2 text-xs font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="font-semibold text-slate-900 uppercase">Live Preview Available</span>
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span className="font-semibold text-slate-900 uppercase">Engineering Showcase</span>
               <span className="text-slate-400">&bull;</span>
-              <span className="text-slate-500">Route: /os</span>
+              <span className="text-slate-500 font-medium">Bootable OS In Active Development</span>
             </div>
-            <h3 className="text-xl font-bold text-slate-900">
-              Test the CaelumOS Web Workspace in your browser
+            <h3 className="text-xl font-bold text-slate-900 font-mono">
+              Purpose-Built Operating System Architecture
             </h3>
             <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
-              Experience the windowing environment, explore the real Docker console, inspect Azure cloud services, and run sandbox Terraform commands directly.
+              CaelumOS is being engineered as a dedicated bootable operating system to overcome browser sandboxing, providing raw socket bindings, deterministic kernel scheduling, and native eBPF telemetry.
             </p>
           </div>
 
-          <Link
-            href="/os"
-            className="flex-shrink-0 inline-flex items-center space-x-2 px-6 py-3 rounded-lg text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-xs"
-          >
-            <span>Launch CaelumOS Workspace</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div className="flex-shrink-0 flex flex-col sm:flex-row items-center gap-3">
+            <a
+              href="https://github.com/TheCaelumOS/caelum-os-frontend"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-xs group"
+            >
+              <span>View GitHub Source</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+
+            <a
+              href="#architecture"
+              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors shadow-xs group"
+            >
+              <span>Explore Architecture &rarr;</span>
+            </a>
+          </div>
         </div>
 
       </div>

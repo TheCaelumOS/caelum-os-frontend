@@ -51,10 +51,10 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-slate-600">
               <li>
-                <Link href="/os" className="hover:text-blue-600 transition-colors flex items-center justify-between">
-                  <span>Workspace</span>
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">LIVE</span>
-                </Link>
+                <a href="#architecture" className="hover:text-blue-600 transition-colors flex items-center justify-between">
+                  <span>Architecture</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">SPEC</span>
+                </a>
               </li>
               <li>
                 <a href="#what-is-caleumos" className="hover:text-blue-600 transition-colors">Overview</a>

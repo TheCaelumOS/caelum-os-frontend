@@ -54,11 +54,11 @@ export default function Navbar() {
 
   const productItems = [
     {
-      name: "CaelumOS Workspace",
-      desc: "Web-based developer workspace coordinating multi-cloud and local runtimes.",
-      tag: "Live Workspace",
+      name: "CaelumOS Architecture",
+      desc: "Unified operating environment coordinating multi-cloud and local runtimes.",
+      tag: "Architecture",
       tagColor: "bg-blue-50 text-blue-700 border-blue-200 font-semibold",
-      href: "/os",
+      href: "#architecture",
       icon: AppWindow,
     },
     {
@@ -295,14 +295,14 @@ export default function Navbar() {
             <span>GitHub</span>
           </a>
 
-          {/* Launch Workspace CTA */}
-          <Link
-            href="/os"
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs group"
+          {/* Explore Architecture CTA */}
+          <a
+            href="#architecture"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs group"
           >
-            <span>Launch CaelumOS</span>
+            <span>Explore Architecture</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+          </a>
 
           {/* Mobile Menu Toggle Button */}
           <button
@@ -374,14 +374,13 @@ export default function Navbar() {
           </div>
 
           <div className="pt-3 border-t border-slate-200 flex flex-col space-y-2">
-            <Link
-              href="/os"
+            <a
+              href="#architecture"
               onClick={() => setMobileMenuOpen(false)}
               className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-bold text-white bg-blue-600 shadow-xs"
             >
-              <span>Launch CaelumOS Workspace</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+              <span>Explore Architecture &rarr;</span>
+            </a>
             <a
               href="https://github.com/TheCaelumOS/caelum-os-frontend"
               target="_blank"

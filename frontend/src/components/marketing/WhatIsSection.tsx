@@ -45,11 +45,11 @@ export default function WhatIsSection() {
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
-            What is CaleumOS?
+            What is CaelumOS?
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
-            CaleumOS is the flagship platform from <strong className="text-slate-900 font-semibold">Caleum</strong> — an integrated web-based developer and cloud infrastructure workspace designed to eliminate DevOps tool sprawl.
+            CaelumOS is the flagship platform from <strong className="text-slate-900 font-semibold">Caleum</strong> — a unified cloud and infrastructure operating environment engineered to eliminate DevOps tool sprawl, currently advancing toward a dedicated bootable operating system.
           </p>
         </div>
 

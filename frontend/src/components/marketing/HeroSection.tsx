@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { 
   ArrowRight, 
   Terminal, 
@@ -49,7 +48,7 @@ export default function HeroSection() {
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
             <span className="font-bold text-slate-900">Caleum</span>
             <span className="text-slate-300">&bull;</span>
-            <span>Flagship: CaelumOS Developer Preview (Web-Based)</span>
+            <span>Official Engineering Showcase &bull; Bootable OS Under Development</span>
           </div>
         </div>
 
@@ -57,38 +56,30 @@ export default function HeroSection() {
         <div className="text-center max-w-3xl mx-auto space-y-6">
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
             The Unified Cloud &amp; <br className="hidden sm:inline" />
-            <span className="text-blue-600">Developer Workspace.</span>
+            <span className="text-blue-600">Infrastructure Operating System.</span>
           </h1>
 
           <p className="text-base sm:text-xl text-slate-600 leading-relaxed font-normal max-w-2xl mx-auto">
-            CaleumOS is an engineering workspace currently built on the web that coordinates real cloud providers, Docker daemons, Kubernetes clusters, and Terraform states into a single, cohesive developer environment.
+            Explore the engineering behind CaelumOS — from cloud integrations and container tooling to infrastructure automation and the architecture being built toward a dedicated bootable operating system.
           </p>
 
           {/* Action CTAs */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/os"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs group"
-            >
-              <span>Launch Workspace</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-
             <a
               href="https://github.com/TheCaelumOS/caelum-os-frontend"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2.5 px-6 py-3.5 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-xs group"
             >
-              <GithubLogo className="w-4 h-4" />
-              <span>View Source on GitHub</span>
+              <GithubLogo className="w-4 h-4 text-white" />
+              <span>View GitHub Source</span>
             </a>
 
             <a
               href="#architecture"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs group"
             >
-              <span>Explore Architecture</span>
+              <span>Explore Architecture &rarr;</span>
             </a>
           </div>
         </div>
@@ -146,7 +137,7 @@ export default function HeroSection() {
               {/* Center Core: CaelumOS Supervisor Layer */}
               <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-white border-2 border-blue-600/20 shadow-sm text-center relative">
                 <div className="absolute -top-3 px-3 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-mono font-bold tracking-wider uppercase">
-                  Flagship Workspace Engine
+                  Flagship Architecture
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-[#040C1C] text-white shadow-md mt-2">
@@ -157,15 +148,15 @@ export default function HeroSection() {
                   CaelumOS
                 </h4>
                 <p className="text-xs text-slate-500 font-sans mt-1 max-w-[220px]">
-                  Unified windowing workspace coordinating multi-cloud telemetry and local developer runtimes.
+                  Unified operating system coordinating multi-cloud infrastructure and local developer runtimes.
                 </p>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 w-full flex items-center justify-between text-[11px] font-mono text-slate-500">
-                  <span>Web-Based</span>
+                  <span>Showcase</span>
                   <span>&bull;</span>
-                  <span>Real SDKs</span>
+                  <span>Verified SDKs</span>
                   <span>&bull;</span>
-                  <span className="text-blue-600 font-semibold">v0.1.0</span>
+                  <span className="text-blue-600 font-semibold">Under Dev</span>
                 </div>
               </div>
 

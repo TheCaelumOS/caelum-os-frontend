@@ -20,7 +20,7 @@ export default function RoadmapSection() {
       badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
       dot: "bg-emerald-500",
       items: [
-        "Web-based CaelumOS windowing environment (/os)",
+        "Developer workspace prototypes and architectural specifications",
         "Real Docker daemon integration (list, start, stop, restart, logs)",
         "Real Azure ARM SDK client (11 resource types: VMs, Storage, VNets)",
         "Real AWS SDK v3 client (EC2, S3, RDS, STS caller identity)",

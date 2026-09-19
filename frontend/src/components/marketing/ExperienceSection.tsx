@@ -23,7 +23,7 @@ export default function ExperienceSection() {
       id: 0,
       title: "Developer Workstation",
       subtitle: "The Engineer's Entry Point",
-      description: "Engineers interface directly from their local machine via browser or native windowing with zero local environment contamination.",
+      description: "Engineers interface directly from their local workstation with zero environment contamination, preparing for a dedicated bare-metal OS runtime.",
       icon: User,
       color: "bg-blue-50 text-blue-700 border-blue-200",
       stats: "Single Entrypoint &bull; Zero Context-Switching",
@@ -33,7 +33,7 @@ export default function ExperienceSection() {
       id: 1,
       title: "CaelumOS Unified Workspace",
       subtitle: "The Operating Environment",
-      description: "An orchestration desktop that synthesizes host daemons, HCL editors, terminals, and cloud SDKs into one coordinated frame.",
+      description: "An architectural operating layer that coordinates host daemons, HCL editors, terminals, and cloud SDKs into one unified environment.",
       icon: CaelumLogo,
       color: "bg-blue-50 text-blue-700 border-blue-200",
       stats: "Real Host Daemons &bull; WebSocket Streaming",
@@ -207,11 +207,10 @@ export default function ExperienceSection() {
               {/* Platform Link */}
               <div className="pt-2">
                 <a
-                  href="#platform"
-                  className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
+                  href="#architecture"
+                  className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
                 >
-                  <span>Explore Platform Capabilities</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span>Explore Architecture &rarr;</span>
                 </a>
               </div>
 

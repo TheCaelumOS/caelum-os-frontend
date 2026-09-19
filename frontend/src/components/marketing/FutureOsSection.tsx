@@ -55,7 +55,7 @@ export default function FutureOsSection() {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
-            The long-term evolution from a web-based developer workspace into a bootable, bare-metal operating system for cloud-native computing.
+            The dedicated development of a purpose-built, bootable, bare-metal operating system for cloud-native computing.
           </p>
         </div>
 
@@ -71,7 +71,7 @@ export default function FutureOsSection() {
                 Breaking Beyond Browser Boundaries
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                While the web-based workspace solves DevOps tool fragmentation today, browser sandboxes inherently restrict raw hardware access, direct socket binding, and deterministic memory scheduling.
+                Traditional developer environments and web wrappers inherently restrict raw hardware access, direct socket binding, and deterministic memory scheduling.
               </p>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
                 The long-term mission of <strong className="text-slate-900 font-semibold">Caleum</strong> is to compile CaelumOS into a bootable Linux distribution where the operating system itself is the development, containerization, and cloud orchestration platform.

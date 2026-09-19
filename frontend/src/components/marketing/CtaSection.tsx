@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { 
   ArrowRight, 
   Terminal, 
@@ -19,46 +18,38 @@ export default function CtaSection() {
           
           {/* Top Pill */}
           <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-blue-600" />
-            <span>Developer Cloud Workspace</span>
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span>Official Engineering Showcase</span>
           </div>
 
           {/* Heading */}
           <h2 id="cta-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans leading-tight">
-            Experience CaleumOS <br className="hidden sm:inline" />
-            in your browser today.
+            Explore the engineering <br className="hidden sm:inline" />
+            behind CaelumOS.
           </h2>
 
           {/* Description */}
           <p className="text-slate-600 text-base sm:text-lg max-w-xl mx-auto leading-relaxed font-normal">
-            Test the live windowing environment, inspect containers on your host Docker engine, query Azure cloud resources, and run sandboxed Terraform workflows.
+            Explore the engineering behind CaelumOS — from cloud integrations and container tooling to infrastructure automation and the architecture being built toward a dedicated bootable operating system.
           </p>
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link
-              href="/os"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs group"
-            >
-              <span>Launch CaelumOS Workspace</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-
             <a
               href="https://github.com/TheCaelumOS/caelum-os-frontend"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2.5 px-6 py-3.5 rounded-lg text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-xs group"
             >
-              <GithubLogo className="w-4 h-4 text-slate-700" />
+              <GithubLogo className="w-4 h-4 text-white" />
               <span>View GitHub Source</span>
             </a>
 
             <a
               href="#architecture"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs group"
             >
-              <span>Explore Architecture</span>
+              <span>Explore Architecture &rarr;</span>
             </a>
           </div>
 
