@@ -1,374 +1,201 @@
-"use client";
+'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React from 'react';
 import { 
   ArrowRight, 
-  Terminal as TerminalIcon, 
+  Terminal, 
   Layers, 
   Cpu, 
   CheckCircle2, 
-  Play, 
-  RotateCw, 
+  ShieldCheck, 
+  Cloud, 
+  HardDrive, 
+  GitBranch, 
+  Activity, 
   Sparkles,
-  ExternalLink,
-  Github
+  ExternalLink
 } from 'lucide-react';
 import { 
-  DockerLogo, 
-  TerraformLogo, 
+  CaleumLogo, 
+  CaelumOsLogo, 
   AwsLogo, 
   AzureLogo, 
-  KubernetesLogo 
+  DockerLogo, 
+  TerraformLogo, 
+  KubernetesLogo, 
+  GithubLogo 
 } from './Logos';
 
 export default function HeroSection() {
-  const [activeTab, setActiveTab] = useState<'docker' | 'terraform' | 'cloud' | 'terminal'>('docker');
+  const integrationNodes = [
+    { label: "Cloud", value: "AWS & Azure", icon: Cloud, status: "Active Connectors" },
+    { label: "Containers", value: "Docker Engine v29", icon: DockerLogo, status: "Host Sockets" },
+    { label: "Orchestration", value: "Kubernetes", icon: KubernetesLogo, status: "Cluster Contexts" },
+    { label: "IaC Engine", value: "Terraform / OpenTofu", icon: TerraformLogo, status: "HCL Execution" },
+    { label: "Development", value: "Git & VS Code", icon: GithubLogo, status: "Workspace PTY" },
+    { label: "Operations", value: "Telemetry & Logs", icon: Activity, status: "Live Streaming" },
+  ];
 
   return (
-    <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden bg-tech-grid" aria-labelledby="hero-heading">
+    <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 bg-white overflow-hidden border-b border-slate-200">
       
-      {/* Background ambient lighting glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[900px] h-[450px] bg-gradient-to-tr from-cyan-600/15 via-indigo-600/15 to-purple-600/10 blur-[130px] rounded-full pointer-events-none -z-10" />
-      <div className="absolute top-1/3 left-10 w-[300px] h-[300px] bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+      {/* Subtle corporate technical grid */}
+      <div className="absolute inset-0 bg-corporate-grid opacity-70 pointer-events-none" />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Subtle top light gradient */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] bg-gradient-to-b from-blue-50/60 to-transparent pointer-events-none -z-10" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        {/* Top Announcement Badge */}
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-inner mb-6">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
-          </span>
-          <span className="text-[10px] sm:text-xs font-mono font-semibold tracking-wider uppercase text-cyan-300">
-            THE INFRASTRUCTURE ENVIRONMENT FOR MODERN DEVELOPERS
-          </span>
-        </div>
-
-        {/* Main Hero Headline */}
-        <h1 
-          id="hero-heading" 
-          className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-[1.08]"
-        >
-          Your Infrastructure. <br />
-          <span className="bg-gradient-to-r from-cyan-300 via-sky-200 to-indigo-400 bg-clip-text text-transparent">
-            One Unified Environment.
-          </span>
-        </h1>
-
-        {/* Supporting Subtitle */}
-        <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-          Unify multi-cloud control, local container runtimes, and infrastructure-as-code into a single coherent environment. Moving toward a dedicated bootable operating system for developers and infrastructure teams.
-        </p>
-
-        {/* Call to Actions */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-          <a
-            href="#what-is-caelum"
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 hover:from-cyan-300 hover:to-indigo-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all active:scale-98"
-          >
-            <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>Explore CaelumOS</span>
-            <ArrowRight className="w-4 h-4 text-slate-950" />
-          </a>
-
-          <Link
-            href="/download"
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all hover:text-white"
-          >
-            <span>Download CaelumOS</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">ISO</span>
-          </Link>
-
-          <a
-            href="https://github.com/TheCaelumOS/caelum-os-frontend"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl text-sm font-semibold text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] transition-all hover:text-white"
-          >
-            <Github className="w-4 h-4 text-slate-300" />
-            <span>View GitHub</span>
-          </a>
-        </div>
-
-        {/* Trust / Technology Line */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs font-mono text-slate-400">
-          <span className="text-[11px] uppercase tracking-widest text-slate-500">Connected With:</span>
-          <div className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <AwsLogo className="w-4 h-4" />
-            <span>AWS</span>
-          </div>
-          <div className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <AzureLogo className="w-4 h-4" />
-            <span>Azure</span>
-          </div>
-          <div className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <DockerLogo className="w-4 h-4" />
-            <span>Docker</span>
-          </div>
-          <div className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <TerraformLogo className="w-4 h-4" />
-            <span>Terraform</span>
-          </div>
-          <div className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <KubernetesLogo className="w-4 h-4" />
-            <span>Kubernetes</span>
+        {/* Top Announcement / Badge */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-mono text-slate-700">
+            <span className="w-2 h-2 rounded-full bg-blue-600" />
+            <span className="font-semibold text-slate-900">Caleum</span>
+            <span className="text-slate-400">&bull;</span>
+            <span>Flagship Release: CaelumOS v0.1</span>
           </div>
         </div>
 
-        {/* Interactive CaelumOS UI Showcase Mockup */}
-        <div className="mt-14 relative max-w-5xl mx-auto">
-          {/* Glass frame */}
-          <div className="rounded-2xl border border-white/[0.12] bg-[#0c0c10]/90 backdrop-blur-2xl shadow-2xl overflow-hidden text-left">
+        {/* Hero Title & Supporting Text */}
+        <div className="text-center max-w-3xl mx-auto space-y-6">
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
+            Building the infrastructure for <br className="hidden sm:inline" />
+            <span className="text-blue-600">modern developers.</span>
+          </h1>
+
+          <p className="text-base sm:text-xl text-slate-600 leading-relaxed font-normal max-w-2xl mx-auto">
+            Caleum builds developer infrastructure and operating environments that make cloud, DevOps and software development simpler, faster and more accessible.
+          </p>
+
+          {/* Action CTAs */}
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="#caelum-os"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-sm"
+            >
+              <span>Explore CaelumOS</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
+
+            <a
+              href="#about"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-100 border border-slate-200 transition-colors"
+            >
+              <span>Explore Caleum</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Technical Product Visualization (CaelumOS Architectural Hub) */}
+        <div className="mt-16 max-w-5xl mx-auto">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 sm:p-8 shadow-sm">
             
-            {/* Window titlebar */}
-            <div className="h-10 bg-[#121218] border-b border-white/[0.08] px-4 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block" />
-                <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
-                <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
-                <span className="ml-2 text-xs font-mono text-slate-400 font-bold hidden sm:inline">
-                  caelum-os://environment/unified-workspace
+            {/* Header bar of visualization */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-200 gap-3">
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
+                  Technical Architecture
                 </span>
+                <h3 className="text-base font-bold text-slate-900 font-mono flex items-center gap-2">
+                  <span>CaelumOS Unified Coordination Topology</span>
+                </h3>
               </div>
 
-              {/* View Switcher Tabs */}
-              <div className="flex items-center space-x-1 bg-black/40 p-0.5 rounded-lg border border-white/[0.06]">
-                <button
-                  onClick={() => setActiveTab('docker')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors ${
-                    activeTab === 'docker' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Docker
-                </button>
-                <button
-                  onClick={() => setActiveTab('terraform')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors ${
-                    activeTab === 'terraform' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Terraform
-                </button>
-                <button
-                  onClick={() => setActiveTab('cloud')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors ${
-                    activeTab === 'cloud' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Multi-Cloud
-                </button>
-                <button
-                  onClick={() => setActiveTab('terminal')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors ${
-                    activeTab === 'terminal' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Terminal
-                </button>
+              <div className="flex items-center gap-2 text-xs font-mono text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Host Engines Synchronized</span>
               </div>
             </div>
 
-            {/* Tab 1: Real Docker Engine Preview */}
-            {activeTab === 'docker' && (
-              <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2 border-r border-neutral-800/80 pr-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
-                    <span className="text-[11px] font-mono uppercase text-slate-400 font-bold">Containers (3 Active)</span>
-                    <span className="text-[10px] font-mono text-cyan-400">Docker v29.6.2</span>
-                  </div>
-                  
-                  <div className="p-2.5 rounded-xl bg-blue-600/15 border border-blue-500/40 cursor-pointer">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-200">caelum-postgres</span>
-                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded uppercase bg-green-500/20 text-green-400 border border-green-500/30">running</span>
+            {/* Central Schematic Diagram */}
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              
+              {/* Left Domain Cards */}
+              <div className="lg:col-span-4 space-y-3">
+                {integrationNodes.slice(0, 3).map((node) => {
+                  const Icon = node.icon;
+                  return (
+                    <div 
+                      key={node.label}
+                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 transition-all shadow-xs flex items-start space-x-3 group"
+                    >
+                      <div className="p-2 rounded-lg bg-slate-100 text-slate-700 group-hover:text-blue-600 transition-colors mt-0.5">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-slate-900">{node.label}</span>
+                          <span className="text-[10px] font-mono text-slate-400">{node.status}</span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium mt-0.5">{node.value}</p>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">postgres:15-alpine</span>
-                    <span className="text-[9px] text-cyan-400/80 font-mono">ID: 1bfd4562e859 &bull; Port: 5432</span>
-                  </div>
+                  );
+                })}
+              </div>
 
-                  <div className="p-2.5 rounded-xl bg-neutral-900/50 border border-neutral-800">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-200">caelum-redis</span>
-                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded uppercase bg-green-500/20 text-green-400 border border-green-500/30">running</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">redis:7-alpine</span>
-                    <span className="text-[9px] text-slate-500 font-mono">ID: b57fb8bdc152 &bull; Port: 6379</span>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-neutral-900/50 border border-neutral-800">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-200">keen_pascal</span>
-                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded uppercase bg-red-500/20 text-red-400 border border-red-500/30">exited</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-mono block mt-1">hello-world</span>
-                    <span className="text-[9px] text-slate-500 font-mono">ID: c9c396a8eb98</span>
-                  </div>
+              {/* Center Core: CaelumOS Operating Layer */}
+              <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-white border-2 border-blue-600/20 shadow-md text-center relative">
+                <div className="absolute -top-3 px-3 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-mono font-bold tracking-wider uppercase">
+                  Flagship Operating Layer
                 </div>
 
-                <div className="md:col-span-2 flex flex-col min-h-[260px] bg-black/60 rounded-xl border border-neutral-800/80 p-3.5 font-mono text-xs">
-                  <div className="flex items-center justify-between pb-2 border-b border-neutral-800 text-[11px] text-slate-400">
-                    <span>Logs: <strong className="text-white">caelum-postgres (1bfd4562e859)</strong></span>
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Stream: stdout/stderr
-                    </span>
-                  </div>
-                  <pre className="mt-2.5 text-[10px] leading-relaxed text-slate-300 overflow-x-auto whitespace-pre-wrap font-mono">
-{`2026-08-19 06:31:26.225 UTC [1] LOG: starting PostgreSQL 15.18 on x86_64-pc-linux-musl
-2026-08-19 06:31:26.225 UTC [1] LOG: listening on IPv4 address "0.0.0.0", port 5432
-2026-08-19 06:31:26.225 UTC [1] LOG: listening on IPv6 address "::", port 5432
-2026-08-19 06:31:26.230 UTC [1] LOG: listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
-2026-08-19 06:31:28.010 UTC [27] LOG: checkpoint starting: end-of-recovery immediate wait
-2026-08-19 06:31:28.030 UTC [27] LOG: checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added
-2026-08-19 06:31:28.044 UTC [1] LOG: database system is ready to accept connections`}
-                  </pre>
+                <div className="p-3.5 rounded-2xl bg-slate-900 text-white shadow-sm mt-2">
+                  <CaelumOsLogo className="w-8 h-8" />
+                </div>
+
+                <h4 className="text-lg font-bold text-slate-900 font-mono mt-3">
+                  CaelumOS
+                </h4>
+                <p className="text-xs text-slate-500 font-sans mt-1 max-w-[220px]">
+                  Unifying developer workspaces, host runtimes, and multi-cloud infrastructure.
+                </p>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 w-full flex items-center justify-between text-[11px] font-mono text-slate-500">
+                  <span>Local-First</span>
+                  <span>&bull;</span>
+                  <span>Zero Emulation</span>
+                  <span>&bull;</span>
+                  <span className="text-blue-600 font-semibold">v0.1.0</span>
                 </div>
               </div>
-            )}
 
-            {/* Tab 2: Terraform Provisioner Preview */}
-            {activeTab === 'terraform' && (
-              <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-                <div className="bg-black/60 rounded-xl border border-neutral-800 p-3.5 space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-neutral-800 text-[11px] text-purple-300 font-bold">
-                    <span>main.tf (HCL Config)</span>
-                    <span className="text-slate-500 font-normal">Workspace: default</span>
-                  </div>
-                  <pre className="text-[10px] leading-relaxed text-slate-300 overflow-x-auto">
-{`terraform {
-  required_version = ">= 1.5.0"
-  required_providers {
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.4"
-    }
-  }
-}
-
-resource "local_file" "caelum_infra" {
-  filename = "caelum_state.json"
-  content  = jsonencode({
-    cluster = "caelum-primary"
-    status  = "provisioned"
-  })
-}`}
-                  </pre>
-                </div>
-
-                <div className="bg-black/80 rounded-xl border border-neutral-800 p-3.5 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-neutral-800 text-[11px] text-slate-400">
-                      <span>Terraform Execution Output</span>
-                      <span className="text-emerald-400">Exit: 0</span>
+              {/* Right Domain Cards */}
+              <div className="lg:col-span-4 space-y-3">
+                {integrationNodes.slice(3, 6).map((node) => {
+                  const Icon = node.icon;
+                  return (
+                    <div 
+                      key={node.label}
+                      className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 transition-all shadow-xs flex items-start space-x-3 group"
+                    >
+                      <div className="p-2 rounded-lg bg-slate-100 text-slate-700 group-hover:text-blue-600 transition-colors mt-0.5">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-slate-900">{node.label}</span>
+                          <span className="text-[10px] font-mono text-slate-400">{node.status}</span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium mt-0.5">{node.value}</p>
+                      </div>
                     </div>
-                    <pre className="text-[10px] leading-relaxed text-emerald-400/90 whitespace-pre-wrap">
-{`$ terraform plan
-Terraform used the selected providers to generate the following execution plan:
-
-  # local_file.caelum_infra will be created
-  + resource "local_file" "caelum_infra" {
-      + content  = (known after apply)
-      + filename = "caelum_state.json"
-    }
-
-Plan: 1 to add, 0 to change, 0 to destroy.`}
-                    </pre>
-                  </div>
-                  <div className="flex items-center gap-2 pt-3 border-t border-neutral-800">
-                    <span className="px-2.5 py-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[10px] font-bold">terraform init</span>
-                    <span className="px-2.5 py-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[10px] font-bold">terraform validate</span>
-                    <span className="px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-bold">terraform plan</span>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            )}
 
-            {/* Tab 3: Cloud Consoles Preview */}
-            {activeTab === 'cloud' && (
-              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-3">
-                  <div className="flex items-center space-x-2.5 pb-2 border-b border-neutral-800">
-                    <AwsLogo className="w-5 h-5" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">AWS Integration</h4>
-                      <span className="text-[10px] font-mono text-emerald-400">Active Connector &bull; us-east-1</span>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between py-1 border-b border-neutral-800/50">
-                      <span className="text-slate-400">EC2 Instances</span>
-                      <span className="font-mono font-bold text-white">2 Running</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-neutral-800/50">
-                      <span className="text-slate-400">S3 Storage Buckets</span>
-                      <span className="font-mono font-bold text-white">4 Buckets</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-400">VPC Networks</span>
-                      <span className="font-mono font-bold text-white">1 Default VPC</span>
-                    </div>
-                  </div>
-                </div>
+            </div>
 
-                <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-3">
-                  <div className="flex items-center space-x-2.5 pb-2 border-b border-neutral-800">
-                    <AzureLogo className="w-5 h-5" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">Azure Cloud Console</h4>
-                      <span className="text-[10px] font-mono text-cyan-400">Active Connector &bull; eastus</span>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between py-1 border-b border-neutral-800/50">
-                      <span className="text-slate-400">Virtual Machines</span>
-                      <span className="font-mono font-bold text-white">1 Active VM</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-neutral-800/50">
-                      <span className="text-slate-400">Storage Accounts</span>
-                      <span className="font-mono font-bold text-white">2 Accounts</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-400">Resource Groups</span>
-                      <span className="font-mono font-bold text-white">rg-caelum-prod</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 4: Interactive Linux Terminal Preview */}
-            {activeTab === 'terminal' && (
-              <div className="p-4 sm:p-6 bg-black/80 font-mono text-xs space-y-3 min-h-[260px]">
-                <div className="text-slate-400 text-[11px] pb-2 border-b border-neutral-800 flex justify-between">
-                  <span>linux@caelum-os:~ (WebSocket Session 1)</span>
-                  <span className="text-emerald-400">Connected</span>
-                </div>
-                <div className="space-y-1 text-slate-300 text-[11px]">
-                  <p><span className="text-emerald-400">linux@caelum-os:~$</span> uname -a</p>
-                  <p className="text-slate-400">Linux caelum-workspace 6.5.0-x86_64 #1 SMP PREEMPT_DYNAMIC CaelumOS Unified</p>
-                  <p className="mt-2"><span className="text-emerald-400">linux@caelum-os:~$</span> docker --version && terraform --version</p>
-                  <p className="text-slate-400">Docker version 29.6.2, build 92954c3</p>
-                  <p className="text-slate-400">Terraform v1.14.5 on windows_amd64</p>
-                  <p className="mt-2"><span className="text-emerald-400">linux@caelum-os:~$</span> <span className="animate-pulse">_</span></p>
-                </div>
-              </div>
-            )}
-
-            {/* Bottom bar of preview */}
-            <div className="h-9 bg-[#0d0d12] border-t border-white/[0.06] px-4 flex items-center justify-between text-[11px] font-mono text-slate-500">
-              <div className="flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Caelum Engine Online &bull; Port 4000</span>
-              </div>
-              <a
-                href="#experience"
-                className="text-cyan-400 hover:text-cyan-300 flex items-center space-x-1 font-semibold"
-              >
-                <span>View Architecture</span>
-                <ArrowRight className="w-3 h-3" />
+            {/* Bottom summary bar */}
+            <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-mono">
+              <span>Direct host socket bindings: Docker Engine &bull; Terraform CLI &bull; WebSocket PTY</span>
+              <a href="#caelum-os" className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+                <span>View Product Breakdown</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>
+
           </div>
         </div>
 

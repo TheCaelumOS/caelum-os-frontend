@@ -3,40 +3,30 @@
 import React from 'react';
 import Navbar from './Navbar';
 import HeroSection from './HeroSection';
-import ProblemSection from './ProblemSection';
-import MeetCaelumSection from './MeetCaelumSection';
-import PlatformSection from './PlatformSection';
-import ExperienceSection from './ExperienceSection';
+import CaelumOsSection from './CaelumOsSection';
 import WhySection from './WhySection';
-import VisionSection from './VisionSection';
-import AiVisionSection from './AiVisionSection';
-import BootableOsSection from './BootableOsSection';
+import EcosystemSection from './EcosystemSection';
+import TechSection from './TechSection';
 import RoadmapSection from './RoadmapSection';
 import DocsSection from './DocsSection';
-import WhoIsItForSection from './WhoIsItForSection';
+import OpenSourceSection from './OpenSourceSection';
 import AboutSection from './AboutSection';
-import CtaSection from './CtaSection';
 import Footer from './Footer';
 
 export default function LandingPage() {
   return (
-    <div id="top" className="min-h-screen bg-[#09090b] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div id="top" className="min-h-screen bg-white text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white">
       <Navbar />
       <main className="flex-1 w-full">
         <HeroSection />
-        <ProblemSection />
-        <MeetCaelumSection />
-        <PlatformSection />
-        <ExperienceSection />
+        <CaelumOsSection />
         <WhySection />
-        <VisionSection />
-        <AiVisionSection />
-        <BootableOsSection />
+        <EcosystemSection />
+        <TechSection />
         <RoadmapSection />
         <DocsSection />
-        <WhoIsItForSection />
+        <OpenSourceSection />
         <AboutSection />
-        <CtaSection />
       </main>
       <Footer />
     </div>

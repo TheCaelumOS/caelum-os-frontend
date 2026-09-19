@@ -14,35 +14,35 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://caleum.me"),
-  title: "CaelumOS — Your Infrastructure. One Unified Environment.",
-  description: "CaelumOS is a unified developer environment for cloud infrastructure, containers, infrastructure-as-code, and modern DevOps workflows.",
+  title: "Caleum — Building the infrastructure for modern developers.",
+  description: "Caleum builds developer infrastructure and operating environments that make cloud, DevOps and software development simpler, faster and more accessible. Flagship product: CaelumOS.",
   alternates: {
     canonical: "https://caleum.me",
   },
   openGraph: {
-    title: "CaelumOS — Your Infrastructure. One Unified Environment.",
-    description: "CaelumOS is a unified developer environment for cloud infrastructure, containers, infrastructure-as-code, and modern DevOps workflows.",
+    title: "Caleum — Building the infrastructure for modern developers.",
+    description: "Caleum builds developer infrastructure and operating environments that make cloud, DevOps and software development simpler, faster and more accessible. Flagship product: CaelumOS.",
     url: "https://caleum.me",
-    siteName: "CaelumOS",
+    siteName: "Caleum",
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "CaelumOS — Your Infrastructure. One Unified Environment.",
-    description: "CaelumOS is a unified developer environment for cloud infrastructure, containers, infrastructure-as-code, and modern DevOps workflows.",
+    title: "Caleum — Building the infrastructure for modern developers.",
+    description: "Caleum builds developer infrastructure and operating environments that make cloud, DevOps and software development simpler, faster and more accessible. Flagship product: CaelumOS.",
   },
   keywords: [
+    "Caleum",
     "CaelumOS",
+    "developer infrastructure",
     "cloud infrastructure",
-    "developer environment",
-    "Docker",
-    "Terraform",
-    "Kubernetes",
-    "AWS",
-    "Azure",
     "DevOps",
-    "infrastructure as code"
+    "containers",
+    "Kubernetes",
+    "Terraform",
+    "Git",
+    "operating environment"
   ]
 };
 
@@ -56,7 +56,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
-      <body className="min-h-full flex flex-col bg-[#09090b] text-[#f8fafc]">
+      <body className="min-h-full flex flex-col bg-white text-slate-900">
         {children}
       </body>
     </html>
