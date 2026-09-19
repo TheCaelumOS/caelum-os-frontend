@@ -92,9 +92,9 @@ export default function RoadmapSection() {
         
         {/* Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-mono font-bold text-slate-700 uppercase tracking-wider">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
             <Compass className="w-3.5 h-3.5" />
-            <span>Engineering Trajectory</span>
+            <span>Engineering Roadmap</span>
           </div>
 
           <h2 id="roadmap-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">

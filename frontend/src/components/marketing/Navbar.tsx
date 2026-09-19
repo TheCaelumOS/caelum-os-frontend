@@ -309,8 +309,8 @@ export default function Navbar() {
           </a>
 
           <a
-            href="#caelum-os"
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-sm"
+            href="#platform"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs"
           >
             <span>Explore CaelumOS</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -320,8 +320,8 @@ export default function Navbar() {
         {/* Mobile Menu Button */}
         <div className="lg:hidden flex items-center space-x-2">
           <a
-            href="#caelum-os"
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-slate-900"
+            href="#platform"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600"
           >
             CaelumOS
           </a>

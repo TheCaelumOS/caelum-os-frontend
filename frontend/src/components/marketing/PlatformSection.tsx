@@ -5,13 +5,7 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Clock, 
-  ExternalLink, 
-  Sparkles,
-  Cpu,
-  Layers,
-  Container,
-  Terminal,
-  Server
+  Layers
 } from 'lucide-react';
 import { 
   DockerLogo, 
@@ -25,106 +19,83 @@ import {
 export default function PlatformSection() {
   const integrations = [
     {
-      name: "Docker Engine",
+      name: "Docker Engine Daemon",
       category: "Containers & Daemons",
-      tagline: "Container management and workflows.",
-      description: "Direct host Docker Engine daemon integration. Inspect running/stopped containers, stream real stdout/stderr logs, inspect images, storage volumes, and trigger lifecycle controls.",
+      tagline: "Direct host daemon control.",
+      description: "Direct host Docker Engine integration via local named pipes and sockets. Inspect containers, stream live stdout/stderr logs, inspect images and volumes, and trigger lifecycle actions.",
       status: "Implemented",
       statusType: "live",
       icon: DockerLogo,
-      href: "/docker",
-      accent: "from-cyan-500/20 to-blue-500/10",
-      border: "border-cyan-500/30",
-      pill: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-      details: ["Real Docker CLI v29.6.2", "Container Logs Streaming", "Lifecycle Start/Stop/Restart", "Volumes & Networks"]
+      details: ["Real Docker Engine v29", "Container Logs Streaming", "Lifecycle Start/Stop/Restart", "Volumes & Local Networks"]
     },
     {
       name: "Terraform Provisioner",
       category: "Infrastructure as Code",
-      tagline: "Infrastructure as code and provisioning.",
-      description: "Embedded HCL configuration editor with live CLI execution. Run automated terraform init, validate, fmt, and plan with isolated workspace state files and streamed terminal feedback.",
+      tagline: "Declarative infrastructure management.",
+      description: "Embedded HCL configuration workspace with live CLI execution. Run automated init, validate, format, and plan with isolated workspace state files and streamed terminal feedback.",
       status: "Implemented",
       statusType: "live",
       icon: TerraformLogo,
-      href: "/terraform",
-      accent: "from-purple-500/20 to-indigo-500/10",
-      border: "border-purple-500/30",
-      pill: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-      details: ["Terraform CLI v1.14.5", "HCL Syntax Workspace", "Live Init, Validate, Plan", "State File Isolation"]
+      details: ["Terraform CLI v1.14", "HCL Syntax Workspace", "Live Init, Validate, Plan", "State File Isolation"]
     },
     {
       name: "AWS Cloud Console",
-      category: "Cloud Platforms",
-      tagline: "Cloud infrastructure and services.",
-      description: "Connect to Amazon Web Services to monitor compute, storage, and networking layers. Inspect EC2 virtual servers, S3 buckets, RDS databases, and VPC networks in real time.",
+      category: "Public Cloud Platforms",
+      tagline: "Amazon Web Services integration.",
+      description: "Connect to Amazon Web Services to inspect compute, storage, and networking layers. View EC2 instances, S3 buckets, RDS databases, and verify AWS STS caller identity in real time.",
       status: "Implemented",
       statusType: "live",
       icon: AwsLogo,
-      href: "/aws",
-      accent: "from-amber-500/20 to-orange-500/10",
-      border: "border-amber-500/30",
-      pill: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-      details: ["EC2 Instance Monitoring", "S3 Storage Buckets", "VPC & Subnets Explorer", "CloudWatch Metrics"]
+      details: ["EC2 Instance Monitoring", "S3 Storage Buckets", "AWS STS Identity", "RDS Database Visibility"]
     },
     {
       name: "Azure Cloud Console",
-      category: "Cloud Platforms",
-      tagline: "Microsoft cloud infrastructure and services.",
+      category: "Public Cloud Platforms",
+      tagline: "Microsoft Azure infrastructure.",
       description: "Native Azure subscription monitoring. Visualize resource groups, Virtual Machines, Blob Storage accounts, virtual networks, and manage multi-region cloud services.",
       status: "Implemented",
       statusType: "live",
       icon: AzureLogo,
-      href: "/azure",
-      accent: "from-blue-500/20 to-sky-500/10",
-      border: "border-blue-500/30",
-      pill: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-      details: ["Virtual Machines (VMs)", "Resource Group Hierarchy", "Azure Blob Storage", "Network Security Groups"]
+      details: ["Virtual Machines (VMs)", "Resource Group Hierarchy", "Azure Blob Storage", "Subscription Resolution"]
     },
     {
       name: "Kubernetes Orchestrator",
       category: "Container Orchestration",
-      tagline: "Container orchestration and cluster management.",
-      description: "Cluster context switching, pod status inspection, namespace isolation, and deployment scaling. Under active development as part of Phase 02 infrastructure.",
-      status: "Building",
+      tagline: "Cluster and workload management.",
+      description: "Cluster context switching, pod status inspection, namespace isolation, and deployment status observation. Designed to coordinate multi-cluster workflows.",
+      status: "Active Development",
       statusType: "upcoming",
       icon: KubernetesLogo,
-      href: "/kubernetes",
-      accent: "from-blue-600/10 to-indigo-600/5",
-      border: "border-blue-500/20",
-      pill: "bg-amber-500/10 text-amber-400 border-amber-500/30",
       details: ["Namespace & Pod Explorer", "Deployment Rollouts", "Ingress & Service Map", "Cluster Contexts"]
     },
     {
       name: "Git & Linux Terminal",
       category: "Developer Tooling",
-      tagline: "Source control and development workflows.",
-      description: "Integrated developer terminal with WebSocket bidirectional streaming, paired with Git repository management, local file system manager (Nautilus), and editor tooling.",
+      tagline: "Source control and system workflows.",
+      description: "Integrated developer terminal with WebSocket bidirectional streaming, paired with Git repository management, local file explorer, and development tooling.",
       status: "Implemented",
       statusType: "live",
       icon: GithubLogo,
-      href: "/terminal",
-      accent: "from-emerald-500/20 to-teal-500/10",
-      border: "border-emerald-500/30",
-      pill: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
       details: ["WebSocket PTY Terminal", "Git Branch & History", "Nautilus File Manager", "System Diagnostics"]
     },
   ];
 
   return (
-    <section id="platform" className="py-24 bg-[#09090b] relative scroll-mt-16" aria-labelledby="platform-heading">
-      
+    <section id="platform" className="py-24 bg-slate-50/60 border-b border-slate-200 scroll-mt-16" aria-labelledby="platform-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider mb-4">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
             <Layers className="w-3.5 h-3.5" />
-            <span>Integrations Matrix</span>
+            <span>Platform Capabilities</span>
           </div>
-          <h2 id="platform-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
-            Everything closer to the <span className="bg-gradient-to-r from-cyan-400 to-sky-300 bg-clip-text text-transparent">developer</span>.
+
+          <h2 id="platform-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
+            Unified Platform Capabilities
           </h2>
-          <p className="mt-4 text-slate-400 text-sm sm:text-base leading-relaxed">
+
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
             Direct host engine bindings, real CLI processes, and live cloud connectors. No simulated sandboxes or fake metrics.
           </p>
         </div>
@@ -134,19 +105,23 @@ export default function PlatformSection() {
           {integrations.map((item) => (
             <div
               key={item.name}
-              className={`p-6 rounded-2xl bg-gradient-to-b ${item.accent} bg-neutral-900/40 border ${item.border} backdrop-blur-xl flex flex-col justify-between transition-all hover:-translate-y-1 hover:shadow-xl`}
+              className="p-6 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between hover:border-slate-300 hover:shadow-sm transition-all"
             >
               <div>
                 {/* Header with icon and status pill */}
                 <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-black/60 border border-white/[0.08] shadow-inner">
-                    <item.icon className="w-6 h-6" />
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 shadow-xs">
+                    <item.icon className="w-5 h-5" />
                   </div>
-                  <span className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider flex items-center gap-1.5 ${item.pill}`}>
+                  <span className={`text-[10px] font-mono font-medium px-2.5 py-1 rounded-full border uppercase tracking-wider flex items-center gap-1.5 ${
+                    item.statusType === 'live'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}>
                     {item.statusType === 'live' ? (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     ) : (
-                      <Clock className="w-3 h-3 text-amber-400" />
+                      <Clock className="w-3 h-3 text-amber-600" />
                     )}
                     <span>{item.status}</span>
                   </span>
@@ -154,40 +129,37 @@ export default function PlatformSection() {
 
                 {/* Titles */}
                 <div className="mt-5">
-                  <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-semibold block">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider font-semibold block">
                     {item.category}
                   </span>
-                  <h3 className="text-lg font-bold text-white mt-1">{item.name}</h3>
-                  <p className="text-xs font-mono text-cyan-300/80 mt-0.5">&ldquo;{item.tagline}&rdquo;</p>
+                  <h3 className="text-base font-bold text-slate-900 font-sans mt-0.5">{item.name}</h3>
+                  <p className="text-xs font-mono text-slate-500 mt-0.5">{item.tagline}</p>
                 </div>
 
                 {/* Description */}
-                <p className="mt-3 text-xs text-slate-400 leading-relaxed font-normal">
+                <p className="mt-3 text-xs text-slate-600 leading-relaxed font-normal">
                   {item.description}
                 </p>
 
                 {/* Feature Bullet points */}
-                <div className="mt-5 pt-4 border-t border-white/[0.06] space-y-2">
+                <div className="mt-5 pt-4 border-t border-slate-100 space-y-1.5">
                   {item.details.map((detail) => (
-                    <div key={detail} className="flex items-center space-x-2 text-[11px] text-slate-300 font-mono">
-                      <CheckCircle2 className="w-3 h-3 text-cyan-400 flex-shrink-0" />
+                    <div key={detail} className="flex items-center space-x-2 text-[11px] text-slate-700 font-mono">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                       <span className="truncate">{detail}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Architecture & Engine Status */}
-              <div className="mt-6 pt-4 border-t border-white/[0.06]">
+              {/* Architecture Link */}
+              <div className="mt-6 pt-4 border-t border-slate-100">
                 <a
                   href="#experience"
-                  className="w-full inline-flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-cyan-500/30 transition-all group"
+                  className="w-full inline-flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100/70 border border-slate-200 transition-colors"
                 >
-                  <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                    <span>View Architecture Specs</span>
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-cyan-400 transition-transform group-hover:translate-x-1" />
+                  <span className="font-mono text-[11px]">View Architecture Specs</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
                 </a>
               </div>
             </div>

@@ -4,88 +4,77 @@ import {
   ArrowRight, 
   Terminal, 
   Sparkles, 
-  Github, 
   ShieldCheck, 
-  Rocket 
+  BookOpen
 } from 'lucide-react';
-import { CaelumLogo } from './Logos';
+import { GithubLogo } from './Logos';
 
 export default function CtaSection() {
   return (
-    <section className="py-24 bg-[#09090b] relative overflow-hidden" aria-labelledby="cta-heading">
-      
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[900px] h-[400px] bg-gradient-to-r from-cyan-600/20 via-indigo-600/20 to-purple-600/20 blur-[140px] rounded-full pointer-events-none -z-10" />
-
+    <section id="cta" className="py-24 bg-slate-50/60 border-b border-slate-200 scroll-mt-16" aria-labelledby="cta-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="rounded-3xl border border-white/[0.12] bg-gradient-to-b from-neutral-900/90 to-[#0c0c10]/95 backdrop-blur-2xl p-8 sm:p-14 text-center max-w-4xl mx-auto shadow-2xl space-y-8 relative overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-14 text-center max-w-4xl mx-auto shadow-xs space-y-6">
           
-          {/* Subtle grid in CTA */}
-          <div className="absolute inset-0 bg-tech-dots opacity-40 pointer-events-none" />
-
           {/* Top Pill */}
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-xs font-mono font-bold text-cyan-300 uppercase tracking-widest relative z-10 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span>Building in public.</span>
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-blue-600" />
+            <span>Developer Operating Environment</span>
           </div>
 
           {/* Heading */}
-          <h2 id="cta-heading" className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white relative z-10 leading-tight">
-            The infrastructure layer <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
-              for what&apos;s next.
-            </span>
+          <h2 id="cta-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans leading-tight">
+            Ready to simplify your <br className="hidden sm:inline" />
+            infrastructure workflow?
           </h2>
 
           {/* Description */}
-          <p className="text-slate-300 text-sm sm:text-lg max-w-xl mx-auto leading-relaxed relative z-10 font-normal">
-            CaelumOS is being built for developers who want a simpler way to work with modern infrastructure.
+          <p className="text-slate-600 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+            Start organizing your cloud platforms, containers, and development environments into one unified, local-first operating environment.
           </p>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 relative z-10 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <a
-              href="#what-is-caelum"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 hover:from-cyan-300 hover:to-indigo-300 shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/35 transition-all active:scale-98"
+              href="#platform"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
             >
-              <Sparkles className="w-4 h-4 text-slate-950" />
               <span>Explore CaelumOS</span>
-              <ArrowRight className="w-4 h-4 text-slate-950" />
+              <ArrowRight className="w-4 h-4" />
             </a>
 
-            <Link
-              href="/download"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all hover:text-white"
+            <a
+              href="#docs"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
             >
-              <span>Download CaelumOS</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">ISO</span>
-            </Link>
+              <BookOpen className="w-4 h-4 text-slate-600" />
+              <span>Documentation</span>
+            </a>
 
             <a
               href="https://github.com/TheCaelumOS/caelum-os-frontend"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl text-sm font-semibold text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] transition-all hover:text-white"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-lg text-sm font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
             >
-              <Github className="w-4 h-4 text-slate-300" />
-              <span>View GitHub</span>
+              <GithubLogo className="w-4 h-4 text-slate-700" />
+              <span>GitHub</span>
             </a>
           </div>
 
-          {/* Security & Verification trustline */}
-          <div className="pt-6 border-t border-white/[0.06] flex flex-wrap items-center justify-center gap-6 text-xs font-mono text-slate-400 relative z-10">
+          {/* Trustline */}
+          <div className="pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-6 text-xs font-mono text-slate-500">
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Zero Mock Engines</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span>Host Sockets Verified</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Local Host Sockets Verified</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span>Open Source Core</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Apache 2.0 Open Source Core</span>
             </span>
           </div>
 

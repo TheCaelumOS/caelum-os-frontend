@@ -71,18 +71,18 @@ export default function HeroSection() {
           {/* Action CTAs */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="#caelum-os"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-sm"
+              href="#platform"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs"
             >
               <span>Explore CaelumOS</span>
               <ArrowRight className="w-4 h-4" />
             </a>
 
             <a
-              href="#about"
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-100 border border-slate-200 transition-colors"
+              href="#docs"
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
             >
-              <span>Explore Caleum</span>
+              <span>View Documentation</span>
             </a>
           </div>
         </div>
@@ -190,8 +190,8 @@ export default function HeroSection() {
             {/* Bottom summary bar */}
             <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-mono">
               <span>Direct host socket bindings: Docker Engine &bull; Terraform CLI &bull; WebSocket PTY</span>
-              <a href="#caelum-os" className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
-                <span>View Product Breakdown</span>
+              <a href="#platform" className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+                <span>View Platform Breakdown</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             </div>

@@ -58,14 +58,15 @@ export default function OpenSourceSection() {
   ];
 
   return (
-    <section id="developers" className="py-24 bg-white border-b border-slate-200 scroll-mt-16" aria-labelledby="devs-heading">
+    <section id="open-source" className="py-24 bg-white border-b border-slate-200 scroll-mt-16" aria-labelledby="devs-heading">
+      <div id="developers" className="scroll-mt-20" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-mono font-bold text-slate-700 uppercase tracking-wider">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
             <Users className="w-3.5 h-3.5" />
-            <span>Open Ecosystem</span>
+            <span>Open Source Community</span>
           </div>
 
           <h2 id="devs-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
@@ -73,7 +74,7 @@ export default function OpenSourceSection() {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-            Caleum is built in public. We believe developer tools must be auditable, extensible, and anchored in strong open-source collaboration.
+            Caleum is built in public. We believe infrastructure tools must be transparent, auditable, extensible, and anchored in strong open-source collaboration.
           </p>
 
           <div className="pt-2">
@@ -81,11 +82,11 @@ export default function OpenSourceSection() {
               href="https://github.com/TheCaelumOS/caelum-os-frontend"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
+              className="inline-flex items-center space-x-2 px-6 py-3 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
             >
               <GithubLogo className="w-4 h-4" />
-              <span>View on GitHub</span>
-              <ArrowUpRight className="w-4 h-4 opacity-70" />
+              <span>View Repository on GitHub</span>
+              <ArrowUpRight className="w-4 h-4 opacity-80" />
             </a>
           </div>
         </div>

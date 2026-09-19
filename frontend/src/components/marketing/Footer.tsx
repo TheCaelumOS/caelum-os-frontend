@@ -51,7 +51,7 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-slate-600">
               <li>
-                <a href="#caelum-os" className="hover:text-blue-600 transition-colors flex items-center justify-between">
+                <a href="#platform" className="hover:text-blue-600 transition-colors flex items-center justify-between">
                   <span>CaelumOS</span>
                   <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">FLAGSHIP</span>
                 </a>

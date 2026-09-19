@@ -3,26 +3,17 @@
 import React, { useState } from 'react';
 import { 
   User, 
-  Monitor, 
   Layers, 
   Cpu, 
   Server, 
-  ArrowDown, 
   Check, 
   Zap, 
-  ChevronRight,
-  ShieldCheck,
-  Terminal,
-  RefreshCw
+  ChevronRight, 
+  ShieldCheck, 
+  Terminal, 
+  Activity 
 } from 'lucide-react';
-import { 
-  DockerLogo, 
-  TerraformLogo, 
-  AwsLogo, 
-  AzureLogo, 
-  KubernetesLogo,
-  CaelumLogo 
-} from './Logos';
+import { CaelumLogo } from './Logos';
 
 export default function ExperienceSection() {
   const [selectedLayer, setSelectedLayer] = useState<number>(1);
@@ -32,74 +23,71 @@ export default function ExperienceSection() {
       id: 0,
       title: "Developer Workstation",
       subtitle: "The Engineer's Entry Point",
-      description: "Developers work via web browser, terminal shells, or direct desktop clients with zero local environment contamination.",
+      description: "Engineers interface directly from their local machine via browser or native windowing with zero local environment contamination.",
       icon: User,
-      color: "border-cyan-500/40 text-cyan-400 bg-cyan-500/10",
-      stats: "Single Entrypoint • Zero Context-Switching",
-      bullets: ["Unified Auth & RBAC", "Web-based Accessible Client", "Zero Client Dependencies"]
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+      stats: "Single Entrypoint &bull; Zero Context-Switching",
+      bullets: ["Direct Host Daemon Binding", "No Local VM Overhead", "Zero Client Configuration Drift"]
     },
     {
       id: 1,
       title: "CaelumOS Unified Workspace",
       subtitle: "The Operating Environment",
-      description: "An orchestration desktop that synthesizes daemons, HCL editors, terminals, and cloud SDKs into one responsive frame.",
+      description: "An orchestration desktop that synthesizes host daemons, HCL editors, terminals, and cloud SDKs into one coordinated frame.",
       icon: CaelumLogo,
-      color: "border-indigo-500/40 text-indigo-400 bg-indigo-500/10",
-      stats: "Real Host Daemons • WebSocket Streaming",
-      bullets: ["Real-time PTY Terminals", "Multi-window Coordination", "State File Isolation"]
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+      stats: "Real Host Daemons &bull; WebSocket Streaming",
+      bullets: ["Real-time PTY Terminals", "Multi-window Coordination", "Workspace State Isolation"]
     },
     {
       id: 2,
-      title: "Cloud + Infrastructure Layer",
-      subtitle: "The Bridge Engine",
-      description: "Low-latency background services connecting directly to local Docker pipes, host Terraform binaries, and cloud REST APIs.",
+      title: "Cloud & Infrastructure Layer",
+      subtitle: "The Bridge Supervisor",
+      description: "Low-latency background microservices connecting directly to local Docker pipes, host Terraform binaries, and cloud REST APIs.",
       icon: Layers,
-      color: "border-purple-500/40 text-purple-400 bg-purple-500/10",
-      stats: "Sub-second Querying • Async Cancellation",
-      bullets: ["Direct Host Sockets", "Docker CLI Engine v29", "Terraform Binary Streams"]
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+      stats: "Sub-second Querying &bull; Loopback Sockets",
+      bullets: ["Host Named Pipes & Unix Sockets", "Docker Engine v29 Controller", "Terraform Binary Streams"]
     },
     {
       id: 3,
       title: "Multi-Cloud & Engine Matrix",
       subtitle: "The Infrastructure Runtimes",
-      description: "Simultaneous execution across Docker Engine, Terraform CLI, AWS SDK, Azure Resource Manager, and Kubernetes clusters.",
+      description: "Simultaneous orchestration across Docker Engine, Terraform CLI, AWS SDK, Azure Resource Manager, and Kubernetes clusters.",
       icon: Cpu,
-      color: "border-amber-500/40 text-amber-400 bg-amber-500/10",
-      stats: "Heterogeneous Multi-Cloud Provisioning",
-      bullets: ["AWS us-east-1 & S3", "Azure EastUS & VMs", "Containerized Workloads"]
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+      stats: "Multi-Cloud Provisioning &bull; Real Credentials",
+      bullets: ["AWS STS Caller Identity", "Azure Resource Group Hierarchy", "Containerized OCI Workloads"]
     },
     {
       id: 4,
       title: "Applications & Live Infrastructure",
       subtitle: "Production Systems",
-      description: "The deployed result: production microservices, SQL databases, serverless functions, and high-availability clusters.",
+      description: "The deployed result: production containers, relational databases, isolated virtual networks, and highly available clusters.",
       icon: Server,
-      color: "border-emerald-500/40 text-emerald-400 bg-emerald-500/10",
+      color: "bg-blue-50 text-blue-700 border-blue-200",
       stats: "100% Verified Real Infrastructure Output",
-      bullets: ["High Availability", "Active Healthchecks", "Zero Simulation"]
+      bullets: ["High Availability", "Active Healthchecks", "Zero Mock Data or Simulations"]
     },
   ];
 
   return (
-    <section id="architecture" className="py-24 bg-[#0c0c10] relative scroll-mt-16 border-b border-white/[0.06]" aria-labelledby="experience-heading">
-      <div id="experience" className="scroll-mt-20" />
-      
+    <section id="experience" className="py-24 bg-slate-50/60 border-b border-slate-200 scroll-mt-16" aria-labelledby="experience-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider mb-4">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
             <Zap className="w-3.5 h-3.5" />
-            <span>Architecture Flow</span>
+            <span>Developer Workflow</span>
           </div>
-          <h2 id="experience-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
-            One workspace. <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
-              Multiple technologies.
-            </span>
+
+          <h2 id="experience-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
+            The Developer Experience
           </h2>
-          <p className="mt-4 text-slate-400 text-sm sm:text-base leading-relaxed">
-            Trace the execution pipeline from developer input to real infrastructure deployment. Click any tier below to inspect its data flow.
+
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
+            Trace the execution pipeline from developer input to real infrastructure deployment. Select any architectural tier below to inspect its data flow.
           </p>
         </div>
 
@@ -117,24 +105,24 @@ export default function ExperienceSection() {
                     onClick={() => setSelectedLayer(layer.id)}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                       isSelected 
-                        ? 'bg-neutral-850 border-cyan-500/60 shadow-lg shadow-cyan-500/10 scale-[1.01]' 
-                        : 'bg-neutral-900/50 border-white/[0.06] hover:border-white/[0.15] hover:bg-neutral-900/80'
+                        ? 'bg-white border-blue-600 shadow-sm ring-1 ring-blue-600/20' 
+                        : 'bg-white/80 border-slate-200 hover:border-slate-300 hover:bg-white'
                     }`}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className={`p-2.5 rounded-lg border ${layer.color} flex-shrink-0`}>
+                      <div className={`p-2 rounded-lg border ${layer.color} flex-shrink-0`}>
                         <Icon className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider">
-                            Level 0{index + 1}
+                          <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
+                            Tier 0{index + 1}
                           </span>
                           {isSelected && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
                           )}
                         </div>
-                        <h4 className={`text-sm font-bold tracking-tight ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                        <h4 className="text-sm font-bold text-slate-900 font-sans">
                           {layer.title}
                         </h4>
                         <span className="text-xs text-slate-500 font-mono hidden sm:inline">
@@ -145,18 +133,20 @@ export default function ExperienceSection() {
 
                     <div className="flex items-center space-x-2">
                       <span className={`text-[10px] font-mono px-2 py-0.5 rounded border hidden sm:inline ${
-                        isSelected ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-white/[0.03] text-slate-500 border-white/[0.06]'
+                        isSelected 
+                          ? 'bg-blue-50 text-blue-700 border-blue-200 font-medium' 
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
                       }`}>
                         {isSelected ? 'Active Tier' : 'Inspect'}
                       </span>
-                      <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-cyan-400 rotate-90' : 'text-slate-600'}`} />
+                      <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-blue-600 rotate-90' : 'text-slate-400'}`} />
                     </div>
                   </div>
 
                   {/* Connecting pipe arrow */}
                   {index < layers.length - 1 && (
                     <div className="flex justify-center py-1">
-                      <div className="w-0.5 h-3 bg-gradient-to-b from-white/20 to-transparent" />
+                      <div className="w-0.5 h-3 bg-slate-300" />
                     </div>
                   )}
                 </div>
@@ -166,48 +156,48 @@ export default function ExperienceSection() {
 
           {/* Right: Detailed Tier Inspector Panel */}
           <div className="lg:col-span-5 sticky top-24">
-            <div className="rounded-2xl border border-white/[0.12] bg-neutral-900/70 backdrop-blur-2xl p-6 sm:p-7 shadow-2xl space-y-6">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 sm:p-7 shadow-xs space-y-6">
               
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-blue-600 font-bold">
                     Tier Inspection Protocol
                   </span>
-                  <h3 className="text-xl font-bold text-white tracking-tight">
+                  <h3 className="text-lg font-bold text-slate-900 font-sans">
                     {layers[selectedLayer].title}
                   </h3>
                 </div>
-                <div className="p-3 rounded-xl bg-black/60 border border-white/[0.08]">
-                  {React.createElement(layers[selectedLayer].icon, { className: "w-6 h-6 text-cyan-400" })}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 shadow-xs">
+                  {React.createElement(layers[selectedLayer].icon, { className: "w-5 h-5" })}
                 </div>
               </div>
 
               {/* Subtitle & Description */}
               <div className="space-y-2">
-                <span className="text-xs font-mono text-slate-400 font-semibold block">
+                <span className="text-xs font-mono text-slate-500 font-semibold block">
                   Role: {layers[selectedLayer].subtitle}
                 </span>
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
                   {layers[selectedLayer].description}
                 </p>
               </div>
 
               {/* Performance / Architectural metric */}
-              <div className="p-3 rounded-xl bg-black/50 border border-white/[0.06] text-xs font-mono text-cyan-300">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Performance Metric:</span>
-                <span className="mt-1 block font-semibold">{layers[selectedLayer].stats}</span>
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Architectural Metric:</span>
+                <span className="mt-1 block font-semibold text-slate-900" dangerouslySetInnerHTML={{ __html: layers[selectedLayer].stats }} />
               </div>
 
               {/* Key capabilities */}
-              <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-bold block">
-                  Architectural Highlights:
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block">
+                  Key Guarantees:
                 </span>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {layers[selectedLayer].bullets.map((bullet) => (
-                    <div key={bullet} className="flex items-center space-x-2.5 text-xs text-slate-300 font-mono">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <div key={bullet} className="flex items-center space-x-2 text-xs text-slate-700 font-mono">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                       <span>{bullet}</span>
                     </div>
                   ))}
@@ -215,12 +205,12 @@ export default function ExperienceSection() {
               </div>
 
               {/* Platform Link */}
-              <div className="pt-3">
+              <div className="pt-2">
                 <a
                   href="#platform"
-                  className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors shadow-md"
+                  className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
                 >
-                  <span>Explore Platform Engines</span>
+                  <span>Explore Platform Capabilities</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </a>
               </div>
