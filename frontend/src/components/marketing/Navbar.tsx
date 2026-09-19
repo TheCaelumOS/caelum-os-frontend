@@ -3,25 +3,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  ChevronDown, 
   Menu, 
   X, 
-  ArrowRight, 
-  ArrowUpRight, 
-  Layers, 
+  ChevronDown, 
   Terminal, 
   Cloud, 
-  ShieldCheck, 
   Cpu, 
-  BookOpen, 
-  Code2, 
+  ShieldCheck, 
+  ArrowRight, 
+  Sparkles, 
   Github, 
-  Users, 
-  Compass, 
-  FileText, 
+  ExternalLink,
+  BookOpen,
+  Layers,
+  Compass,
+  FileText,
   Activity,
-  Sparkles,
-  ExternalLink
+  Users,
+  Code2,
+  ArrowUpRight,
+  Disc,
+  AppWindow,
+  Box
 } from 'lucide-react';
 import { CaleumLogo, CaelumOsLogo, GithubLogo } from './Logos';
 
@@ -51,72 +54,64 @@ export default function Navbar() {
 
   const productItems = [
     {
-      name: "CaelumOS",
-      desc: "Modern developer operating environment for cloud & infrastructure.",
-      tag: "Flagship &bull; Available",
+      name: "CaelumOS Workspace",
+      desc: "Web-based developer workspace coordinating multi-cloud and local runtimes.",
+      tag: "Live Workspace",
       tagColor: "bg-blue-50 text-blue-700 border-blue-200 font-semibold",
-      href: "#caelum-os",
-      icon: CaelumOsLogo,
+      href: "/os",
+      icon: AppWindow,
     },
     {
-      name: "Cloud",
-      desc: "Distributed fleet orchestration & multi-cloud control plane.",
-      tag: "Roadmap",
-      tagColor: "bg-slate-100 text-slate-600 border-slate-200",
-      href: "#ecosystem",
-      icon: Cloud,
-    },
-    {
-      name: "Developer Platform",
-      desc: "Persistent team workspaces and collaborative execution.",
-      tag: "Roadmap",
-      tagColor: "bg-slate-100 text-slate-600 border-slate-200",
-      href: "#ecosystem",
+      name: "What is CaleumOS?",
+      desc: "DevOps tool fragmentation solved with a unified operating layer.",
+      tag: "Overview",
+      tagColor: "bg-slate-100 text-slate-700 border-slate-200",
+      href: "#what-is-caleumos",
       icon: Layers,
     },
     {
-      name: "Security",
-      desc: "Zero-trust credential vaults and automated compliance verification.",
-      tag: "Roadmap",
-      tagColor: "bg-slate-100 text-slate-600 border-slate-200",
-      href: "#ecosystem",
-      icon: ShieldCheck,
+      name: "AWS + Azure",
+      desc: "Live SDK integration for EC2, S3, RDS, Azure VMs, and Blob storage.",
+      tag: "Live SDKs",
+      tagColor: "bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold",
+      href: "#cloud-providers",
+      icon: Cloud,
     },
     {
-      name: "Infrastructure",
-      desc: "Automated engine runtimes and multi-cloud infrastructure fabric.",
-      tag: "Roadmap",
-      tagColor: "bg-slate-100 text-slate-600 border-slate-200",
-      href: "#ecosystem",
-      icon: Cpu,
+      name: "Docker + K8s + Terraform",
+      desc: "Host Docker daemon, Kubernetes contexts, and sandboxed Terraform HCL execution.",
+      tag: "IaC & Daemons",
+      tagColor: "bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold",
+      href: "#containers-iac",
+      icon: Box,
+    },
+    {
+      name: "Caleum Intelligence",
+      desc: "AI layer for infrastructure diagnostics, HCL generation, and log analysis.",
+      tag: "In Development",
+      tagColor: "bg-amber-50 text-amber-800 border-amber-200 font-semibold",
+      href: "#intelligence",
+      icon: Sparkles,
     },
   ];
 
   const developerItems = [
-    { name: "Documentation", desc: "Technical guides, host daemon setup, and API specs.", href: "#docs", icon: BookOpen },
-    { name: "Getting Started", desc: "Step-by-step local configuration instructions.", href: "#docs", icon: Terminal },
-    { name: "GitHub", desc: "Official source code repository and public issues.", href: "https://github.com/TheCaelumOS/caelum-os-frontend", icon: Github, external: true },
-    { name: "Community", desc: "Join contributors and infrastructure engineers.", href: "https://github.com/TheCaelumOS/caelum-os-frontend", icon: Users, external: true },
-    { name: "Releases", desc: "Future bootable OS builds and hardware specs.", href: "/download", icon: Code2 },
+    { name: "Developer Environment", desc: "Interactive Xterm PTY, VS Code, Git adapter, and monitoring.", href: "#dev-environment", icon: Terminal },
+    { name: "Technical Architecture", desc: "Next.js on Cloudflare Pages, NestJS micro-monolith, and PostgreSQL.", href: "#architecture", icon: Cpu },
+    { name: "GitHub Repository", desc: "Public source code, issues, commits, and pull requests.", href: "https://github.com/TheCaelumOS/caelum-os-frontend", icon: Github, external: true },
+    { name: "Open Source Community", desc: "Join our open-source collaboration and architectural discussions.", href: "#open-source", icon: Users },
+    { name: "Future Native OS", desc: "Vision toward a bootable hybrid Linux distribution.", href: "#future-os", icon: Disc },
   ];
 
   const companyItems = [
-    { name: "About Caleum", desc: "Our mission to simplify modern developer infrastructure.", href: "#about", icon: Compass },
-    { name: "Vision", desc: "The transition from local environments to cloud control.", href: "#vision", icon: Sparkles },
-    { name: "Roadmap", desc: "Phased engineering trajectory and milestones.", href: "#roadmap", icon: Activity },
-    { name: "Careers", desc: "Building the core infrastructure foundation.", href: "#about", icon: Users },
-    { name: "Contact", desc: "Reach our engineering and architecture team.", href: "#footer", icon: FileText },
-  ];
-
-  const resourceItems = [
-    { name: "Blog", desc: "Engineering notes, architecture insights, and updates.", href: "#resources", icon: FileText, tag: "Coming soon" },
-    { name: "Changelog", desc: "Release notes and development log.", href: "#roadmap", icon: Activity },
-    { name: "Tutorials", desc: "Terraform, Docker, and AWS integration walkthroughs.", href: "#docs", icon: BookOpen },
-    { name: "System Status", desc: "Host runtime and daemon connection status.", href: "#docs", icon: Activity, tag: "Operational" },
+    { name: "About Caleum", desc: "The technology ecosystem simplifying developer infrastructure.", href: "#what-is-caleumos", icon: Compass },
+    { name: "Roadmap", desc: "Current, building, and future engineering milestones.", href: "#roadmap", icon: Activity },
+    { name: "Future OS Vision", desc: "Long-term transition to a bare-metal cloud OS.", href: "#future-os", icon: Sparkles },
+    { name: "ISO Downloads", desc: "Binary distribution hub and release verification.", href: "/download", icon: Disc },
   ];
 
   return (
-    <nav 
+    <nav
       ref={navRef}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
         scrolled 
@@ -157,25 +152,30 @@ export default function Navbar() {
 
               {activeDropdown === 'products' && (
                 <div className="absolute top-full left-0 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/50 space-y-1">
-                  {productItems.map((item) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setActiveDropdown(null)}
-                      className="p-2.5 rounded-lg hover:bg-slate-50 flex items-start space-x-3 transition-colors group"
-                    >
-                      <item.icon className="w-5 h-5 text-slate-700 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-900 font-mono">{item.name}</span>
-                          <span className={`text-[10px] font-mono px-2 py-0.2 rounded-full border ${item.tagColor}`}>
-                            {item.tag}
-                          </span>
+                  {productItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setActiveDropdown(null)}
+                        className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                      >
+                        <div className="p-2 rounded-md bg-slate-100 text-slate-700 group-hover:text-blue-600 transition-colors mt-0.5">
+                          <Icon className="w-4 h-4" />
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</p>
-                      </div>
-                    </a>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-900 group-hover:text-blue-600">{item.name}</span>
+                            <span className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded border ${item.tagColor}`}>
+                              {item.tag}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{item.desc}</p>
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -193,29 +193,52 @@ export default function Navbar() {
               </button>
 
               {activeDropdown === 'developers' && (
-                <div className="absolute top-full left-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/50 space-y-1">
-                  {developerItems.map((item) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      target={item.external ? "_blank" : undefined}
-                      rel={item.external ? "noopener noreferrer" : undefined}
-                      onClick={() => setActiveDropdown(null)}
-                      className="p-2.5 rounded-lg hover:bg-slate-50 flex items-start space-x-3 transition-colors group"
-                    >
-                      <item.icon className="w-4 h-4 text-slate-600 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-bold text-slate-900">{item.name}</span>
-                          {item.external && <ArrowUpRight className="w-3 h-3 text-slate-400" />}
+                <div className="absolute top-full left-0 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/50 space-y-1">
+                  {developerItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        target={item.external ? "_blank" : undefined}
+                        rel={item.external ? "noopener noreferrer" : undefined}
+                        onClick={() => setActiveDropdown(null)}
+                        className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                      >
+                        <div className="p-2 rounded-md bg-slate-100 text-slate-700 group-hover:text-blue-600 transition-colors mt-0.5">
+                          <Icon className="w-4 h-4" />
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</p>
-                      </div>
-                    </a>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 flex items-center gap-1">
+                              {item.name}
+                              {item.external && <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{item.desc}</p>
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
+
+            {/* Architecture Link */}
+            <a
+              href="#architecture"
+              className="px-3 py-1.5 rounded-md hover:text-slate-900 hover:bg-slate-100/70 transition-colors"
+            >
+              Architecture
+            </a>
+
+            {/* Roadmap Link */}
+            <a
+              href="#roadmap"
+              className="px-3 py-1.5 rounded-md hover:text-slate-900 hover:bg-slate-100/70 transition-colors"
+            >
+              Roadmap
+            </a>
 
             {/* Company Dropdown */}
             <div className="relative">
@@ -231,59 +254,25 @@ export default function Navbar() {
 
               {activeDropdown === 'company' && (
                 <div className="absolute top-full left-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/50 space-y-1">
-                  {companyItems.map((item) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setActiveDropdown(null)}
-                      className="p-2.5 rounded-lg hover:bg-slate-50 flex items-start space-x-3 transition-colors group"
-                    >
-                      <item.icon className="w-4 h-4 text-slate-600 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-xs font-bold text-slate-900">{item.name}</span>
-                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</p>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Resources Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setActiveDropdown(activeDropdown === 'resources' ? null : 'resources')}
-                className={`px-3 py-1.5 rounded-md hover:text-slate-900 hover:bg-slate-100/70 inline-flex items-center gap-1 transition-colors ${
-                  activeDropdown === 'resources' ? 'text-slate-900 bg-slate-100/70 font-semibold' : ''
-                }`}
-              >
-                <span>Resources</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${activeDropdown === 'resources' ? 'rotate-180' : ''}`} />
-              </button>
-
-              {activeDropdown === 'resources' && (
-                <div className="absolute top-full left-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/50 space-y-1">
-                  {resourceItems.map((item) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setActiveDropdown(null)}
-                      className="p-2.5 rounded-lg hover:bg-slate-50 flex items-start space-x-3 transition-colors group"
-                    >
-                      <item.icon className="w-4 h-4 text-slate-600 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-900">{item.name}</span>
-                          {item.tag && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                              {item.tag}
-                            </span>
-                          )}
+                  {companyItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setActiveDropdown(null)}
+                        className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                      >
+                        <div className="p-2 rounded-md bg-slate-100 text-slate-700 group-hover:text-blue-600 transition-colors mt-0.5">
+                          <Icon className="w-4 h-4" />
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{item.desc}</p>
-                      </div>
-                    </a>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-semibold text-slate-900 group-hover:text-blue-600 block">{item.name}</span>
+                          <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{item.desc}</p>
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -291,48 +280,46 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Right Action Buttons */}
-        <div className="hidden sm:flex items-center space-x-3">
+        {/* Right Action Controls */}
+        <div className="flex items-center space-x-3">
+          
+          {/* GitHub Repo Button */}
           <a
             href="https://github.com/TheCaelumOS/caelum-os-frontend"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
+            className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono text-slate-700 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 transition-colors shadow-2xs"
+            aria-label="GitHub Repository"
           >
-            <GithubLogo className="w-3.5 h-3.5 text-slate-700" />
+            <GithubLogo className="w-3.5 h-3.5" />
             <span>GitHub</span>
           </a>
 
-          <a
-            href="#platform"
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs"
+          {/* Launch Workspace CTA */}
+          <Link
+            href="/os"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs group"
           >
-            <span>Explore CaelumOS</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </a>
-        </div>
+            <span>Launch CaelumOS</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
 
-        {/* Mobile Menu Button */}
-        <div className="lg:hidden flex items-center space-x-2">
-          <a
-            href="#platform"
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600"
-          >
-            CaelumOS
-          </a>
+          {/* Mobile Menu Toggle Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none"
+            aria-label="Toggle Menu"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5 text-slate-800" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5 text-slate-700" />}
           </button>
+
         </div>
+
       </div>
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-slate-200 px-4 pt-3 pb-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-150 max-h-[85vh] overflow-y-auto">
+        <div className="lg:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4 shadow-xl">
           
           <div className="space-y-3">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">Products</div>
@@ -371,9 +358,9 @@ export default function Navbar() {
           </div>
 
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">Company & Resources</div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">Company &amp; Resources</div>
             <div className="space-y-1 pl-2">
-              {companyItems.slice(0, 3).map((item) => (
+              {companyItems.map((item) => (
                 <a
                   key={item.name}
                   href={item.href}
@@ -387,14 +374,14 @@ export default function Navbar() {
           </div>
 
           <div className="pt-3 border-t border-slate-200 flex flex-col space-y-2">
-            <a
-              href="#caelum-os"
+            <Link
+              href="/os"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-bold text-white bg-slate-900 shadow-sm"
+              className="w-full flex items-center justify-center space-x-2 py-2.5 rounded-lg text-xs font-bold text-white bg-blue-600 shadow-xs"
             >
-              <span>Explore CaelumOS</span>
+              <span>Launch CaelumOS Workspace</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
             <a
               href="https://github.com/TheCaelumOS/caelum-os-frontend"
               target="_blank"

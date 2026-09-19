@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, ShieldCheck, Heart } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { CaleumLogo, GithubLogo } from './Logos';
 
 export default function Footer() {
@@ -44,26 +44,32 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Col 3: Products */}
+          {/* Col 3: Platform */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 font-mono mb-3">
-              Products
+              CaelumOS
             </h4>
             <ul className="space-y-2 text-slate-600">
               <li>
-                <a href="#platform" className="hover:text-blue-600 transition-colors flex items-center justify-between">
-                  <span>CaelumOS</span>
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">FLAGSHIP</span>
+                <Link href="/os" className="hover:text-blue-600 transition-colors flex items-center justify-between">
+                  <span>Workspace</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">LIVE</span>
+                </Link>
+              </li>
+              <li>
+                <a href="#what-is-caleumos" className="hover:text-blue-600 transition-colors">Overview</a>
+              </li>
+              <li>
+                <a href="#cloud-providers" className="hover:text-blue-600 transition-colors">AWS &amp; Azure</a>
+              </li>
+              <li>
+                <a href="#containers-iac" className="hover:text-blue-600 transition-colors">Docker &amp; K8s</a>
+              </li>
+              <li>
+                <a href="#intelligence" className="hover:text-blue-600 transition-colors flex items-center justify-between">
+                  <span>Intelligence</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">DEV</span>
                 </a>
-              </li>
-              <li>
-                <a href="#ecosystem" className="hover:text-blue-600 transition-colors">Developer Platform</a>
-              </li>
-              <li>
-                <a href="#ecosystem" className="hover:text-blue-600 transition-colors">Infrastructure</a>
-              </li>
-              <li>
-                <a href="#ecosystem" className="hover:text-blue-600 transition-colors">Security</a>
               </li>
             </ul>
           </div>
@@ -75,7 +81,10 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-slate-600">
               <li>
-                <a href="#docs" className="hover:text-blue-600 transition-colors">Documentation</a>
+                <a href="#dev-environment" className="hover:text-blue-600 transition-colors">Toolchain</a>
+              </li>
+              <li>
+                <a href="#architecture" className="hover:text-blue-600 transition-colors">Architecture</a>
               </li>
               <li>
                 <a href="https://github.com/TheCaelumOS/caelum-os-frontend" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors flex items-center gap-1">
@@ -84,12 +93,12 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://github.com/TheCaelumOS/caelum-os-frontend/discussions" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors">Community</a>
+                <a href="#open-source" className="hover:text-blue-600 transition-colors">Open Source</a>
               </li>
               <li>
                 <Link href="/download" className="hover:text-blue-600 transition-colors flex items-center justify-between">
-                  <span>Releases</span>
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">ISO</span>
+                  <span>ISO Distribution</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">VISION</span>
                 </Link>
               </li>
             </ul>
@@ -102,43 +111,40 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-slate-600">
               <li>
-                <a href="#about" className="hover:text-blue-600 transition-colors">About</a>
+                <a href="#what-is-caleumos" className="hover:text-blue-600 transition-colors">About Caleum</a>
               </li>
               <li>
-                <a href="#vision" className="hover:text-blue-600 transition-colors">Vision</a>
+                <a href="#future-os" className="hover:text-blue-600 transition-colors">Native OS Vision</a>
               </li>
               <li>
-                <a href="#roadmap" className="hover:text-blue-600 transition-colors">Roadmap</a>
+                <a href="#roadmap" className="hover:text-blue-600 transition-colors">Engineering Roadmap</a>
               </li>
               <li>
-                <a href="#about" className="hover:text-blue-600 transition-colors">Careers</a>
-              </li>
-              <li>
-                <a href="#about" className="hover:text-blue-600 transition-colors">Contact</a>
+                <a href="https://github.com/TheCaelumOS/caelum-os-frontend/issues" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors">Public Issues</a>
               </li>
             </ul>
           </div>
 
-          {/* Col 6: Resources */}
+          {/* Col 6: Stack */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 font-mono mb-3">
-              Resources
+              Stack
             </h4>
             <ul className="space-y-2 text-slate-600">
               <li>
-                <span className="text-slate-400 cursor-not-allowed flex items-center justify-between">
-                  <span>Blog</span>
-                  <span className="text-[9px] font-mono text-slate-400">SOON</span>
-                </span>
+                <span className="text-slate-700 font-mono">Next.js 14 (Pages)</span>
               </li>
               <li>
-                <a href="#roadmap" className="hover:text-blue-600 transition-colors">Changelog</a>
+                <span className="text-slate-700 font-mono">NestJS 11 Gateway</span>
               </li>
               <li>
-                <a href="#docs" className="hover:text-blue-600 transition-colors flex items-center justify-between">
-                  <span>System Status</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                </a>
+                <span className="text-slate-700 font-mono">PostgreSQL + Prisma</span>
+              </li>
+              <li>
+                <span className="text-slate-700 font-mono">Docker &amp; K8s SDK</span>
+              </li>
+              <li>
+                <span className="text-slate-700 font-mono">Terraform CLI</span>
               </li>
             </ul>
           </div>
@@ -148,15 +154,13 @@ export default function Footer() {
         {/* Bottom Bar with Legal & Copyright */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            &copy; {new Date().getFullYear()} Caleum. All rights reserved. &bull; Official portal for CaelumOS.
+            &copy; {new Date().getFullYear()} Caleum. All rights reserved. &bull; Official platform for CaelumOS.
           </div>
 
           <div className="flex items-center space-x-6">
-            <span className="hover:text-slate-700 cursor-pointer">Privacy Policy</span>
+            <span>TypeScript Open Source</span>
             <span>&bull;</span>
-            <span className="hover:text-slate-700 cursor-pointer">Terms of Service</span>
-            <span>&bull;</span>
-            <span className="hover:text-slate-700 cursor-pointer">Security Standards</span>
+            <a href="https://github.com/TheCaelumOS/caelum-os-frontend" target="_blank" rel="noopener noreferrer" className="hover:text-slate-700">GitHub Repo</a>
             <span>&bull;</span>
             <a href="https://caleum.me/" className="text-blue-600 hover:underline">caleum.me</a>
           </div>
