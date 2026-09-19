@@ -43,7 +43,15 @@ export const metadata: Metadata = {
     "Terraform",
     "Git",
     "operating environment"
-  ]
+  ],
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" }
+    ],
+    apple: "/icon.svg",
+    shortcut: "/icon.svg"
+  }
 };
 
 export default function RootLayout({

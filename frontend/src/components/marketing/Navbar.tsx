@@ -135,14 +135,9 @@ export default function Navbar() {
             aria-label="Caleum Home"
           >
             <CaleumLogo className="w-7 h-7 flex-shrink-0" />
-            <div className="flex items-baseline space-x-1.5">
-              <span className="font-sans text-xl font-extrabold tracking-tight text-slate-900">
-                Caleum
-              </span>
-              <span className="text-[10px] font-mono font-medium text-slate-500 uppercase hidden sm:inline">
-                caleum.me
-              </span>
-            </div>
+            <span className="font-sans text-xl font-extrabold tracking-tight text-slate-900">
+              Caleum
+            </span>
           </Link>
 
           {/* Desktop Navigation Links with Dropdowns */}

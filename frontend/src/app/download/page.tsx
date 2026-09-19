@@ -32,16 +32,11 @@ export default function DownloadPage() {
       {/* Top Navbar */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 py-3.5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center space-x-3 group">
-            <CaleumLogo className="w-8 h-8 group-hover:scale-105 transition-transform" />
-            <div className="flex flex-col">
-              <span className="font-semibold text-base tracking-tight text-slate-900 flex items-center gap-1.5">
-                Caleum <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold">CaelumOS</span>
-              </span>
-              <span className="text-[10px] font-mono text-slate-400 -mt-0.5">
-                https://caleum.me
-              </span>
-            </div>
+          <Link href="/" className="inline-flex items-center space-x-2.5 group">
+            <CaleumLogo className="w-7 h-7 flex-shrink-0 group-hover:scale-105 transition-transform" />
+            <span className="font-sans text-xl font-extrabold tracking-tight text-slate-900">
+              Caleum
+            </span>
           </Link>
 
           <div className="flex items-center space-x-3">
