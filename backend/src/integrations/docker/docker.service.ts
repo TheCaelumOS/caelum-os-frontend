@@ -6,49 +6,64 @@ export class DockerService {
   
   private checkConnection(): boolean {
     try {
-      const output = execSync('docker version', { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'ignore'] });
+      const output = execSync('docker version', { 
+        encoding: 'utf8', 
+        timeout: 10000, 
+        stdio: ['pipe', 'pipe', 'ignore'] 
+      });
       return output.includes('Server:');
     } catch {
       return false;
     }
   }
 
+  private extractClientVersion(rawOutput: string): string {
+    try {
+      const clientMatch = rawOutput.match(/Client:\s*[\r\n]+(?:\s*Cloud integration:[^\r\n]+[\r\n]+)?\s*Version:\s*([0-9.]+)/i);
+      if (clientMatch) return clientMatch[1];
+      const generalMatch = rawOutput.match(/Version:\s*([0-9.]+)/i);
+      return generalMatch ? generalMatch[1] : '';
+    } catch {
+      return '';
+    }
+  }
+
   async getHealth() {
     try {
-      const output = execSync('docker version', { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'ignore'] });
+      const output = execSync('docker version', { 
+        encoding: 'utf8', 
+        timeout: 10000, 
+        stdio: ['pipe', 'pipe', 'pipe'] 
+      });
       const serverSection = output.split(/Server:/i)[1] || '';
       const versionMatch = serverSection.match(/Version:\s*([0-9.]+)/i);
-      const version = versionMatch ? versionMatch[1] : 'Unknown';
+      const serverVersion = versionMatch ? versionMatch[1] : 'Unknown';
       const connected = output.includes('Server:');
+      
       return {
         connected,
-        version: connected ? version : '',
+        version: connected ? serverVersion : this.extractClientVersion(output),
         status: connected ? 'running' : 'stopped'
       };
     } catch (err: any) {
+      const stdout = err.stdout ? err.stdout.toString() : '';
+      const clientVer = this.extractClientVersion(stdout);
       return {
         connected: false,
-        version: '',
+        version: clientVer ? `Client v${clientVer}` : '',
         status: 'stopped',
-        error: err.message
+        error: 'Docker daemon is not running or unreachable. Please start Docker Desktop or the Docker service.'
       };
     }
   }
 
   async getStatus() {
-    try {
-      const output = execSync('docker version', { encoding: 'utf8', timeout: 15000, stdio: ['pipe', 'pipe', 'ignore'] });
-      const serverSection = output.split(/Server:/i)[1] || '';
-      const versionMatch = serverSection.match(/Version:\s*([0-9.]+)/i);
-      const version = versionMatch ? versionMatch[1] : 'Unknown';
-      const connected = output.includes('Server:');
-      return {
-        connected,
-        version: connected ? version : 'Unknown',
-      };
-    } catch (err: any) {
-      return { connected: false, version: 'Unknown', error: err.message };
-    }
+    const health = await this.getHealth();
+    return {
+      connected: health.connected,
+      version: health.version || 'Unknown',
+      error: health.connected ? undefined : health.error
+    };
   }
 
   async listContainers() {
@@ -56,20 +71,34 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker ps -a --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
-      if (!output.trim()) return [];
-      return output.trim().split('\n').map(line => {
-        const item = JSON.parse(line);
-        return {
-          id: item.ID,
-          name: item.Names,
-          image: item.Image,
-          status: item.Status,
-          state: item.State || (item.Status.startsWith('Up') ? 'running' : 'exited'),
-          ports: item.Ports,
-          created: item.CreatedAt,
-        };
+      const output = execSync('docker ps -a --format "{{json .}}"', { 
+        encoding: 'utf8', 
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe']
       });
+      if (!output || !output.trim()) return [];
+
+      return output
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          try {
+            const item = JSON.parse(line);
+            return {
+              id: item.ID || '',
+              name: item.Names || item.ID || 'unnamed',
+              image: item.Image || 'unknown',
+              status: item.Status || '',
+              state: (item.State || (item.Status?.toLowerCase().startsWith('up') ? 'running' : 'exited')).toLowerCase(),
+              ports: item.Ports || '',
+              created: item.CreatedAt || '',
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     } catch (err: any) {
       throw new BadRequestException(`Failed to list Docker containers: ${err.message}`);
     }
@@ -80,18 +109,32 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker images --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
-      if (!output.trim()) return [];
-      return output.trim().split('\n').map(line => {
-        const item = JSON.parse(line);
-        return {
-          repository: item.Repository,
-          tag: item.Tag,
-          size: item.Size,
-          id: item.ID,
-          created: item.CreatedAt,
-        };
+      const output = execSync('docker images --format "{{json .}}"', { 
+        encoding: 'utf8', 
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe']
       });
+      if (!output || !output.trim()) return [];
+
+      return output
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          try {
+            const item = JSON.parse(line);
+            return {
+              repository: item.Repository || '<none>',
+              tag: item.Tag || '<none>',
+              size: item.Size || '0B',
+              id: item.ID || '',
+              created: item.CreatedAt || '',
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     } catch (err: any) {
       throw new BadRequestException(`Failed to list Docker images: ${err.message}`);
     }
@@ -102,17 +145,31 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker network ls --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
-      if (!output.trim()) return [];
-      return output.trim().split('\n').map(line => {
-        const item = JSON.parse(line);
-        return {
-          id: item.ID,
-          name: item.Name,
-          driver: item.Driver,
-          scope: item.Scope,
-        };
+      const output = execSync('docker network ls --format "{{json .}}"', { 
+        encoding: 'utf8', 
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe']
       });
+      if (!output || !output.trim()) return [];
+
+      return output
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          try {
+            const item = JSON.parse(line);
+            return {
+              id: item.ID || '',
+              name: item.Name || '',
+              driver: item.Driver || '',
+              scope: item.Scope || '',
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     } catch (err: any) {
       throw new BadRequestException(`Failed to list Docker networks: ${err.message}`);
     }
@@ -123,16 +180,30 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker volume ls --format "{{json .}}"', { encoding: 'utf8', timeout: 15000 });
-      if (!output.trim()) return [];
-      return output.trim().split('\n').map(line => {
-        const item = JSON.parse(line);
-        return {
-          name: item.Name,
-          driver: item.Driver,
-          scope: item.Scope || 'local',
-        };
+      const output = execSync('docker volume ls --format "{{json .}}"', { 
+        encoding: 'utf8', 
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe']
       });
+      if (!output || !output.trim()) return [];
+
+      return output
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          try {
+            const item = JSON.parse(line);
+            return {
+              name: item.Name || '',
+              driver: item.Driver || 'local',
+              scope: item.Scope || 'local',
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     } catch (err: any) {
       throw new BadRequestException(`Failed to list Docker volumes: ${err.message}`);
     }
@@ -143,10 +214,14 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker events --since 60m --until 1s', { encoding: 'utf8', timeout: 15000 });
+      const output = execSync('docker events --since 1h --until 0s', { 
+        encoding: 'utf8', 
+        timeout: 8000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
       return output.trim() || 'No recent Docker events recorded in the last 60 minutes.';
-    } catch (err: any) {
-      throw new BadRequestException(`Failed to fetch Docker daemon logs: ${err.message}`);
+    } catch {
+      return 'No recent Docker events recorded in the last 60 minutes.';
     }
   }
 
@@ -168,13 +243,20 @@ export class DockerService {
 
     try {
       if (action === 'remove') {
-        execSync(`docker rm -f ${containerId}`, { timeout: 15000 });
+        execSync(`docker rm -f ${containerId}`, { 
+          timeout: 15000,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
       } else {
-        execSync(`docker ${action} ${containerId}`, { timeout: 15000 });
+        execSync(`docker ${action} ${containerId}`, { 
+          timeout: 15000,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
       }
       return { containerId, action, success: true };
     } catch (err: any) {
-      throw new BadRequestException(`Failed to execute action '${action}' on container ${containerId}: ${err.message}`);
+      const errMsg = (err.stderr ? err.stderr.toString() : err.message) || 'Action failed.';
+      throw new BadRequestException(`Failed to ${action} container '${containerId}': ${errMsg.trim()}`);
     }
   }
 
@@ -190,12 +272,21 @@ export class DockerService {
     }
 
     try {
-      const logs = execSync(`docker logs --tail 100 ${containerId} 2>&1`, { encoding: 'utf8', timeout: 15000 });
-      return { containerId, logs };
+      const logs = execSync(`docker logs --tail 100 ${containerId}`, { 
+        encoding: 'utf8', 
+        timeout: 15000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      return { containerId, logs: logs.trim() || 'No logs recorded for this container.' };
     } catch (err: any) {
-      const errMsg = err.message || '';
-      if (errMsg.includes('No such container') || (err.stderr && err.stderr.toString().includes('No such container'))) {
+      const stderr = err.stderr ? err.stderr.toString() : '';
+      const stdout = err.stdout ? err.stdout.toString() : '';
+      const combined = (stdout + '\n' + stderr).trim();
+      if (combined.includes('No such container')) {
         throw new BadRequestException(`Container '${containerId}' no longer exists.`);
+      }
+      if (combined) {
+        return { containerId, logs: combined };
       }
       throw new BadRequestException(`Failed to get logs for container ${containerId}: ${err.message}`);
     }
