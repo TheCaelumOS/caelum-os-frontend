@@ -49,11 +49,6 @@ export default function HeroSection() {
           {/* LEFT COLUMN: Eyebrow, Main Heading, Supporting Heading, Description, Buttons, GitHub Link */}
           <div className="lg:col-span-6 space-y-6 text-left">
             
-            {/* Small Eyebrow */}
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-blue-50 border border-blue-200/80 text-[11px] font-mono font-bold tracking-widest text-blue-700 uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-              <span>DEVELOPER OPERATING SYSTEM</span>
-            </div>
 
             {/* Main Heading & Supporting Heading */}
             <div className="space-y-3">
