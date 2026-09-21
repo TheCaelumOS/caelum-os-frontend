@@ -2,105 +2,149 @@
 
 import React from 'react';
 import { 
+  Cloud, 
+  Box, 
   Layers, 
-  Server, 
-  Database, 
-  Cpu, 
+  Terminal, 
+  Activity, 
   ShieldCheck, 
-  Network, 
-  Lock, 
-  Terminal,
-  Globe
+  Cpu, 
+  GitBranch,
+  Lock,
+  Workflow
 } from 'lucide-react';
+import { 
+  AwsLogo, 
+  AzureLogo, 
+  DockerLogo, 
+  KubernetesLogo, 
+  TerraformLogo, 
+  GrafanaLogo 
+} from './Logos';
 
 export default function ArchitectureSection() {
-  const tiers = [
+  const components = [
     {
-      tier: "01. Presentation & Edge Tier",
-      name: "Next.js 14 Static Export on Cloudflare Pages",
-      desc: "Built with React 19, TypeScript, and Tailwind CSS. Compiled into a pure static export (out/ directory) distributed globally via Cloudflare Pages edge CDN with sub-millisecond initial asset delivery.",
-      technologies: ["Next.js 14", "React 19", "TypeScript", "Tailwind CSS", "Cloudflare Pages", "Xterm.js"]
+      title: "Cloud Integration",
+      subtitle: "Multi-Cloud SDK Engine",
+      desc: "Authenticated client adapters interacting directly with Azure Resource Manager (ARM) and AWS SDK v3. Inspects and manages VMs, S3 buckets, RDS databases, and resource groups with zero emulation.",
+      icon: Cloud,
+      tags: ["Azure ARM SDK", "AWS SDK v3", "STS Identity", "Multi-Subscription"]
     },
     {
-      tier: "02. API Gateway & Micro-Monolith",
-      name: "NestJS 11 Application Gateway",
-      desc: "Modular NestJS backend orchestrating REST API endpoints, JWT Bearer authentication, request validation DTOs, and Socket.io WebSocket gateways for real-time terminal PTY streaming and container logs.",
-      technologies: ["NestJS 11", "Node.js 22", "Passport JWT", "Socket.io", "Class Validator", "Swagger OpenAPI"]
+      title: "Container Runtime",
+      subtitle: "Daemon Socket Controller",
+      desc: "Direct socket binding to the host Docker daemon via Unix domain sockets (/var/run/docker.sock) or Windows named pipes. Provides live container lifecycle controls and bidirectional log streaming.",
+      icon: Box,
+      tags: ["Docker Engine API", "Named Pipes", "Socket.io Streams", "OCI Specs"]
     },
     {
-      tier: "03. Data & State Persistence Tier",
-      name: "PostgreSQL & Prisma ORM with Redis",
-      desc: "Relational persistence schema managed via Prisma 6.3. Stores user accounts, isolated workspaces, terminal sessions, activity audits, and AI conversation history, with Redis handling queueing via BullMQ.",
-      technologies: ["PostgreSQL", "Prisma ORM 6.3", "Redis", "BullMQ", "Bcrypt Hashing"]
+      title: "Kubernetes",
+      subtitle: "Cluster Orchestration Layer",
+      desc: "Multi-cluster kubeconfig parser and watcher interfacing with local Minikube/Kind or remote managed clusters (AKS, EKS). Visualizes pod states, deployment rollouts, and node topologies.",
+      icon: Cpu,
+      tags: ["Kubeconfig", "@kubernetes/client-node", "Pods & Nodes", "Namespace Scopes"]
     },
     {
-      tier: "04. Cloud & Local Daemon Connectors",
-      name: "Official Enterprise SDK Integration Layer",
-      desc: "Direct communication with real infrastructure without mock emulation. Interacts with Azure ARM REST APIs, AWS SDK v3 endpoints, local Docker named pipes/sockets, and HashiCorp Terraform CLI.",
-      technologies: ["@azure/arm-*", "@aws-sdk/*", "Docker Daemon", "@kubernetes/client-node", "Terraform CLI"]
+      title: "Infrastructure as Code",
+      subtitle: "Deterministic IaC Runner",
+      desc: "Isolated CLI execution sandbox driving official Terraform binaries. Executes syntax validation, dependency graphing, plan previews, and targeted state inspection.",
+      icon: Layers,
+      tags: ["Terraform CLI", "HCL Parser", "Execution Sandbox", "State Inspection"]
     },
     {
-      tier: "05. Security & Credential Vaulting",
-      name: "AES-256 Symmetric Encryption",
-      desc: "Cloud credentials and access keys are encrypted at rest using AES-256 cryptography with strict environment secret management. Sensitive API keys are never leaked to client responses.",
-      technologies: ["AES-256-CBC/GCM", "Node.js Crypto", "Zero-Trust Masking", "Role-Based Access Control"]
+      title: "Observability",
+      subtitle: "Telemetry & Metrics Pipeline",
+      desc: "Lightweight metric aggregation pipeline collecting host daemon health, container CPU/memory utilization, network ingress throughput, and structured application logs.",
+      icon: Activity,
+      tags: ["Live Telemetry", "Container Stats", "Log Aggregation", "Grafana Integration"]
+    },
+    {
+      title: "Developer Tooling",
+      subtitle: "Interactive Workspace Primitives",
+      desc: "Integrated developer utilities including full PTY terminal emulation over WebSockets (Xterm.js), Monaco-powered code editing, Git stage/commit/diff tracking, and file explorer.",
+      icon: Terminal,
+      tags: ["Xterm.js PTY", "Monaco Editor", "Git Adapter", "Nautilus FS"]
+    },
+    {
+      title: "Automation",
+      subtitle: "Pipeline & Task Coordination",
+      desc: "Structured task orchestrator enabling automated dev environment spin-up, container dependency sequencing, and scripted infrastructure provisioning workflows.",
+      icon: Workflow,
+      tags: ["Task Runner", "Dependency Graph", "Environment Scripts", "CI/CD Hooks"]
+    },
+    {
+      title: "Security",
+      subtitle: "Zero-Trust Credential Isolation",
+      desc: "Strict credential isolation where cloud access keys and tokens are encrypted at rest with AES-256 cryptography. Secrets are never exposed to client-side bundles or unauthenticated requests.",
+      icon: ShieldCheck,
+      tags: ["AES-256 Vaulting", "Token Masking", "Role Policies", "Encrypted State"]
     }
   ];
 
   return (
-    <section id="architecture" className="py-24 bg-white border-b border-slate-200 scroll-mt-16">
+    <section id="architecture" className="py-24 bg-slate-50/60 border-b border-slate-200 scroll-mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Header */}
-        <div className="max-w-3xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-mono font-semibold text-slate-700 uppercase tracking-wider">
-            <Server className="w-3.5 h-3.5 text-blue-600" />
-            <span>Full-Stack Engineering</span>
+        {/* Section Header */}
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-blue-50 border border-blue-200 text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
+            <span>System Engineering</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
-            Technical Architecture
+            Built as an integrated developer environment
           </h2>
 
           <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
-            The authentic stack powering CaleumOS: Next.js on Cloudflare Pages, NestJS micro-monolith API, PostgreSQL, and official cloud provider SDKs.
+            Explore how Caelum organizes cloud integrations, container runtimes, infrastructure automation, and security into a cohesive architectural framework.
           </p>
         </div>
 
-        {/* 5 Architecture Tiers */}
-        <div className="mt-16 space-y-6 max-w-5xl mx-auto">
-          {tiers.map((t) => (
-            <div 
-              key={t.tier}
-              className="p-6 sm:p-8 rounded-2xl bg-slate-50/70 border border-slate-200 shadow-xs space-y-4 hover:border-slate-300 transition-colors"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200 gap-2">
-                <div>
-                  <span className="text-[11px] font-mono text-blue-600 font-bold uppercase tracking-wider block">
-                    {t.tier}
-                  </span>
-                  <h3 className="text-lg font-bold text-slate-900 font-mono mt-0.5">
-                    {t.name}
-                  </h3>
+        {/* 8 Modular Architecture Cards */}
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {components.map((comp) => {
+            const Icon = comp.icon;
+            return (
+              <div 
+                key={comp.title}
+                className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all flex flex-col justify-between space-y-4 group"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-slate-100 text-slate-800 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 font-semibold uppercase">
+                      Subsystem
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 font-sans">
+                      {comp.title}
+                    </h3>
+                    <span className="text-[11px] font-mono text-blue-600 font-medium block mt-0.5">
+                      {comp.subtitle}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                    {comp.desc}
+                  </p>
+                </div>
+
+                {/* Tech Badges */}
+                <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-1.5">
+                  {comp.tags.map((tag) => (
+                    <span key={tag} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               </div>
-
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                {t.desc}
-              </p>
-
-              <div className="pt-2 flex flex-wrap items-center gap-2">
-                {t.technologies.map((tech) => (
-                  <span 
-                    key={tech} 
-                    className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 font-semibold"
-                  >
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
       </div>

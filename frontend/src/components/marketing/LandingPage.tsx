@@ -3,64 +3,56 @@
 import React from 'react';
 import Navbar from './Navbar';
 import HeroSection from './HeroSection';
-import WhatIsSection from './WhatIsSection';
-import CloudWorkspaceSection from './CloudWorkspaceSection';
-import CloudProvidersSection from './CloudProvidersSection';
-import ContainersIacSection from './ContainersIacSection';
-import DevEnvironmentSection from './DevEnvironmentSection';
-import IntelligenceSection from './IntelligenceSection';
+import CapabilityStrip from './CapabilityStrip';
+import IndustryStandardSection from './IndustryStandardSection';
+import ToolsGridSection from './ToolsGridSection';
+import PlatformsSection from './PlatformsSection';
 import ArchitectureSection from './ArchitectureSection';
+import CaelumOsBootableSection from './CaelumOsBootableSection';
+import BlogNewsSection from './BlogNewsSection';
+import DocsCommunitySection from './DocsCommunitySection';
 import RoadmapSection from './RoadmapSection';
-import OpenSourceSection from './OpenSourceSection';
-import FutureOsSection from './FutureOsSection';
-import CtaSection from './CtaSection';
 import Footer from './Footer';
 
 export default function LandingPage() {
   return (
     <div id="top" className="min-h-screen bg-white text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white font-sans antialiased">
-      {/* Top Global Navigation */}
+      {/* 1. Global Navigation Header */}
       <Navbar />
 
       <main className="flex-1 w-full">
-        {/* 1. Hero — CaleumOS */}
+        {/* 2. Hero Section (Two-column with Caelum Laptop Workstation visual) */}
         <HeroSection />
 
-        {/* 2. What is CaleumOS? */}
-        <WhatIsSection />
+        {/* 3. Horizontal Capability Strip (Cloud, Containers, Infra, Dev, Monitoring, Security) */}
+        <CapabilityStrip />
 
-        {/* 3. The Unified Cloud Workspace */}
-        <CloudWorkspaceSection />
+        {/* 4. The Industry Standard: Built for the modern developer (5 Columns) */}
+        <IndustryStandardSection />
 
-        {/* 4. AWS + Azure */}
-        <CloudProvidersSection />
+        {/* 5. All The Tools You Need (16 Recognizable Tool SVGs) */}
+        <ToolsGridSection />
 
-        {/* 5. Docker + Kubernetes + Terraform */}
-        <ContainersIacSection />
+        {/* 6. Supported Platforms (Desktop, Laptop, Bootable OS, Cloud, VMs, Containers, ARM) */}
+        <PlatformsSection />
 
-        {/* 6. Developer Environment */}
-        <DevEnvironmentSection />
-
-        {/* 7. Caleum Intelligence (In Development) */}
-        <IntelligenceSection />
-
-        {/* 8. Technical Architecture */}
+        {/* 7. Caelum Architecture (8 Modular Engineering Subsystems) */}
         <ArchitectureSection />
 
-        {/* 9. Current / Building / Future Roadmap */}
+        {/* 8. CaelumOS Bootable Section (Dedicated Informational, IN DEVELOPMENT) */}
+        <CaelumOsBootableSection />
+
+        {/* 9. Latest News From Our Blog (2 Release Milestone Cards) */}
+        <BlogNewsSection />
+
+        {/* 10. Documentation & Community Hub */}
+        <DocsCommunitySection />
+
+        {/* 11. Project Roadmap (8 Transparent Engineering Stages) */}
         <RoadmapSection />
-
-        {/* 10. GitHub / Open Source */}
-        <OpenSourceSection />
-
-        {/* 11. Future Native CaelumOS Vision */}
-        <FutureOsSection />
-
-        {/* 12. Final CTA */}
-        <CtaSection />
       </main>
 
-      {/* Global Footer */}
+      {/* 12. Large Dark Footer with Light/Dark Switcher */}
       <Footer />
     </div>
   );
