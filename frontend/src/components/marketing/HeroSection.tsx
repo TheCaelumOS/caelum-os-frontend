@@ -61,7 +61,7 @@ export default function HeroSection() {
                 Caelum
               </h1>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 leading-snug">
-                A powerful open-source operating environment for cloud-native developers.
+                A powerful operating environment for cloud-native developers.
               </h2>
             </div>
 

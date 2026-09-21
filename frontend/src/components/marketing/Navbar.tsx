@@ -7,8 +7,6 @@ import {
   X, 
   ChevronDown, 
   Search, 
-  Sun, 
-  Moon, 
   BookOpen, 
   Layers, 
   Users, 
@@ -33,7 +31,6 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,12 +88,9 @@ export default function Navbar() {
               aria-label="Caelum Home"
             >
               <CaleumLogo className="w-8 h-8 rounded-lg shadow-2xs group-hover:scale-105 transition-transform" />
-              <div className="flex items-baseline space-x-1.5">
+              <div className="flex items-baseline">
                 <span className="text-xl font-bold tracking-tight text-slate-900 font-sans">
                   Caelum
-                </span>
-                <span className="hidden sm:inline-block text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                  Open Source
                 </span>
               </div>
             </Link>
@@ -256,26 +250,6 @@ export default function Navbar() {
               <span>Search docs...</span>
               <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-400">⌘K</kbd>
             </button>
-
-            {/* Theme Toggle Pill (LIGHT / DARK inspired by Kali) */}
-            <div className="hidden sm:inline-flex items-center rounded-full border border-slate-200 bg-slate-50 p-0.5 text-[10px] font-mono font-bold tracking-wider">
-              <span 
-                onClick={() => setIsDarkMode(false)} 
-                className={`px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
-                  !isDarkMode ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                LIGHT
-              </span>
-              <span 
-                onClick={() => setIsDarkMode(true)} 
-                className={`px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
-                  isDarkMode ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                DARK
-              </span>
-            </div>
 
             {/* GitHub Repo Button */}
             <a

@@ -12,33 +12,21 @@ import {
   JenkinsLogo, 
   GitLogo, 
   GithubLogo, 
-  VsCodeLogo, 
-  LinuxLogo, 
-  PostgreSqlLogo, 
-  RedisLogo, 
-  NginxLogo, 
-  NodeJsLogo, 
-  PythonLogo 
+  VsCodeLogo 
 } from './Logos';
 
 export default function ToolsGridSection() {
   const tools = [
     { name: "Docker", category: "Containers", icon: DockerLogo, color: "text-sky-500" },
     { name: "Kubernetes", category: "Orchestration", icon: KubernetesLogo, color: "text-blue-600" },
-    { name: "Terraform", category: "IaC", icon: TerraformLogo, color: "text-purple-600" },
+    { name: "Jenkins", category: "CI/CD", icon: JenkinsLogo, color: "text-red-600" },
     { name: "AWS", category: "Cloud", icon: AwsLogo, color: "text-amber-500" },
     { name: "Azure", category: "Cloud", icon: AzureLogo, color: "text-blue-500" },
     { name: "Grafana", category: "Observability", icon: GrafanaLogo, color: "text-orange-500" },
-    { name: "Jenkins", category: "CI/CD", icon: JenkinsLogo, color: "text-red-600" },
     { name: "Git", category: "VCS", icon: GitLogo, color: "text-rose-500" },
     { name: "GitHub", category: "Collaboration", icon: GithubLogo, color: "text-slate-800" },
     { name: "VS Code", category: "Editor", icon: VsCodeLogo, color: "text-sky-600" },
-    { name: "Linux", category: "Kernel", icon: LinuxLogo, color: "text-slate-800" },
-    { name: "PostgreSQL", category: "Database", icon: PostgreSqlLogo, color: "text-blue-700" },
-    { name: "Redis", category: "Cache", icon: RedisLogo, color: "text-red-500" },
-    { name: "Nginx", category: "Gateway", icon: NginxLogo, color: "text-emerald-600" },
-    { name: "Node.js", category: "Runtime", icon: NodeJsLogo, color: "text-emerald-500" },
-    { name: "Python", category: "Language", icon: PythonLogo, color: "text-yellow-500" },
+    { name: "Terraform", category: "IaC", icon: TerraformLogo, color: "text-purple-600" },
   ];
 
   return (
@@ -65,8 +53,8 @@ export default function ToolsGridSection() {
           </div>
         </div>
 
-        {/* 16 Tool Tiles Grid (Inspired by Kali benchmark) */}
-        <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 sm:gap-6">
+        {/* 10 Tool Tiles Grid */}
+        <div className="mt-16 max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
           {tools.map((tool) => {
             const Icon = tool.icon;
             return (

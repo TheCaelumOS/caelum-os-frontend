@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { 
   Github, 
@@ -8,7 +8,7 @@ import {
   Twitter, 
   Youtube, 
   ArrowUp, 
-  ExternalLink,
+  ExternalLink, 
   Heart,
   MessageSquare,
   Shield,
@@ -18,30 +18,13 @@ import {
 import { CaleumLogo, GithubLogo } from './Logos';
 
 export default function Footer() {
-  const [isDark, setIsDark] = useState(true);
-
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <footer className="bg-[#030712] text-slate-400 border-t border-slate-800 text-xs font-sans selection:bg-blue-600 selection:text-white">
-      
-      {/* Light / Dark Mode Switcher (Matching Kali Benchmark Screenshot 7) */}
-      <div className="border-b border-slate-800/80 py-4 flex justify-center items-center space-x-3">
-        <span className="text-[11px] font-mono font-bold text-slate-500">LIGHT</span>
-        <div 
-          onClick={() => setIsDark(!isDark)}
-          className="w-12 h-6 rounded-full bg-slate-800 border border-slate-700 p-0.5 cursor-pointer flex items-center transition-colors relative"
-        >
-          <div 
-            className={`w-5 h-5 rounded-full bg-blue-600 shadow-md transform transition-transform ${
-              isDark ? 'translate-x-6' : 'translate-x-0 bg-white'
-            }`} 
-          />
-        </div>
-        <span className="text-[11px] font-mono font-bold text-slate-200">DARK</span>
-      </div>
+
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-8 lg:gap-6">
