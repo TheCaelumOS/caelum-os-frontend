@@ -22,7 +22,8 @@ import {
   Folder,
   Globe,
   Settings as SettingsIcon,
-  FolderIcon
+  FolderIcon,
+  HardDrive
 } from 'lucide-react';
 import WindowFrame from './WindowFrame';
 import TerminalApp from './apps/TerminalApp';
@@ -38,6 +39,7 @@ import KubernetesApp from './apps/KubernetesApp';
 import VscodeApp from './apps/VscodeApp';
 import AiAssistantApp from './apps/AiAssistantApp';
 import TerraformApp from './apps/TerraformApp';
+import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
 
 // SVGs and Brand Logos
 const TerraformLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
@@ -156,9 +158,33 @@ export default function Desktop() {
     { id: 'vscode', title: 'VS Code Editor', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 900, height: 560 },
     { id: 'browser', title: 'Firefox Web Browser', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'light', width: 850, height: 520 },
     { id: 'terraform', title: 'Terraform Provisioner', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 840, height: 520 },
+    { id: 'settings', title: 'Settings', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 920, height: 580 },
   ]);
 
   const [topZIndex, setTopZIndex] = useState(11);
+
+  // OS Global Settings State (persists to localStorage)
+  const [osSettings, setOsSettings] = useState<OsSettings>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('caelum_os_settings');
+        if (saved) return { ...DEFAULT_OS_SETTINGS, ...JSON.parse(saved) };
+      } catch {}
+    }
+    return DEFAULT_OS_SETTINGS;
+  });
+
+  const handleUpdateSettings = (updater: (prev: OsSettings) => OsSettings) => {
+    setOsSettings(prev => {
+      const next = updater(prev);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('caelum_os_settings', JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
+  };
 
   // Sync route path to Window opening state on mount
   useEffect(() => {
@@ -338,6 +364,10 @@ export default function Desktop() {
       setShowAppDrawer(!showAppDrawer);
       return;
     }
+    if (id === 'profile') {
+      openApp('settings');
+      return;
+    }
     if (id === 'logout') {
       alert('Logging out of CaelumOS...');
       if (typeof window !== 'undefined') {
@@ -359,9 +389,30 @@ export default function Desktop() {
     }
   };
 
+  const wallpaperClasses: Record<string, string> = {
+    aubergine: 'bg-gradient-to-br from-[#4f1836] via-[#2c001e] to-[#77216f]',
+    nebula: 'bg-gradient-to-br from-[#0b1021] via-[#1a1c4b] to-[#2d1b4e]',
+    matrix: 'bg-gradient-to-br from-[#030712] via-[#0f172a] to-[#1e293b]',
+    cyber: 'bg-gradient-to-br from-[#18181b] via-[#27272a] to-[#3f3f46]',
+    emerald: 'bg-gradient-to-br from-[#064e3b] via-[#022c22] to-[#0f172a]'
+  };
+
+  const currentBgClass = wallpaperClasses[osSettings.wallpaper] || wallpaperClasses.aubergine;
+
   return (
-    <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#4f1836] via-[#2c001e] to-[#77216f] select-none font-sans text-slate-200">
+    <div className={`w-full h-full relative overflow-hidden ${currentBgClass} select-none font-sans text-slate-200 transition-all duration-500`}>
       
+      {/* Night Light Eye Comfort Warmth Overlay */}
+      {osSettings.nightLight && (
+        <div 
+          className="absolute inset-0 pointer-events-none z-50 transition-opacity duration-300"
+          style={{ 
+            backgroundColor: `rgba(245, 158, 11, ${Math.min(0.32, (osSettings.nightLightWarmth / 100) * 0.32)})`,
+            mixBlendMode: 'multiply'
+          }}
+        />
+      )}
+
       {/* 1. GNOME Top Panel Header Bar */}
       <div className="absolute top-0 left-0 right-0 h-7 bg-neutral-950/85 border-b border-white/5 flex items-center justify-between px-4 z-40 text-xs font-medium">
         {/* Left Activities menu */}
@@ -403,7 +454,7 @@ export default function Desktop() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-8 right-3 w-60 bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-xl p-4 shadow-2xl z-50 text-xs space-y-4"
+            className="absolute top-8 right-3 w-64 bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-xl p-4 shadow-2xl z-50 text-xs space-y-4"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -433,21 +484,40 @@ export default function Desktop() {
                 className="w-full accent-orange-500 bg-neutral-800 h-1 rounded"
               />
             </div>
+            <div className="pt-2 border-t border-neutral-800">
+              <button
+                onClick={() => {
+                  setShowSettingsDropdown(false);
+                  openApp('settings');
+                }}
+                className="py-1.5 px-2.5 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white transition-colors flex items-center space-x-2 text-xs font-semibold cursor-pointer w-full justify-center"
+              >
+                <SettingsIcon className="w-3.5 h-3.5 text-sky-400" />
+                <span>Open Settings</span>
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 2. Ubuntu Left Vertical Fixed Dock */}
-      <div className="absolute left-2 top-9 bottom-2 w-16 bg-[#111111]/70 backdrop-blur-md border border-white/5 rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-xl">
-        <div className="flex flex-col items-center space-y-2.5 w-full">
+      {/* 2. Ubuntu Dock (Configurable: Left / Bottom / Right) */}
+      <div className={`absolute z-30 shadow-2xl backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-300 ${
+        osSettings.dockPosition === 'bottom'
+          ? 'bottom-2 left-1/2 -translate-x-1/2 h-16 max-w-[95vw] bg-[#111111]/80 flex flex-row items-center px-4 justify-between space-x-4'
+          : osSettings.dockPosition === 'right'
+          ? 'right-2 top-9 bottom-2 w-16 bg-[#111111]/80 flex flex-col items-center py-4 justify-between'
+          : 'left-2 top-9 bottom-2 w-16 bg-[#111111]/80 flex flex-col items-center py-4 justify-between'
+      } ${osSettings.dockAutoHide ? 'opacity-30 hover:opacity-100 transition-opacity' : ''}`}>
+        <div className={`flex items-center space-x-2 ${osSettings.dockPosition === 'bottom' ? 'flex-row' : 'flex-col space-y-2.5 space-x-0 w-full'}`}>
           {dockItems.slice(0, 13).map(item => {
             const win = windows.find(w => w.id === item.id);
-            const isOpen = win?.isOpen && !win?.isMinimized;
             return (
-              <div key={item.id} className="relative group w-full flex justify-center">
-                {/* Active application dot on the left of dock container */}
+              <div key={item.id} className="relative group flex justify-center">
+                {/* Active application dot on dock */}
                 {win?.isOpen && (
-                  <span className="absolute left-1.5 top-[18px] w-1 h-1.5 rounded-full bg-white shadow shadow-white" />
+                  <span className={`absolute rounded-full bg-white shadow shadow-white ${
+                    osSettings.dockPosition === 'bottom' ? 'bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1' : 'left-1.5 top-[18px] w-1 h-1.5'
+                  }`} />
                 )}
                 <button
                   onClick={() => handleDockItemClick(item.id)}
@@ -461,23 +531,83 @@ export default function Desktop() {
           })}
         </div>
 
-        {/* Bottom Dock segment */}
-        <div className="flex flex-col items-center space-y-2.5 w-full">
-          {dockItems.slice(13).map(item => (
-            <button
-              key={item.id}
-              onClick={() => handleDockItemClick(item.id)}
-              className="w-10 h-10 rounded-xl hover:bg-white/10 active:scale-95 transition-all duration-150 flex items-center justify-center cursor-pointer hover:scale-110"
-              title={item.name}
-            >
-              {item.icon()}
-            </button>
-          ))}
+        {/* Bottom / End Dock segment */}
+        <div className={`flex items-center space-x-2 ${osSettings.dockPosition === 'bottom' ? 'flex-row' : 'flex-col space-y-2.5 space-x-0 w-full'}`}>
+          {dockItems.slice(13).map(item => {
+            const win = windows.find(w => w.id === item.id);
+            return (
+              <div key={item.id} className="relative group flex justify-center">
+                {win?.isOpen && (
+                  <span className={`absolute rounded-full bg-white shadow shadow-white ${
+                    osSettings.dockPosition === 'bottom' ? 'bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1' : 'left-1.5 top-[18px] w-1 h-1.5'
+                  }`} />
+                )}
+                <button
+                  onClick={() => handleDockItemClick(item.id)}
+                  className="w-10 h-10 rounded-xl hover:bg-white/10 active:scale-95 transition-all duration-150 flex items-center justify-center cursor-pointer hover:scale-110"
+                  title={item.name}
+                >
+                  {item.icon()}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
+      {/* 3. Desktop Shortcuts Layer (Home, Storage, Trash) */}
+      <div className={`absolute top-11 ${
+        osSettings.dockPosition === 'left' ? 'left-22' : 'left-6'
+      } z-10 flex flex-col space-y-3 pointer-events-auto`}>
+        {osSettings.showHomeOnDesktop && (
+          <div 
+            onDoubleClick={() => openApp('nautilus')}
+            onClick={() => openApp('nautilus')}
+            className="flex flex-col items-center w-20 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition-all text-center select-none"
+            title="Open Home Directory"
+          >
+            <div className="w-11 h-11 bg-amber-500/20 border border-amber-500/40 rounded-xl flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform shadow-lg">
+              <Folder className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-semibold text-slate-200 mt-1 drop-shadow group-hover:text-white">Home</span>
+          </div>
+        )}
+
+        {osSettings.showMountedDrives && (
+          <div 
+            onDoubleClick={() => openApp('nautilus')}
+            onClick={() => openApp('nautilus')}
+            className="flex flex-col items-center w-20 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition-all text-center select-none"
+            title="Open Cloud Volume"
+          >
+            <div className="w-11 h-11 bg-sky-500/20 border border-sky-500/40 rounded-xl flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform shadow-lg">
+              <HardDrive className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-semibold text-slate-200 mt-1 drop-shadow group-hover:text-white">Storage</span>
+          </div>
+        )}
+
+        {osSettings.showTrashOnDesktop && (
+          <div 
+            onDoubleClick={() => openApp('nautilus')}
+            onClick={() => openApp('nautilus')}
+            className="flex flex-col items-center w-20 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition-all text-center select-none"
+            title="Open Rubbish Bin / Trash"
+          >
+            <div className="w-11 h-11 bg-neutral-800/80 border border-neutral-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:scale-105 transition-transform shadow-lg group-hover:text-red-400">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] font-semibold text-slate-200 mt-1 drop-shadow group-hover:text-white">Trash</span>
+          </div>
+        )}
+      </div>
+
       {/* 4. Windows floating layer container */}
-      <div className="absolute left-[76px] top-7 right-0 bottom-0 z-20 overflow-hidden pointer-events-none">
+      <div className={`absolute top-7 z-20 overflow-hidden pointer-events-none ${
+        osSettings.dockPosition === 'left' ? 'left-[76px] right-0 bottom-0' :
+        osSettings.dockPosition === 'right' ? 'left-0 right-[76px] bottom-0' :
+        'left-0 right-0 bottom-[76px]'
+      }`}>
         <div className="relative w-full h-full pointer-events-auto">
           {/* Terminal */}
           {windows.find(w => w.id === 'terminal')?.isOpen && (
@@ -761,6 +891,30 @@ export default function Desktop() {
               defaultHeight={520}
             >
               <TerraformApp />
+            </WindowFrame>
+          )}
+
+          {/* Settings Application */}
+          {windows.find(w => w.id === 'settings')?.isOpen && (
+            <WindowFrame
+              id="settings"
+              title="Settings"
+              isOpen={windows.find(w => w.id === 'settings')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'settings')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'settings')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'settings')?.zIndex || 2}
+              onClose={() => closeWindow('settings')}
+              onMinimize={() => toggleWindowMinimize('settings')}
+              onMaximize={() => toggleWindowMaximize('settings')}
+              onFocus={() => focusWindow('settings')}
+              theme={osSettings.themeMode}
+              defaultWidth={920}
+              defaultHeight={580}
+            >
+              <SettingsApp 
+                settings={osSettings}
+                onUpdateSettings={handleUpdateSettings}
+              />
             </WindowFrame>
           )}
         </div>
