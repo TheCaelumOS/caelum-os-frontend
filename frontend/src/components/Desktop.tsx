@@ -555,53 +555,6 @@ export default function Desktop() {
         </div>
       </div>
 
-      {/* 3. Desktop Shortcuts Layer (Home, Storage, Trash) */}
-      <div className={`absolute top-11 ${
-        osSettings.dockPosition === 'left' ? 'left-22' : 'left-6'
-      } z-10 flex flex-col space-y-3 pointer-events-auto`}>
-        {osSettings.showHomeOnDesktop && (
-          <div 
-            onDoubleClick={() => openApp('nautilus')}
-            onClick={() => openApp('nautilus')}
-            className="flex flex-col items-center w-20 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition-all text-center select-none"
-            title="Open Home Directory"
-          >
-            <div className="w-11 h-11 bg-amber-500/20 border border-amber-500/40 rounded-xl flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform shadow-lg">
-              <Folder className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-semibold text-slate-200 mt-1 drop-shadow group-hover:text-white">Home</span>
-          </div>
-        )}
-
-        {osSettings.showMountedDrives && (
-          <div 
-            onDoubleClick={() => openApp('nautilus')}
-            onClick={() => openApp('nautilus')}
-            className="flex flex-col items-center w-20 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition-all text-center select-none"
-            title="Open Cloud Volume"
-          >
-            <div className="w-11 h-11 bg-sky-500/20 border border-sky-500/40 rounded-xl flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform shadow-lg">
-              <HardDrive className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-semibold text-slate-200 mt-1 drop-shadow group-hover:text-white">Storage</span>
-          </div>
-        )}
-
-        {osSettings.showTrashOnDesktop && (
-          <div 
-            onDoubleClick={() => openApp('nautilus')}
-            onClick={() => openApp('nautilus')}
-            className="flex flex-col items-center w-20 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition-all text-center select-none"
-            title="Open Rubbish Bin / Trash"
-          >
-            <div className="w-11 h-11 bg-neutral-800/80 border border-neutral-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:scale-105 transition-transform shadow-lg group-hover:text-red-400">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <span className="text-[11px] font-semibold text-slate-200 mt-1 drop-shadow group-hover:text-white">Trash</span>
-          </div>
-        )}
-      </div>
-
       {/* 4. Windows floating layer container */}
       <div className={`absolute top-7 z-20 overflow-hidden pointer-events-none ${
         osSettings.dockPosition === 'left' ? 'left-[76px] right-0 bottom-0' :
