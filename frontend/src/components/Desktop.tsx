@@ -143,6 +143,29 @@ export default function Desktop() {
     kubernetes: 'pods'
   });
 
+  // Desktop Right-Click Context Menu State
+  const [desktopContextMenu, setDesktopContextMenu] = useState<{ visible: boolean; x: number; y: number }>({
+    visible: false,
+    x: 0,
+    y: 0
+  });
+
+  const handleDesktopContextMenu = (e: React.MouseEvent) => {
+    // Only open if right-clicking the desktop wallpaper directly
+    const target = e.target as HTMLElement;
+    if (target.closest('.window-frame') || target.closest('button') || target.closest('input')) {
+      return;
+    }
+    e.preventDefault();
+    let x = e.clientX;
+    let y = e.clientY;
+    if (typeof window !== 'undefined') {
+      if (x + 220 > window.innerWidth) x = window.innerWidth - 230;
+      if (y + 250 > window.innerHeight) y = window.innerHeight - 260;
+    }
+    setDesktopContextMenu({ visible: true, x, y });
+  };
+
   // Windows State Array
   const [windows, setWindows] = useState<AppWindow[]>([
     { id: 'terminal', title: 'linux@caelum-os:~ (Terminal)', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 700, height: 440 },
@@ -262,6 +285,24 @@ export default function Desktop() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Dismiss Desktop Context Menu on global click or Escape
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+      }
+    };
+    window.addEventListener('click', handleGlobalClick);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const openApp = (appId: string) => {
@@ -400,7 +441,10 @@ export default function Desktop() {
   const currentBgClass = wallpaperClasses[osSettings.wallpaper] || wallpaperClasses.aubergine;
 
   return (
-    <div className={`w-full h-full relative overflow-hidden ${currentBgClass} select-none font-sans text-slate-200 transition-all duration-500`}>
+    <div 
+      onContextMenu={handleDesktopContextMenu}
+      className={`w-full h-full relative overflow-hidden ${currentBgClass} select-none font-sans text-slate-200 transition-all duration-500`}
+    >
       
       {/* Night Light Eye Comfort Warmth Overlay */}
       {osSettings.nightLight && (
@@ -600,7 +644,7 @@ export default function Desktop() {
               defaultWidth={750}
               defaultHeight={460}
             >
-              <NautilusApp />
+              <NautilusApp onOpenApp={openApp} />
             </WindowFrame>
           )}
 
@@ -923,6 +967,85 @@ export default function Desktop() {
         )}
       </AnimatePresence>
       
+      {/* 6. Desktop Right-Click Context Menu */}
+      {desktopContextMenu.visible && (
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          style={{ top: `${desktopContextMenu.y}px`, left: `${desktopContextMenu.x}px` }}
+          className="fixed z-50 w-52 bg-neutral-900/95 backdrop-blur-md text-slate-200 border border-neutral-700/80 rounded-xl shadow-2xl py-1 text-xs select-none animate-in fade-in duration-100"
+        >
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('nautilus');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <Folder className="w-3.5 h-3.5 text-amber-500" />
+            <span>New Folder</span>
+          </div>
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('nautilus');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <FolderIcon className="w-3.5 h-3.5 text-sky-400" />
+            <span>Open in Files</span>
+          </div>
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('terminal');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <TermIcon className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Open in Terminal</span>
+          </div>
+
+          <div className="h-px bg-neutral-800 my-1 mx-2" />
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('settings');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <Sliders className="w-3.5 h-3.5 text-purple-400" />
+            <span>Change Background...</span>
+          </div>
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('settings');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <Activity className="w-3.5 h-3.5 text-sky-400" />
+            <span>Display Settings...</span>
+          </div>
+
+          <div className="h-px bg-neutral-800 my-1 mx-2" />
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('settings');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-slate-400" />
+            <span>Settings</span>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
