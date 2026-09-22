@@ -11,6 +11,7 @@ interface SummaryData {
   docker: string;
   dockerBadge: string;
   k8s: string;
+  k8sBadge: string;
   cpu: number;
   ram: number;
   storage: number;
@@ -28,7 +29,10 @@ export default function DashboardApp() {
         ? 'Checking local Docker Engine...' 
         : 'Local CaelumOS runtime required to view host container metrics.',
       dockerBadge: env.isLocalAccessAllowed ? 'Checking Engine' : 'Local Engine Required',
-      k8s: ' k8s-caelum-cluster-1 | 3 Pods running | 1 Deploy',
+      k8s: env.isLocalAccessAllowed
+        ? 'Checking active Kubernetes cluster...'
+        : 'Local CaelumOS runtime required to view cluster metrics.',
+      k8sBadge: env.isLocalAccessAllowed ? 'Checking Cluster' : 'Local Cluster Required',
       cpu: 12.4,
       ram: 42.1,
       storage: 35.0,
@@ -64,6 +68,7 @@ export default function DashboardApp() {
     }
 
     fetchDockerStatus();
+    fetchKubernetesStatus();
 
     return () => {
       if (socket) {
@@ -110,9 +115,48 @@ export default function DashboardApp() {
     }
   };
 
+  const fetchKubernetesStatus = async () => {
+    const env = getDockerEnvironment();
+    if (!env.isLocalAccessAllowed && !env.isRemoteBackendConfigured) {
+      setData(prev => ({
+        ...prev,
+        k8s: 'Local CaelumOS runtime required to view cluster metrics.',
+        k8sBadge: 'Local Cluster Required'
+      }));
+      return;
+    }
+
+    try {
+      const res = await apiRequest('/kubernetes/cluster-info');
+      if (res && res.connected) {
+        const pCount = res.podCount ?? 0;
+        const dCount = res.deploymentCount ?? 0;
+        const ctx = res.context || 'cluster';
+        setData(prev => ({
+          ...prev,
+          k8s: ` ${ctx} | ${pCount} Pods running | ${dCount} Deploys`,
+          k8sBadge: 'Cluster Online'
+        }));
+      } else {
+        setData(prev => ({
+          ...prev,
+          k8s: 'Kubernetes cluster unreachable or no active context.',
+          k8sBadge: 'Cluster Offline'
+        }));
+      }
+    } catch {
+      setData(prev => ({
+        ...prev,
+        k8s: 'Kubernetes cluster connection unavailable.',
+        k8sBadge: 'Cluster Offline'
+      }));
+    }
+  };
+
   const handleRefresh = () => {
     setLoading(true);
     fetchDockerStatus();
+    fetchKubernetesStatus();
     setTimeout(() => {
       setLoading(false);
     }, 800);
@@ -202,7 +246,15 @@ export default function DashboardApp() {
             </div>
             <div>
               <span className="text-xs font-extrabold text-slate-800 block">Kubernetes Summary</span>
-              <span className="text-[9px] text-indigo-500 font-bold uppercase block font-mono">Kubeconfig Loaded</span>
+              <span className={`text-[9px] font-bold uppercase block font-mono ${
+                data.k8sBadge === 'Cluster Online'
+                  ? 'text-indigo-500'
+                  : data.k8sBadge === 'Cluster Offline'
+                    ? 'text-amber-500'
+                    : 'text-slate-400'
+              }`}>
+                {data.k8sBadge}
+              </span>
             </div>
           </div>
           <p className="text-xs text-slate-500 font-mono leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
