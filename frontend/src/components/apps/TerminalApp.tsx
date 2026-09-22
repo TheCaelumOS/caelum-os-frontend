@@ -95,6 +95,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       try {
         const res = await apiRequest('/terminal/session', {
           method: 'POST',
+          body: JSON.stringify({ name: 'Terminal Session' })
         });
         activeSessionId = res?.sessionId || res?.id || null;
         setSessionId(activeSessionId);

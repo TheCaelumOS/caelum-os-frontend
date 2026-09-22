@@ -187,15 +187,18 @@ export default function Desktop() {
   const [topZIndex, setTopZIndex] = useState(11);
 
   // OS Global Settings State (persists to localStorage)
-  const [osSettings, setOsSettings] = useState<OsSettings>(() => {
+  const [osSettings, setOsSettings] = useState<OsSettings>(DEFAULT_OS_SETTINGS);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('caelum_os_settings');
-        if (saved) return { ...DEFAULT_OS_SETTINGS, ...JSON.parse(saved) };
+        if (saved) {
+          setOsSettings(prev => ({ ...DEFAULT_OS_SETTINGS, ...JSON.parse(saved) }));
+        }
       } catch {}
     }
-    return DEFAULT_OS_SETTINGS;
-  });
+  }, []);
 
   const handleUpdateSettings = (updater: (prev: OsSettings) => OsSettings) => {
     setOsSettings(prev => {

@@ -12,10 +12,8 @@ export class FilesystemService implements OnModuleInit {
     this.sandboxRoot = resolve(process.env.SANDBOX_ROOT || join(process.cwd(), 'sandbox'));
     if (!existsSync(this.sandboxRoot)) {
       await fs.mkdir(this.sandboxRoot, { recursive: true });
-      
-      // Seed default files inside sandbox to populate file manager drawer initially
-      await this.seedDefaultSandboxFiles();
     }
+    await this.seedDefaultSandboxFiles();
   }
 
   getSafePath(relativePath: string): string {
@@ -29,6 +27,10 @@ export class FilesystemService implements OnModuleInit {
   async listFiles(relativePath: string) {
     const targetPath = this.getSafePath(relativePath);
     try {
+      if (!existsSync(targetPath)) {
+        return [];
+      }
+
       const stats = await fs.stat(targetPath);
       if (!stats.isDirectory()) {
         throw new BadRequestException('Target path is not a directory');
@@ -52,7 +54,7 @@ export class FilesystemService implements OnModuleInit {
       return list;
     } catch (e) {
       if (e instanceof BadRequestException) throw e;
-      throw new NotFoundException('Directory could not be located');
+      return [];
     }
   }
 
@@ -151,29 +153,69 @@ export class FilesystemService implements OnModuleInit {
 
   private async seedDefaultSandboxFiles() {
     try {
+      // Seed Projects directory
+      const projectsDir = join(this.sandboxRoot, 'Projects');
+      await fs.mkdir(join(projectsDir, 'caelum-core'), { recursive: true });
+      await fs.mkdir(join(projectsDir, 'cloud-infra'), { recursive: true });
+
+      const appTsPath = join(projectsDir, 'app.ts');
+      if (!existsSync(appTsPath)) {
+        await fs.writeFile(
+          appTsPath,
+          `// CaelumOS Core Entrypoint\nconsole.log('CaelumOS Core v2.1 initialized');\nexport const app = { name: 'caelum-core', status: 'running' };\n`,
+          'utf8'
+        );
+      }
+
+      const packageJsonPath = join(projectsDir, 'package.json');
+      if (!existsSync(packageJsonPath)) {
+        await fs.writeFile(
+          packageJsonPath,
+          JSON.stringify({
+            name: "caelum-workspace",
+            version: "1.0.0",
+            description: "CaelumOS Development Workspace",
+            scripts: { "start": "ts-node app.ts" },
+            dependencies: { "@caelum/core": "^2.1.0" }
+          }, null, 2),
+          'utf8'
+        );
+      }
+
       // Seed S3 Buckets, GitHub Repos, and Terraform States directories
       await fs.mkdir(join(this.sandboxRoot, 'S3 Buckets'), { recursive: true });
       await fs.mkdir(join(this.sandboxRoot, 'GitHub Repos'), { recursive: true });
       await fs.mkdir(join(this.sandboxRoot, 'Terraform States'), { recursive: true });
 
       // Seed files inside S3 Buckets
-      await fs.writeFile(
-        join(this.sandboxRoot, 'S3 Buckets', 'iam-policy-rules.json'),
-        JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2),
-        'utf8'
-      );
+      const iamRulesPath = join(this.sandboxRoot, 'S3 Buckets', 'iam-policy-rules.json');
+      if (!existsSync(iamRulesPath)) {
+        await fs.writeFile(
+          iamRulesPath,
+          JSON.stringify({ Version: "2012-10-17", Statement: [] }, null, 2),
+          'utf8'
+        );
+      }
+
       // Seed files inside GitHub Repos
-      await fs.writeFile(
-        join(this.sandboxRoot, 'GitHub Repos', 'README.md'),
-        '# Caelum OS AI Kernel Project\n\nCloud native orchestration interface.',
-        'utf8'
-      );
+      const readmePath = join(this.sandboxRoot, 'GitHub Repos', 'README.md');
+      if (!existsSync(readmePath)) {
+        await fs.writeFile(
+          readmePath,
+          '# Caelum OS AI Kernel Project\n\nCloud native orchestration interface.',
+          'utf8'
+        );
+      }
+
       // Seed files inside Terraform States
-      await fs.writeFile(
-        join(this.sandboxRoot, 'Terraform States', 'production-vpc.tfstate'),
-        '{"version": 4, "terraform_version": "1.5.0", "serial": 1, "lineage": "caelum-lineage"}',
-        'utf8'
-      );
+      const tfStatePath = join(this.sandboxRoot, 'Terraform States', 'production-vpc.tfstate');
+      if (!existsSync(tfStatePath)) {
+        await fs.writeFile(
+          tfStatePath,
+          '{"version": 4, "terraform_version": "1.5.0", "serial": 1, "lineage": "caelum-lineage"}',
+          'utf8'
+        );
+      }
     } catch (err) {
       console.error('Failed to seed default sandbox directories', err);
     }

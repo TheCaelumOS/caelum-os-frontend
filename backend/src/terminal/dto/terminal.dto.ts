@@ -2,10 +2,10 @@ import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateSessionDto {
-  @ApiProperty({ example: 'Bash Session', description: 'Friendly name of the terminal session' })
+  @ApiProperty({ example: 'Bash Session', description: 'Friendly name of the terminal session', required: false })
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  @IsOptional()
+  name?: string = 'Terminal Session';
 
   @ApiProperty({ example: 'powershell.exe', description: 'Command to spawn shell', required: false })
   @IsString()

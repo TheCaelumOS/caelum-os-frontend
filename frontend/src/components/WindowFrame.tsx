@@ -42,17 +42,55 @@ export default function WindowFrame({
   const [height, setHeight] = useState(defaultHeight);
   const windowRef = useRef<HTMLDivElement>(null);
   
-  // Viewport centering coordinates on mount
-  const [position, setPosition] = useState({ x: 50, y: 50 });
+  const isInitializedRef = useRef(false);
 
-  useEffect(() => {
+  // Viewport centering coordinates with stable synchronous client initialization
+  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
     if (typeof window !== 'undefined') {
-      const workspaceWidth = window.innerWidth - 76;
-      const workspaceHeight = window.innerHeight - 28;
-      const x = Math.max(10, (workspaceWidth - defaultWidth) / 2);
-      const y = Math.max(10, (workspaceHeight - defaultHeight) / 2);
-      setPosition({ x, y });
+      const wsW = window.innerWidth - 76;
+      const wsH = window.innerHeight - 28;
+      return {
+        x: Math.max(16, Math.round((wsW - defaultWidth) / 2)),
+        y: Math.max(16, Math.round((wsH - defaultHeight) / 2))
+      };
     }
+    return { x: 50, y: 50 };
+  });
+
+  // Ensure stable anchor once DOM workspace bounds are verified
+  useEffect(() => {
+    if (isInitializedRef.current) return;
+    if (typeof window !== 'undefined') {
+      const parent = windowRef.current?.parentElement;
+      const wsW = parent?.clientWidth || window.innerWidth - 76;
+      const wsH = parent?.clientHeight || window.innerHeight - 28;
+      if (wsW > 100 && wsH > 100) {
+        setPosition(prev => {
+          if (isInitializedRef.current) return prev;
+          isInitializedRef.current = true;
+          return {
+            x: Math.max(16, Math.round((wsW - defaultWidth) / 2)),
+            y: Math.max(16, Math.round((wsH - defaultHeight) / 2))
+          };
+        });
+      }
+    }
+  }, [defaultWidth, defaultHeight]);
+
+  // Safe viewport resize listener - preserves positions within desktop bounds
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      const parent = windowRef.current?.parentElement;
+      const wsW = parent?.clientWidth || window.innerWidth - 76;
+      const wsH = parent?.clientHeight || window.innerHeight - 28;
+      setPosition(prev => ({
+        x: Math.min(Math.max(10, prev.x), Math.max(10, wsW - 100)),
+        y: Math.min(Math.max(10, prev.y), Math.max(10, wsH - 60))
+      }));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Reset dimensions if maximized changes
@@ -104,10 +142,10 @@ export default function WindowFrame({
       dragControls={dragControls}
       dragMomentum={false}
       dragElastic={0}
-      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-      transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.16, ease: 'easeOut' }}
       onPointerDown={onFocus}
       style={{
         zIndex,
