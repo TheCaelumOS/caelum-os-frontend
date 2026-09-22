@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { getSocket } from '../../lib/api';
+import { apiRequest, getSocket } from '../../lib/api';
+import { getDockerEnvironment } from '../../lib/dockerEnvironment';
 import { Cloud, Cpu, Database, Network, HardDrive, RefreshCw, Layers, ShieldCheck, Heart } from 'lucide-react';
 
 interface SummaryData {
   aws: string;
   azure: string;
   docker: string;
+  dockerBadge: string;
   k8s: string;
   cpu: number;
   ram: number;
@@ -17,16 +19,22 @@ interface SummaryData {
 }
 
 export default function DashboardApp() {
-  const [data, setData] = useState<SummaryData>({
-    aws: ' us-east-1 | 2 EC2 Instances | 4 S3 Buckets | 1 RDS Db',
-    azure: ' Pay-As-You-Go | 1 VM | 2 Storage Accounts | 5 RGs',
-    docker: ' 3 Containers Active | 8 Images | 3 Volumes',
-    k8s: ' k8s-caelum-cluster-1 | 3 Pods running | 1 Deploy',
-    cpu: 12.4,
-    ram: 42.1,
-    storage: 35.0,
-    network: '2.4 MB/s',
-    health: '100% Operational'
+  const [data, setData] = useState<SummaryData>(() => {
+    const env = getDockerEnvironment();
+    return {
+      aws: ' us-east-1 | 2 EC2 Instances | 4 S3 Buckets | 1 RDS Db',
+      azure: ' Pay-As-You-Go | 1 VM | 2 Storage Accounts | 5 RGs',
+      docker: env.isLocalAccessAllowed 
+        ? 'Checking local Docker Engine...' 
+        : 'Local CaelumOS runtime required to view host container metrics.',
+      dockerBadge: env.isLocalAccessAllowed ? 'Checking Engine' : 'Local Engine Required',
+      k8s: ' k8s-caelum-cluster-1 | 3 Pods running | 1 Deploy',
+      cpu: 12.4,
+      ram: 42.1,
+      storage: 35.0,
+      network: '2.4 MB/s',
+      health: '100% Operational'
+    };
   });
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -55,6 +63,8 @@ export default function DashboardApp() {
       console.warn('Dashboard socket listener connection skipped.', e);
     }
 
+    fetchDockerStatus();
+
     return () => {
       if (socket) {
         socket.off('system-stats');
@@ -62,8 +72,47 @@ export default function DashboardApp() {
     };
   }, []);
 
+  const fetchDockerStatus = async () => {
+    const env = getDockerEnvironment();
+    if (!env.isLocalAccessAllowed && !env.isRemoteBackendConfigured) {
+      setData(prev => ({
+        ...prev,
+        docker: 'Local CaelumOS runtime required to view host container metrics.',
+        dockerBadge: 'Local Engine Required'
+      }));
+      return;
+    }
+
+    try {
+      const res = await apiRequest('/docker/status');
+      if (res && res.connected) {
+        const cCount = res.containers?.length ?? 0;
+        const iCount = res.images?.length ?? 0;
+        const vCount = res.volumes?.length ?? 0;
+        setData(prev => ({
+          ...prev,
+          docker: ` ${cCount} Containers Active | ${iCount} Images | ${vCount} Volumes`,
+          dockerBadge: 'Daemon Online'
+        }));
+      } else {
+        setData(prev => ({
+          ...prev,
+          docker: 'Local Docker daemon is stopped or unreachable.',
+          dockerBadge: 'Daemon Offline'
+        }));
+      }
+    } catch {
+      setData(prev => ({
+        ...prev,
+        docker: 'Local CaelumOS backend service unreachable.',
+        dockerBadge: 'Daemon Offline'
+      }));
+    }
+  };
+
   const handleRefresh = () => {
     setLoading(true);
+    fetchDockerStatus();
     setTimeout(() => {
       setLoading(false);
     }, 800);
@@ -129,7 +178,15 @@ export default function DashboardApp() {
             </div>
             <div>
               <span className="text-xs font-extrabold text-slate-800 block">Docker Summary</span>
-              <span className="text-[9px] text-cyan-500 font-bold uppercase block font-mono">Daemon Online</span>
+              <span className={`text-[9px] font-bold uppercase block font-mono ${
+                data.dockerBadge === 'Daemon Online' 
+                  ? 'text-cyan-500' 
+                  : data.dockerBadge === 'Local Engine Required'
+                    ? 'text-amber-500'
+                    : 'text-slate-400'
+              }`}>
+                {data.dockerBadge}
+              </span>
             </div>
           </div>
           <p className="text-xs text-slate-500 font-mono leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">

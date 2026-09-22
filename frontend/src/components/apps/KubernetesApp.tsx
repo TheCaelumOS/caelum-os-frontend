@@ -63,19 +63,12 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
       }
       await fetchNamespacedResources(nextNs);
     } catch (e: any) {
-      console.warn('Backend server unreachable. Using fallback offline simulation mode.', e);
-      setError('Backend is unavailable. Please start the backend server.');
-      setNamespaces(['default', 'kube-system', 'caelum-apps']);
+      console.warn('Kubernetes cluster unreachable:', e);
+      setError('Kubernetes cluster connection unavailable. Connect a cluster in the local CaelumOS environment.');
+      setNamespaces([]);
       setActiveNamespace('default');
-      setPods([
-        { name: 'caelum-api-89fb45-s34fg', namespace: 'default', status: 'Running', ip: '10.244.1.45', node: 'node-worker-1', age: '4h' },
-        { name: 'caelum-postgres-0', namespace: 'default', status: 'Running', ip: '10.244.1.46', node: 'node-worker-1', age: '4h' },
-        { name: 'caelum-redis-7b89d-cf892', namespace: 'default', status: 'Running', ip: '10.244.1.47', node: 'node-worker-1', age: '4h' }
-      ]);
-      setDeployments([
-        { name: 'caelum-api', namespace: 'default', replicas: '1/1', available: 1, age: '4h' },
-        { name: 'caelum-redis', namespace: 'default', replicas: '1/1', available: 1, age: '4h' }
-      ]);
+      setPods([]);
+      setDeployments([]);
     } finally {
       setLoading(false);
     }

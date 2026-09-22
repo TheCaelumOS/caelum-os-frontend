@@ -1,4 +1,14 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { isDockerLocalAccessAllowed, isRemoteDockerBackendConfigured } from './dockerEnvironment';
+
+export const API_BASE = (() => {
+  if (process.env.NEXT_PUBLIC_REMOTE_DOCKER_AGENT_URL) {
+    return process.env.NEXT_PUBLIC_REMOTE_DOCKER_AGENT_URL;
+  }
+  if (process.env.NEXT_PUBLIC_API_URL !== undefined && process.env.NEXT_PUBLIC_API_URL !== '') {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  return 'http://localhost:4000';
+})();
 
 let jwtToken = '';
 
@@ -10,6 +20,11 @@ if (typeof window !== 'undefined') {
 export async function ensureAuthenticated(force = false) {
   if (typeof window === 'undefined') return '';
   if (jwtToken && !force) return jwtToken;
+
+  // On hosted production without remote backend, do not attempt localhost auth
+  if (!isDockerLocalAccessAllowed() && !isRemoteDockerBackendConfigured()) {
+    return '';
+  }
 
   if (force) {
     jwtToken = '';
@@ -74,6 +89,12 @@ export async function ensureAuthenticated(force = false) {
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   if (typeof window === 'undefined') return null;
+
+  // On hosted production without remote backend, do not attempt to contact local daemon
+  if (!isDockerLocalAccessAllowed() && !isRemoteDockerBackendConfigured()) {
+    throw new Error('Local Docker access is unavailable from the hosted website. Run CaelumOS locally to connect to Docker Engine.');
+  }
+
   let token = '';
   try {
     token = await ensureAuthenticated();
@@ -150,8 +171,11 @@ import { io, Socket } from 'socket.io-client';
 
 let socketInstance: Socket | null = null;
 
-export function getSocket(): Socket {
+export function getSocket(): Socket | null {
   if (socketInstance) return socketInstance;
+  if (typeof window !== 'undefined' && !isDockerLocalAccessAllowed() && !isRemoteDockerBackendConfigured()) {
+    return null;
+  }
   
   socketInstance = io(API_BASE, {
     transports: ['websocket'],

@@ -45,12 +45,16 @@ export default function TerraformApp() {
 
     // Listen to real-time streamed logs from the socket server
     const socket = getSocket();
-    socket.on('terraform-output', (data: { text: string; isError?: boolean }) => {
-      setConsoleLogs(prev => prev + data.text);
-    });
+    if (socket) {
+      socket.on('terraform-output', (data: { text: string; isError?: boolean }) => {
+        setConsoleLogs(prev => prev + data.text);
+      });
+    }
 
     return () => {
-      socket.off('terraform-output');
+      if (socket) {
+        socket.off('terraform-output');
+      }
     };
   }, []);
 
