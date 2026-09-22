@@ -194,10 +194,17 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       }
     } catch (err: any) {
       const errMsg = err?.message || 'Cannot connect to CaelumOS backend execution service.';
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const hints = [
+        `[CaelumOS Shell] Execution error: ${errMsg}`,
+        isHttps
+          ? `Notice: You are visiting via HTTPS (${window.location.host}). Browsers block requests to http://localhost:4000. Open http://localhost:3000 to execute live commands on your local host.`
+          : `Ensure the CaelumOS backend daemon is running on port 4000 to execute live commands on host.`
+      ];
       setLogs(prev => [
         ...prev,
-        { text: `[CaelumOS Shell] Execution error: ${errMsg}`, type: 'error' },
-        { text: `Ensure the CaelumOS backend daemon is running on port 4000 to execute live commands on host.`, type: 'info' }
+        { text: hints[0], type: 'error' },
+        { text: hints[1], type: 'info' }
       ]);
     } finally {
       setExecuting(false);

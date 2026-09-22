@@ -24,11 +24,12 @@ export async function ensureAuthenticated(force = false) {
 
   try {
     console.log('[API] Authenticating with developer credentials...');
-    // Attempt Login
+    // Attempt Login with 5s timeout
     const loginRes = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (loginRes.ok) {
@@ -44,6 +45,7 @@ export async function ensureAuthenticated(force = false) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (regRes.ok) {
@@ -52,6 +54,7 @@ export async function ensureAuthenticated(force = false) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (retryRes.ok) {
@@ -103,9 +106,12 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
       headers['Content-Type'] = 'application/json';
     }
 
+    const signal = options.signal || AbortSignal.timeout(15000);
+
     return await fetch(`${API_BASE}${endpoint}`, {
       cache: 'no-store',
       ...options,
+      signal,
       headers,
     });
   };
