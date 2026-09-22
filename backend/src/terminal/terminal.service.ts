@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, OnModuleDestroy } from '@nestjs/common';
 import { spawn, ChildProcess } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebsocketService } from '../websocket/websocket.service';
 import { CreateSessionDto } from './dto/terminal.dto';
@@ -7,6 +9,23 @@ import { CreateSessionDto } from './dto/terminal.dto';
 @Injectable()
 export class TerminalService implements OnModuleDestroy {
   private readonly activeProcesses = new Map<string, ChildProcess>();
+  private readonly sessionCwds = new Map<string, string>();
+
+  private getBashExecutable(): string {
+    if (process.platform !== 'win32') {
+      return '/bin/bash';
+    }
+    const candidates = [
+      'C:\\Program Files\\Git\\bin\\bash.exe',
+      'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+      'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+      'bash.exe',
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+    return 'bash.exe';
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -133,22 +152,113 @@ export class TerminalService implements OnModuleDestroy {
     proc.stdin?.write(data);
   }
 
-  async executeCommand(command: string, cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number; command: string }> {
-    const isWindows = process.platform === 'win32';
+  async executeCommand(
+    command: string, 
+    cwd?: string, 
+    sessionId?: string
+  ): Promise<{ stdout: string; stderr: string; exitCode: number; command: string; cwd: string }> {
     const trimmed = command.trim();
-    const workDir = cwd || process.cwd();
+    const bashExecutable = this.getBashExecutable();
+    
+    // Resolve session working directory (defaults to /home/caelum)
+    const resolvedSessionId = sessionId || 'default';
+    const currentCwd = this.sessionCwds.get(resolvedSessionId) || cwd || '/home/caelum';
+
+    // Ensure sandbox home and etc directories exist
+    const repoRoot = path.resolve(__dirname, '../../../..');
+    const homeDir = path.join(repoRoot, 'sandbox', 'home', 'caelum');
+    const etcDir = path.join(repoRoot, 'etc');
+    try {
+      if (!fs.existsSync(homeDir)) {
+        fs.mkdirSync(homeDir, { recursive: true });
+      }
+      if (!fs.existsSync(etcDir)) {
+        fs.mkdirSync(etcDir, { recursive: true });
+      }
+      const osReleaseFile = path.join(etcDir, 'os-release');
+      if (!fs.existsSync(osReleaseFile)) {
+        fs.writeFileSync(
+          osReleaseFile,
+          'NAME="CaelumOS"\nVERSION="2.1 (Pioneering Developer OS)"\nID=caelum\nID_LIKE="ubuntu debian"\nPRETTY_NAME="CaelumOS Hybrid Linux 2.1 (Ubuntu-core base)"\nVERSION_ID="2.1"\nHOME_URL="https://caelum.me/"\n',
+        );
+      }
+    } catch {}
+
+    const unixHomeDir = homeDir.replace(/\\/g, '/');
+    const unixEtcRelease = path.join(etcDir, 'os-release').replace(/\\/g, '/');
+
+    const wrapperScript = `
+mount "${unixHomeDir}/.." /home 2>/dev/null || true
+mkdir -p /home/caelum 2>/dev/null || true
+
+whoami() { echo "caelum"; }
+id() { echo "uid=1000(caelum) gid=1000(caelum) groups=1000(caelum),4(adm),24(cdrom),27(sudo),122(docker)"; }
+uname() {
+  if [ "$1" = "-a" ]; then
+    echo "Linux caelum-os 6.2.0-26-generic #26~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux"
+  elif [ "$1" = "-r" ]; then
+    echo "6.2.0-26-generic"
+  elif [ "$1" = "-s" ]; then
+    echo "Linux"
+  elif [ "$1" = "-m" ]; then
+    echo "x86_64"
+  elif [ -z "$1" ]; then
+    echo "Linux"
+  else
+    command uname "$@"
+  fi
+}
+systemctl() {
+  if [ "$1" = "status" ] && [ "$2" = "docker" ]; then
+    if docker info >/dev/null 2>&1; then
+      echo "● docker.service - Docker Application Container Engine"
+      echo "     Loaded: loaded (/lib/systemd/system/docker.service; enabled; vendor preset: enabled)"
+      echo "     Active: active (running)"
+      echo "    Process: $(docker info --format '{{.ServerVersion}}' 2>/dev/null) engine runtime"
+      return 0
+    else
+      echo "● docker.service - Docker Application Container Engine"
+      echo "     Loaded: loaded (/lib/systemd/system/docker.service; enabled; vendor preset: enabled)"
+      echo "     Active: inactive (dead)"
+      return 3
+    fi
+  fi
+  echo "systemctl: unit $2.service could not be found."
+  return 4
+}
+cat() {
+  for arg in "$@"; do
+    if [ "$arg" = "/etc/os-release" ] && [ ! -f /etc/os-release ]; then
+      command cat "${unixEtcRelease}" 2>/dev/null || echo 'PRETTY_NAME="CaelumOS Hybrid Linux 2.1 (Ubuntu-core base)"'
+      return $?
+    fi
+  done
+  command cat "$@"
+}
+
+cd "${currentCwd}" 2>/dev/null || cd /home/caelum 2>/dev/null || cd / 2>/dev/null
+{
+${trimmed}
+}
+__CAELUM_EXIT=$?
+echo "___CAELUM_CWD_MARKER___"
+pwd -P
+exit $__CAELUM_EXIT
+`;
 
     return new Promise((resolve) => {
-      const shellExecutable = isWindows ? 'powershell.exe' : '/bin/bash';
-      const shellArgs = isWindows ? ['-NoProfile', '-Command', trimmed] : ['-c', trimmed];
-
       let stdout = '';
       let stderr = '';
       let timedOut = false;
 
-      const proc = spawn(shellExecutable, shellArgs, {
-        cwd: workDir,
-        env: { ...process.env, PAGER: 'cat' },
+      const proc = spawn(bashExecutable, ['-c', wrapperScript], {
+        env: {
+          ...process.env,
+          USER: 'caelum',
+          LOGNAME: 'caelum',
+          USERNAME: 'caelum',
+          PAGER: 'cat',
+        },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -160,6 +270,7 @@ export class TerminalService implements OnModuleDestroy {
           stderr: stderr + '\nExecution timed out after 30 seconds.',
           exitCode: 124,
           command: trimmed,
+          cwd: currentCwd,
         });
       }, 30000);
 
@@ -175,21 +286,12 @@ export class TerminalService implements OnModuleDestroy {
         clearTimeout(timer);
         if (timedOut) return;
 
-        if (trimmed.startsWith('docker') && (err.code === 'ENOENT' || err.message?.includes('not found'))) {
-          resolve({
-            stdout: '',
-            stderr: 'Docker CLI not found.',
-            exitCode: 127,
-            command: trimmed,
-          });
-          return;
-        }
-
         resolve({
           stdout: '',
-          stderr: err.message || 'Failed to execute command on operating system.',
+          stderr: err.message || 'Failed to execute command in CaelumOS shell.',
           exitCode: 1,
           command: trimmed,
+          cwd: currentCwd,
         });
       });
 
@@ -197,11 +299,29 @@ export class TerminalService implements OnModuleDestroy {
         clearTimeout(timer);
         if (timedOut) return;
 
-        const exitCode = code ?? 0;
+        let exitCode = code ?? 0;
+        let finalStdout = stdout;
+        let newCwd = currentCwd;
+
+        if (stdout.includes('___CAELUM_CWD_MARKER___')) {
+          const parts = stdout.split('___CAELUM_CWD_MARKER___');
+          finalStdout = parts[0];
+          const lines = parts[1]?.trim().split(/\r?\n/) || [];
+          const detectedCwd = lines[0]?.trim();
+          if (detectedCwd) {
+            newCwd = detectedCwd;
+            this.sessionCwds.set(resolvedSessionId, newCwd);
+          }
+        }
+
+        // Clean up stderr if mount produced expected warning
+        if (stderr.includes('mount: warning - /home does not exist')) {
+          stderr = stderr.replace(/mount: warning - \/home does not exist\.?\r?\n?/g, '').trimStart();
+        }
 
         // Enhanced Docker daemon error formatting
         if (trimmed.startsWith('docker') && exitCode !== 0) {
-          const combinedErr = (stderr || '') + (stdout || '');
+          const combinedErr = (stderr || '') + (finalStdout || '');
           if (
             combinedErr.includes('cannot find the file specified') ||
             combinedErr.includes('connect to the docker API') ||
@@ -213,10 +333,11 @@ export class TerminalService implements OnModuleDestroy {
         }
 
         resolve({
-          stdout,
+          stdout: finalStdout,
           stderr,
           exitCode,
           command: trimmed,
+          cwd: newCwd,
         });
       });
     });

@@ -19,9 +19,14 @@ export class ExecuteCommandDto {
   @IsNotEmpty()
   command: string;
 
-  @ApiProperty({ example: '/home/linux', description: 'Working directory', required: false })
+  @ApiProperty({ example: '/home/caelum', description: 'Working directory', required: false })
   @IsString()
   @IsOptional()
   cwd?: string;
+
+  @ApiProperty({ example: 'session-12345', description: 'Terminal session ID to track persistent working directory', required: false })
+  @IsString()
+  @IsOptional()
+  sessionId?: string;
 }
 

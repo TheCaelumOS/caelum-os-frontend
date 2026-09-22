@@ -1,34 +1,13 @@
 /**
  * CaelumOS Terminal Command Router
  * 
- * Separates user terminal inputs into two deterministic execution channels:
+ * Shell-First Execution Architecture:
  * 1. REAL LINUX SHELL (Executes directly against the OS / Docker Engine)
- * 2. CAELUMOS AI ASSISTANT (Natural language infrastructure requests / planning)
+ * 2. CAELUMOS AI ASSISTANT (Secondary capability for natural language infrastructure planning)
+ * 
+ * NOTE: NO command allowlists. NO command-specific if/else.
+ * Arbitrary valid and invalid shell inputs execute against the genuine CaelumOS shell.
  */
-
-export const RECOGNIZED_SHELL_BINARIES = new Set<string>([
-  // Containers & Orchestration
-  'docker', 'docker-compose', 'podman', 'kubectl', 'minikube', 'helm', 'crictl', 'containerd',
-  
-  // Version Control
-  'git', 'gh', 'svn', 'hg',
-
-  // Core Linux Utilities
-  'ls', 'cd', 'pwd', 'mkdir', 'rm', 'rmdir', 'cp', 'mv', 'cat', 'grep', 'find', 'ps', 
-  'top', 'htop', 'df', 'du', 'free', 'uname', 'whoami', 'id', 'which', 'whereis', 'curl',
-  'wget', 'ssh', 'scp', 'chmod', 'chown', 'systemctl', 'journalctl', 'kill', 'killall',
-  'head', 'tail', 'less', 'more', 'echo', 'env', 'export', 'source', 'alias', 'touch',
-  'tar', 'gzip', 'gunzip', 'unzip', 'zip', 'sed', 'awk', 'man', 'history', 'date', 
-  'uptime', 'ping', 'traceroute', 'netstat', 'ss', 'ip', 'ifconfig', 'lsof', 'nano', 
-  'vim', 'vi', 'tree', 'diff', 'patch', 'file', 'base64', 'cut', 'sort', 'uniq', 'wc', 
-  'tee', 'xargs', 'sudo', 'su',
-
-  // Developer Runtimes & Infrastructure Tools
-  'python', 'python3', 'pip', 'pip3', 'node', 'npm', 'npx', 'yarn', 'pnpm', 'bun',
-  'terraform', 'tofu', 'ansible', 'ansible-playbook', 'cargo', 'rustc', 'go', 'make',
-  'cmake', 'gcc', 'g++', 'clang', 'java', 'javac', 'mvn', 'gradle', 'bash', 'sh', 
-  'zsh', 'fish', 'pwsh', 'powershell'
-]);
 
 export const DESTRUCTIVE_COMMAND_PATTERNS = [
   /^rm\s+(-[a-zA-Z]*r[a-zA-Z]*f?|--recursive|--force)/i,
@@ -42,16 +21,34 @@ export const DESTRUCTIVE_COMMAND_PATTERNS = [
 ];
 
 export const NATURAL_LANGUAGE_PREFIXES = [
-  'deploy ',
-  'create ',
-  'provision ',
-  'setup ',
+  'deploy an ',
+  'deploy a ',
+  'deploy the ',
+  'deploy this ',
+  'deploy my ',
+  'create an ',
+  'create a ',
+  'create the ',
+  'create my ',
+  'create terraform ',
+  'create k8s ',
+  'create kubernetes ',
+  'provision an ',
+  'provision a ',
+  'provision the ',
+  'provision my ',
+  'architect an ',
+  'architect a ',
+  'architect the ',
+  'generate an ',
+  'generate a ',
+  'generate terraform ',
+  'generate kubernetes ',
+  'scale my ',
+  'scale the ',
+  'scale our ',
   'set up ',
-  'scale ',
-  'build ',
-  'generate ',
-  'architect ',
-  'design ',
+  'setup ',
   'how do i ',
   'how to ',
   'what is ',
@@ -60,7 +57,8 @@ export const NATURAL_LANGUAGE_PREFIXES = [
   'can you ',
   'please ',
   'ai ',
-  'ask '
+  'ask ',
+  'help me '
 ];
 
 export type CommandRouteType = 'shell' | 'ai' | 'builtin' | 'destructive_warning';
@@ -78,6 +76,7 @@ export interface CommandRouteResult {
 
 /**
  * Classifies raw user input into Shell Execution, AI Request, or System Built-in.
+ * Follows the Shell-First Rule: all legitimate or unknown command inputs execute in the shell.
  */
 export function routeCommand(rawInput: string, isConfirmed = false): CommandRouteResult {
   const trimmed = rawInput.trim();
@@ -109,58 +108,14 @@ export function routeCommand(rawInput: string, isConfirmed = false): CommandRout
     return { type: 'builtin', raw: trimmed, builtinAction: 'docker-diagnostics' };
   }
 
-  // 2. Tokenize input
-  const tokens = trimmed.split(/\s+/);
-  let firstToken = tokens[0].toLowerCase();
+  // 2. Explicit Natural Language AI Intent (Secondary Capability)
+  const hasAIPrefix = NATURAL_LANGUAGE_PREFIXES.some(prefix => lower.startsWith(prefix));
+  const hasShellOperators = /[|><;&$]/.test(trimmed) || /^\s*-\w+/.test(trimmed);
 
-  // If command starts with sudo, inspect the wrapped binary
-  if (firstToken === 'sudo' && tokens.length > 1) {
-    firstToken = tokens[1].toLowerCase();
-  }
-
-  // Strip path prefix if any (e.g., /usr/bin/docker -> docker)
-  const baseBinary = firstToken.includes('/') ? firstToken.split('/').pop() || firstToken : firstToken;
-
-  // 3. Recognized Shell Command Check
-  // Check if it's a known binary OR a script path (e.g. ./deploy.sh, /bin/sh)
-  const isPathExecution = firstToken.startsWith('./') || firstToken.startsWith('../') || firstToken.startsWith('/') || firstToken.startsWith('~/');
-  const isEnvAssignment = /^[A-Za-z_][A-Za-z0-9_]*=/.test(firstToken);
-  const isKnownShellBinary = RECOGNIZED_SHELL_BINARIES.has(baseBinary);
-
-  if (isKnownShellBinary || isPathExecution || isEnvAssignment) {
-    // Check for potentially destructive commands
-    const isDestructive = DESTRUCTIVE_COMMAND_PATTERNS.some(pattern => pattern.test(trimmed));
-    const hasForceFlag = tokens.some(t => t === '-f' || t === '--force' || t === '-y' || t === '--yes' || t === '--confirm');
-
-    if (isDestructive && !hasForceFlag && !isConfirmed) {
-      return {
-        type: 'destructive_warning',
-        raw: trimmed,
-        binary: baseBinary,
-        args: tokens.slice(1),
-        isDestructive: true,
-        warningMessage: `[Security Guard] Potentially destructive command detected: "${trimmed}"\nType 'yes' to proceed with execution on CaelumOS, or append '--confirm' to bypass.`
-      };
-    }
-
-    return {
-      type: 'shell',
-      raw: trimmed,
-      binary: baseBinary,
-      args: tokens.slice(1),
-      isDestructive
-    };
-  }
-
-  // 4. Explicit AI Prefix or Natural Language Pattern
-  const hasNaturalLanguagePrefix = NATURAL_LANGUAGE_PREFIXES.some(prefix => lower.startsWith(prefix));
-
-  if (hasNaturalLanguagePrefix) {
-    // Extract cleaned prompt
+  if (hasAIPrefix && !hasShellOperators) {
     let prompt = trimmed;
     if (lower.startsWith('ai ')) prompt = trimmed.slice(3).trim();
     if (lower.startsWith('ask ')) prompt = trimmed.slice(4).trim();
-
     return {
       type: 'ai',
       raw: trimmed,
@@ -168,20 +123,14 @@ export function routeCommand(rawInput: string, isConfirmed = false): CommandRout
     };
   }
 
-  // 5. Fallback heuristics:
-  // If the sentence has 3+ words or contains conversational/interrogative verbs, classify as AI
-  const isConversationalSentence = tokens.length >= 3 && (
-    lower.includes('my ') || 
-    lower.includes('the ') || 
-    lower.includes('this ') || 
-    lower.includes('for ') || 
-    lower.includes('with ') || 
-    lower.includes('in ') ||
-    lower.includes('to ') ||
-    lower.endsWith('?')
+  // Conversational sentence with question mark or explicit intent (e.g. "Deploy my app to AWS")
+  const tokens = trimmed.split(/\s+/);
+  const isConversational = tokens.length >= 4 && !hasShellOperators && (
+    (lower.includes('for me') || lower.includes('in my') || lower.includes('to aws') || lower.includes('to azure')) &&
+    (lower.startsWith('deploy') || lower.startsWith('create') || lower.startsWith('set up') || lower.startsWith('setup') || lower.startsWith('configure') || lower.startsWith('install'))
   );
 
-  if (isConversationalSentence) {
+  if (isConversational) {
     return {
       type: 'ai',
       raw: trimmed,
@@ -189,12 +138,26 @@ export function routeCommand(rawInput: string, isConfirmed = false): CommandRout
     };
   }
 
-  // Otherwise, default to real shell execution so user never gets unexpected AI output on unrecognized commands
-  // (e.g. standard "command not found" from the OS shell)
+  // 3. Security Guard for Destructive Commands
+  const isDestructive = DESTRUCTIVE_COMMAND_PATTERNS.some(pattern => pattern.test(trimmed));
+  const hasForceFlag = tokens.some(t => t === '-f' || t === '--force' || t === '-y' || t === '--yes' || t === '--confirm');
+
+  if (isDestructive && !hasForceFlag && !isConfirmed) {
+    return {
+      type: 'destructive_warning',
+      raw: trimmed,
+      isDestructive: true,
+      warningMessage: `[Security Guard] Potentially destructive command detected: "${trimmed}"\nType 'yes' to proceed with execution on CaelumOS, or append '--confirm' to bypass.`
+    };
+  }
+
+  // 4. SHELL-FIRST RULE:
+  // All other inputs route directly to the genuine Linux shell.
+  // Unknown executables naturally produce shell error: "command not found".
   return {
     type: 'shell',
     raw: trimmed,
-    binary: baseBinary,
+    binary: tokens[0],
     args: tokens.slice(1),
     isDestructive: false
   };

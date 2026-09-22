@@ -61,8 +61,15 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
   const [executing, setExecuting] = useState(false);
   const [currentCode, setCurrentCode] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentCwd, setCurrentCwd] = useState<string>('/home/caelum');
   const [pendingConfirmation, setPendingConfirmation] = useState<string | null>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  const formatPromptPath = (cwd: string) => {
+    if (cwd === '/home/caelum') return '~';
+    if (cwd.startsWith('/home/caelum/')) return '~' + cwd.slice('/home/caelum'.length);
+    return cwd;
+  };
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -174,14 +181,22 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
     setExecuting(true);
     setLogs(prev => [
       ...prev,
-      { text: `[CaelumOS Shell]\n$ ${command}`, type: 'input' }
+      { text: `[CaelumOS Shell] $ ${command}`, type: 'input' }
     ]);
 
     try {
       const res = await apiRequest('/terminal/execute', {
         method: 'POST',
-        body: JSON.stringify({ command })
+        body: JSON.stringify({ 
+          command,
+          sessionId: sessionId || 'default-session',
+          cwd: currentCwd
+        })
       });
+
+      if (res?.cwd) {
+        setCurrentCwd(res.cwd);
+      }
 
       if (res?.stdout) {
         setLogs(prev => [...prev, { text: res.stdout.replace(/\r\n/g, '\n').trimEnd(), type: 'output' }]);
@@ -282,7 +297,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       } else {
         setLogs(prev => [
           ...prev,
-          { text: `linux@caelum-os:~$ ${trimmed}`, type: 'input' },
+          { text: `caelum@caelum-os:${formatPromptPath(currentCwd)}$ ${trimmed}`, type: 'input' },
           { text: `[Security Guard] Potentially destructive execution aborted by user.`, type: 'info' }
         ]);
       }
@@ -297,7 +312,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       setPendingConfirmation(trimmed);
       setLogs(prev => [
         ...prev,
-        { text: `linux@caelum-os:~$ ${trimmed}`, type: 'input' },
+        { text: `caelum@caelum-os:${formatPromptPath(currentCwd)}$ ${trimmed}`, type: 'input' },
         { text: route.warningMessage || `[Security Guard] Confirm command execution. Type 'yes' to proceed.`, type: 'error' }
       ]);
       return;
@@ -310,7 +325,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
         return;
       }
 
-      setLogs(prev => [...prev, { text: `linux@caelum-os:~$ ${trimmed}`, type: 'input' }]);
+      setLogs(prev => [...prev, { text: `caelum@caelum-os:${formatPromptPath(currentCwd)}$ ${trimmed}`, type: 'input' }]);
 
       if (route.builtinAction === 'help') {
         setLogs(prev => [
@@ -341,8 +356,8 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
         setLogs(prev => [
           ...prev,
           { text: `
-   .---.        linux@caelum-os
-  /     \\       ---------------
+   .---.        caelum@caelum-os
+  /     \\       ----------------
   | (o) |       OS: CaelumOS Hybrid Linux (Ubuntu-core base)
   \\     /       Kernel: 6.2.0-26-generic
    '---'        Uptime: 2 hours, 48 mins
@@ -373,7 +388,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       const prompt = route.aiPrompt || trimmed;
       setLogs(prev => [
         ...prev,
-        { text: `linux@caelum-os:~$ ${trimmed}`, type: 'input' },
+        { text: `caelum@caelum-os:${formatPromptPath(currentCwd)}$ ${trimmed}`, type: 'input' },
         { text: `[CaelumOS AI]\nPlanning infrastructure deployment: "${prompt}"...`, type: 'info' },
         { text: "[CaelumOS AI] Fetching Terraform blueprints & cloud security definitions...", type: 'info' },
         { text: "[CaelumOS AI] Streaming live infrastructure design code...", type: 'info' }
@@ -427,7 +442,7 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
 
       {/* Input row */}
       <div className="border-t border-purple-950/40 pt-2 flex items-center bg-[#2c001e] z-10">
-        <span className="text-[#87df55] font-bold select-none mr-2">linux@caelum-os:~$</span>
+        <span className="text-[#87df55] font-bold select-none mr-2">caelum@caelum-os:{formatPromptPath(currentCwd)}$</span>
         <input
           type="text"
           value={inputVal}

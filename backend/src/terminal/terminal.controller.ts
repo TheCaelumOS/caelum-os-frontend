@@ -39,7 +39,7 @@ export class TerminalController {
   executeCommand(
     @Body() dto: ExecuteCommandDto,
   ) {
-    return this.terminalService.executeCommand(dto.command, dto.cwd);
+    return this.terminalService.executeCommand(dto.command, dto.cwd, dto.sessionId);
   }
 
   @Get('diagnostics/docker')
