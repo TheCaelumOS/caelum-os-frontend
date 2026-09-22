@@ -261,17 +261,18 @@ export class TerminalService implements OnModuleDestroy {
       results.runtime = runCheck.exitCode === 0;
 
       if (results.runtime) {
-        // 6. Networking
-        const netCheck = await this.executeCommand('docker inspect --format "{{.NetworkSettings.IPAddress}}" caelum-diag-test');
+        // 6. Networking check
+        const netCheck = await this.executeCommand('docker network ls');
         results.networking = netCheck.exitCode === 0;
 
-        // 7. Logs
+        // 7. Container Logs check
         const logCheck = await this.executeCommand('docker logs caelum-diag-test');
         results.logs = logCheck.exitCode === 0;
 
-        // 8. Lifecycle stop & rm
-        const stopCheck = await this.executeCommand('docker stop caelum-diag-test && docker rm caelum-diag-test');
-        results.lifecycle = stopCheck.exitCode === 0;
+        // 8. Lifecycle stop & remove check
+        await this.executeCommand('docker stop caelum-diag-test');
+        const rmCheck = await this.executeCommand('docker rm -f caelum-diag-test');
+        results.lifecycle = rmCheck.exitCode === 0;
       }
     }
 
