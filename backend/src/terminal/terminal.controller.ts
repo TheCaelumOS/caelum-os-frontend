@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { TerminalService } from './terminal.service';
-import { CreateSessionDto } from './dto/terminal.dto';
+import { CreateSessionDto, ExecuteCommandDto } from './dto/terminal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 
@@ -20,13 +20,33 @@ export class TerminalController {
   }
 
   @Post('session')
-  @ApiOperation({ summary: 'Spawn a new platform shell shell terminal session' })
+  @ApiOperation({ summary: 'Spawn a new platform shell terminal session' })
   @ApiResponse({ status: 201, description: 'Terminal session spawned successfully.' })
-  createSession(
+  async createSession(
     @GetUser('id') userId: string,
     @Body() dto: CreateSessionDto,
   ) {
-    return this.terminalService.createSession(userId, dto);
+    const session = await this.terminalService.createSession(userId, dto);
+    return {
+      ...session,
+      sessionId: session.id,
+    };
+  }
+
+  @Post('execute')
+  @ApiOperation({ summary: 'Execute a direct shell command in the operating system' })
+  @ApiResponse({ status: 200, description: 'Command executed successfully.' })
+  executeCommand(
+    @Body() dto: ExecuteCommandDto,
+  ) {
+    return this.terminalService.executeCommand(dto.command, dto.cwd);
+  }
+
+  @Get('diagnostics/docker')
+  @ApiOperation({ summary: 'Run real CaelumOS Docker integration diagnostics' })
+  @ApiResponse({ status: 200, description: 'Docker diagnostics report completed.' })
+  runDockerDiagnostics() {
+    return this.terminalService.runDockerDiagnostics();
   }
 
   @Delete('session/:id')

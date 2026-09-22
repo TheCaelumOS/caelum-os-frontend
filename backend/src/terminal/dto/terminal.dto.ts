@@ -12,3 +12,16 @@ export class CreateSessionDto {
   @IsOptional()
   shell?: string;
 }
+
+export class ExecuteCommandDto {
+  @ApiProperty({ example: 'docker --version', description: 'Raw shell command to execute' })
+  @IsString()
+  @IsNotEmpty()
+  command: string;
+
+  @ApiProperty({ example: '/home/linux', description: 'Working directory', required: false })
+  @IsString()
+  @IsOptional()
+  cwd?: string;
+}
+

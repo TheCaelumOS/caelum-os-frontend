@@ -132,4 +132,172 @@ export class TerminalService implements OnModuleDestroy {
     }
     proc.stdin?.write(data);
   }
+
+  async executeCommand(command: string, cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number; command: string }> {
+    const isWindows = process.platform === 'win32';
+    const trimmed = command.trim();
+    const workDir = cwd || process.cwd();
+
+    return new Promise((resolve) => {
+      const shellExecutable = isWindows ? 'powershell.exe' : '/bin/bash';
+      const shellArgs = isWindows ? ['-NoProfile', '-Command', trimmed] : ['-c', trimmed];
+
+      let stdout = '';
+      let stderr = '';
+      let timedOut = false;
+
+      const proc = spawn(shellExecutable, shellArgs, {
+        cwd: workDir,
+        env: { ...process.env, PAGER: 'cat' },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      const timer = setTimeout(() => {
+        timedOut = true;
+        proc.kill();
+        resolve({
+          stdout,
+          stderr: stderr + '\nExecution timed out after 30 seconds.',
+          exitCode: 124,
+          command: trimmed,
+        });
+      }, 30000);
+
+      proc.stdout?.on('data', (data: Buffer) => {
+        stdout += data.toString('utf8');
+      });
+
+      proc.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString('utf8');
+      });
+
+      proc.on('error', (err: any) => {
+        clearTimeout(timer);
+        if (timedOut) return;
+
+        if (trimmed.startsWith('docker') && (err.code === 'ENOENT' || err.message?.includes('not found'))) {
+          resolve({
+            stdout: '',
+            stderr: 'Docker CLI not found.',
+            exitCode: 127,
+            command: trimmed,
+          });
+          return;
+        }
+
+        resolve({
+          stdout: '',
+          stderr: err.message || 'Failed to execute command on operating system.',
+          exitCode: 1,
+          command: trimmed,
+        });
+      });
+
+      proc.on('close', (code: number | null) => {
+        clearTimeout(timer);
+        if (timedOut) return;
+
+        const exitCode = code ?? 0;
+
+        // Enhanced Docker daemon error formatting
+        if (trimmed.startsWith('docker') && exitCode !== 0) {
+          const combinedErr = (stderr || '') + (stdout || '');
+          if (
+            combinedErr.includes('cannot find the file specified') ||
+            combinedErr.includes('connect to the docker API') ||
+            combinedErr.includes('Is the docker daemon running') ||
+            combinedErr.includes('dockerDesktopLinuxEngine')
+          ) {
+            stderr = `Docker CLI detected, but Docker Engine is not reachable.\n${stderr}`;
+          }
+        }
+
+        resolve({
+          stdout,
+          stderr,
+          exitCode,
+          command: trimmed,
+        });
+      });
+    });
+  }
+
+  async runDockerDiagnostics(): Promise<{
+    summary: string;
+    ready: boolean;
+    results: Record<string, boolean>;
+    details: string;
+  }> {
+    const results: Record<string, boolean> = {
+      cli: false,
+      engine: false,
+      version: false,
+      pull: false,
+      runtime: false,
+      networking: false,
+      logs: false,
+      lifecycle: false,
+    };
+
+    // 1. Docker CLI Check
+    const cliCheck = await this.executeCommand('docker --version');
+    results.cli = cliCheck.exitCode === 0 && cliCheck.stdout.toLowerCase().includes('docker version');
+
+    // 2. Docker Engine daemon check
+    const infoCheck = await this.executeCommand('docker info --format "{{.ServerVersion}}"');
+    results.engine = infoCheck.exitCode === 0 && infoCheck.stdout.trim().length > 0;
+
+    // 3. Docker Version check
+    const verCheck = await this.executeCommand('docker version --format "{{.Client.Version}} / {{.Server.Version}}"');
+    results.version = verCheck.exitCode === 0 && verCheck.stdout.trim().length > 0;
+
+    if (results.engine) {
+      // 4. Image Pull / Local Image
+      const pullCheck = await this.executeCommand('docker pull hello-world');
+      results.pull = pullCheck.exitCode === 0 || pullCheck.stdout.includes('Status: Downloaded') || pullCheck.stdout.includes('up to date');
+
+      // 5. Container Runtime Creation & Startup
+      const runCheck = await this.executeCommand('docker run -d --name caelum-diag-test alpine sleep 10');
+      results.runtime = runCheck.exitCode === 0;
+
+      if (results.runtime) {
+        // 6. Networking
+        const netCheck = await this.executeCommand('docker inspect --format "{{.NetworkSettings.IPAddress}}" caelum-diag-test');
+        results.networking = netCheck.exitCode === 0;
+
+        // 7. Logs
+        const logCheck = await this.executeCommand('docker logs caelum-diag-test');
+        results.logs = logCheck.exitCode === 0;
+
+        // 8. Lifecycle stop & rm
+        const stopCheck = await this.executeCommand('docker stop caelum-diag-test && docker rm caelum-diag-test');
+        results.lifecycle = stopCheck.exitCode === 0;
+      }
+    }
+
+    const allPassed = Object.values(results).every(Boolean);
+
+    const report = [
+      'CAELUMOS DOCKER DIAGNOSTICS',
+      '',
+      `Docker CLI          ${results.cli ? '✓ PASS' : '✗ FAIL'}`,
+      `Docker Engine       ${results.engine ? '✓ PASS' : '✗ FAIL'}`,
+      `Docker Version      ${results.version ? '✓ PASS' : '✗ FAIL'}`,
+      `Image Pull          ${results.pull ? '✓ PASS' : '✗ FAIL'}`,
+      `Container Runtime   ${results.runtime ? '✓ PASS' : '✗ FAIL'}`,
+      `Networking          ${results.networking ? '✓ PASS' : '✗ FAIL'}`,
+      `Logs                ${results.logs ? '✓ PASS' : '✗ FAIL'}`,
+      `Lifecycle           ${results.lifecycle ? '✓ PASS' : '✗ FAIL'}`,
+      '',
+      `Docker Integration: ${allPassed ? 'READY' : 'DEGRADED (Docker Engine is not running)'}`,
+    ].join('\n');
+
+    return {
+      summary: allPassed ? 'READY' : 'DEGRADED',
+      ready: allPassed,
+      results,
+      details: report,
+    };
+  }
 }
+
