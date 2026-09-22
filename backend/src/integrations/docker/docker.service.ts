@@ -59,10 +59,37 @@ export class DockerService {
 
   async getStatus() {
     const health = await this.getHealth();
+    if (!health.connected) {
+      return {
+        connected: false,
+        version: health.version || 'Unknown',
+        containers: [],
+        images: [],
+        volumes: [],
+        error: health.error,
+      };
+    }
+
+    let containers: any[] = [];
+    let images: any[] = [];
+    let volumes: any[] = [];
+
+    try {
+      [containers, images, volumes] = await Promise.all([
+        this.listContainers().catch(() => []),
+        this.listImages().catch(() => []),
+        this.listVolumes().catch(() => []),
+      ]);
+    } catch {
+      // fallback gracefully if one list call fails
+    }
+
     return {
-      connected: health.connected,
+      connected: true,
       version: health.version || 'Unknown',
-      error: health.connected ? undefined : health.error
+      containers,
+      images,
+      volumes,
     };
   }
 

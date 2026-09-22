@@ -65,12 +65,18 @@ export class MonitoringService implements OnModuleInit, OnModuleDestroy {
 
   async getMemoryStats() {
     const mem = await si.mem();
+    const used = typeof mem.used === 'number' && mem.used > 0 
+      ? mem.used 
+      : (typeof mem.active === 'number' && mem.active > 0 ? mem.active : Math.max(0, mem.total - mem.free));
+    const total = typeof mem.total === 'number' && mem.total > 0 ? mem.total : 1;
+    const percentage = (used / total) * 100;
+
     return {
       total: mem.total,
       free: mem.free,
-      used: mem.used,
-      active: mem.active,
-      percentage: (mem.active / mem.total) * 100,
+      used,
+      active: mem.active || used,
+      percentage: Number.isFinite(percentage) ? percentage : 0,
     };
   }
 
@@ -148,21 +154,32 @@ export class MonitoringService implements OnModuleInit, OnModuleDestroy {
       this.safeGetBattery(),
     ]);
 
+    const memUsed = typeof mem.used === 'number' && mem.used > 0 
+      ? mem.used 
+      : (typeof mem.active === 'number' && mem.active > 0 ? mem.active : Math.max(0, mem.total - mem.free));
+    const memTotal = typeof mem.total === 'number' && mem.total > 0 ? mem.total : 1;
+    const memPercentage = (memUsed / memTotal) * 100;
+
+    const cpuLoad = typeof load.currentLoad === 'number' && Number.isFinite(load.currentLoad) ? load.currentLoad : 0;
+
     return {
       timestamp: new Date().toISOString(),
       cpu: {
-        load: load.currentLoad,
+        load: cpuLoad,
         temp: temp.main,
       },
       memory: {
         total: mem.total,
-        used: mem.used,
-        percentage: (mem.active / mem.total) * 100,
+        used: memUsed,
+        active: mem.active || memUsed,
+        percentage: Number.isFinite(memPercentage) ? memPercentage : 0,
       },
-      network: net.map(n => ({
+      network: (net || []).map(n => ({
         iface: n.iface,
-        rx: n.rx_sec,
-        tx: n.tx_sec,
+        rx: Math.max(0, n.rx_sec || 0),
+        tx: Math.max(0, n.tx_sec || 0),
+        rx_sec: Math.max(0, n.rx_sec || 0),
+        tx_sec: Math.max(0, n.tx_sec || 0),
       })),
       battery: {
         hasBattery: battery.hasBattery,
