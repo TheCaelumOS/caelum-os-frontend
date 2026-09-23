@@ -273,6 +273,10 @@ exit $__CAELUM_EXIT
       let stderr = '';
       let timedOut = false;
 
+      const userHome = process.env.USERPROFILE || process.env.HOME || '';
+      const defaultKubeConfig = userHome ? path.join(userHome, '.kube', 'config') : '';
+      const kubeConfigEnv = process.env.KUBECONFIG || (fs.existsSync(defaultKubeConfig) ? defaultKubeConfig : undefined);
+
       const proc = spawn(bashExecutable, ['-c', wrapperScript], {
         env: {
           ...process.env,
@@ -280,21 +284,24 @@ exit $__CAELUM_EXIT
           LOGNAME: 'caelum',
           USERNAME: 'caelum',
           PAGER: 'cat',
+          ...(kubeConfigEnv ? { KUBECONFIG: kubeConfigEnv } : {}),
         },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
+
+      proc.stdin?.end();
 
       const timer = setTimeout(() => {
         timedOut = true;
         proc.kill();
         resolve({
           stdout,
-          stderr: stderr + '\nExecution timed out after 30 seconds.',
+          stderr: stderr + '\nExecution timed out after 60 seconds.',
           exitCode: 124,
           command: trimmed,
           cwd: currentCwd,
         });
-      }, 30000);
+      }, 60000);
 
       proc.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString('utf8');

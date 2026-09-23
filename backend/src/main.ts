@@ -7,16 +7,42 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Private Network Access (PNA) & Cross-Origin Middleware
+  // Allows web browsers on https://caleum.me to connect to the local backend daemon
+  app.use((req: any, res: any, next: any) => {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        req.headers['access-control-request-headers'] || 'Content-Type, Authorization, Access-Control-Request-Private-Network'
+      );
+      return res.sendStatus(204);
+    }
+    next();
+  });
+
   // Security Headers using Helmet
   app.use(helmet({
     contentSecurityPolicy: false, // Turn off CSP for development and Swagger
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
 
   // Enable CORS
   app.enableCors({
-    origin: true, // Allow all origins in development
+    origin: (origin, callback) => {
+      // Allow all origins (caleum.me, localhost, etc.)
+      callback(null, true);
+    },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Request-Private-Network'],
+    exposedHeaders: ['Access-Control-Allow-Private-Network'],
   });
 
   // Global Validation Pipes

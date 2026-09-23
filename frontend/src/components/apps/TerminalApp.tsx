@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { apiRequest, getSocket } from '../../lib/api';
 import { routeCommand, CommandRouteResult } from '../../lib/commandRouter';
-import { isDockerLocalAccessAllowed } from '../../lib/dockerEnvironment';
 
 interface TerminalAppProps {
   onOpenApp: (appId: string) => void;
@@ -49,24 +48,12 @@ resource "aws_ecs_task_definition" "web" {
 }`;
 
 export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
-  const [logs, setLogs] = useState<LogLine[]>(() => {
-    const isLocal = isDockerLocalAccessAllowed();
-    if (isLocal) {
-      return [
-        { text: "Welcome to CaelumOS Hybrid Terminal v2.1 (Ubuntu GNOME Environment)", type: "system" },
-        { text: "Dual-Engine Architecture: Real Linux Shell + CaelumOS AI Infrastructure Assistant", type: "system" },
-        { text: "Type 'help' for commands manual, or 'docker --version' to test the engine.", type: "info" },
-        { text: "", type: "output" }
-      ];
-    }
-    return [
-      { text: "Welcome to CaelumOS Web Preview (caleum.me)", type: "system" },
-      { text: "Dual-Engine Architecture: Real Linux Shell (Local) + CaelumOS AI Assistant", type: "system" },
-      { text: "Hosted Website: Open http://localhost:3000 to execute live commands on your local host.", type: "info" },
-      { text: "AI Copilot is active! Try 'deploy an nginx container' or 'help'.", type: "success" },
-      { text: "", type: "output" }
-    ];
-  });
+  const [logs, setLogs] = useState<LogLine[]>([
+    { text: "Welcome to CaelumOS Hybrid Terminal v2.1 (Ubuntu GNOME Environment)", type: "system" },
+    { text: "Dual-Engine Architecture: Real Linux Shell + CaelumOS AI Infrastructure Assistant", type: "system" },
+    { text: "Type 'help' for commands manual, or 'docker --version' to test the engine.", type: "info" },
+    { text: "", type: "output" }
+  ]);
   const [inputVal, setInputVal] = useState("");
   const [typingCode, setTypingCode] = useState(false);
   const [executing, setExecuting] = useState(false);
@@ -198,21 +185,10 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       { text: `[CaelumOS Shell] $ ${command}`, type: 'input' }
     ]);
 
-    if (!isDockerLocalAccessAllowed()) {
-      setExecuting(false);
-      setLogs(prev => [
-        ...prev,
-        {
-          text: `[CaelumOS Shell] Real host shell & Docker execution is connected to your local CaelumOS runtime.\n\nNotice: You are accessing CaelumOS from the hosted web preview (${typeof window !== 'undefined' ? window.location.host : 'caleum.me'}). External websites cannot directly access your computer's local Docker daemon or shell.\n\nTo execute live Linux shell & Docker commands on your machine:\n  1. Open your local instance: http://localhost:3000\n  2. Launch the Terminal app\n  3. Run '${command}' — it will execute directly against your local host and Docker Engine!\n\nAI Infrastructure Copilot is fully active here! Try:\n  • "deploy an nginx container"\n  • "generate terraform for aws vpc"\n  • "help"`,
-          type: 'info'
-        }
-      ]);
-      return;
-    }
-
     try {
       const res = await apiRequest('/terminal/execute', {
         method: 'POST',
+        signal: AbortSignal.timeout(60000),
         body: JSON.stringify({ 
           command,
           sessionId: sessionId || 'default-session',
@@ -234,18 +210,20 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
         setLogs(prev => [...prev, { text: `[CaelumOS Shell] Process exited with code ${res?.exitCode ?? 1}`, type: 'error' }]);
       }
     } catch (err: any) {
-      const errMsg = err?.message || 'Cannot connect to CaelumOS backend execution service.';
-      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-      const hints = [
-        `[CaelumOS Shell] Execution error: ${errMsg}`,
-        isHttps
-          ? `Notice: You are visiting via HTTPS (${window.location.host}). Browsers block requests to http://localhost:4000. Open http://localhost:3000 to execute live commands on your local host.`
-          : `Ensure the CaelumOS backend daemon is running on port 4000 to execute live commands on host.`
-      ];
+      const isTimeout = err?.name === 'TimeoutError' || err?.message?.toLowerCase().includes('timed out');
+      
+      let errorHeader = `[CaelumOS Shell] Execution error: ${err?.message || 'Execution failed'}`;
+      let errorSub = `Ensure the CaelumOS backend daemon is running on port 4000 to execute live commands on host.`;
+
+      if (isTimeout) {
+        errorHeader = `[CaelumOS Shell] Execution error: Command timed out after 60 seconds.`;
+        errorSub = `Notice: The host command took longer than 60s to return. For long-running jobs, execute them in the background (e.g. command &).`;
+      }
+
       setLogs(prev => [
         ...prev,
-        { text: hints[0], type: 'error' },
-        { text: hints[1], type: 'info' }
+        { text: errorHeader, type: 'error' },
+        { text: errorSub, type: 'info' }
       ]);
     } finally {
       setExecuting(false);
@@ -260,18 +238,6 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       { text: `[CaelumOS Shell]\n$ caelum doctor docker`, type: 'input' },
       { text: `[CaelumOS Shell] Initiating real Docker integration health diagnostics...`, type: 'info' }
     ]);
-
-    if (!isDockerLocalAccessAllowed()) {
-      setExecuting(false);
-      setLogs(prev => [
-        ...prev,
-        {
-          text: `CAELUMOS DOCKER DIAGNOSTICS\n\nEnvironment: Hosted Web Preview (${typeof window !== 'undefined' ? window.location.host : 'caleum.me'})\nStatus: Local Docker Engine is isolated from the public web.\n\nTo run live 11-step diagnostics on your host Docker daemon:\n  👉 Open http://localhost:3000 and run 'caelum doctor docker'`,
-          type: 'info'
-        }
-      ]);
-      return;
-    }
 
     try {
       const res = await apiRequest('/terminal/diagnostics/docker');

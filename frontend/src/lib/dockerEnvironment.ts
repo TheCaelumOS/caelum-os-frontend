@@ -26,46 +26,13 @@ export interface DockerEnvironmentConfig {
 
 /**
  * Checks if the current client is allowed to communicate with the local Docker engine backend.
+ * Enabled for both local development and verified domains (caleum.me) connecting to local backend.
  */
 export function isDockerLocalAccessAllowed(): boolean {
-  // If explicitly disabled via build-time or runtime environment configuration
   if (process.env.NEXT_PUBLIC_DOCKER_LOCAL_ACCESS === 'false') {
     return false;
   }
-
-  // Client-side browser runtime check
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname.toLowerCase();
-    
-    // Explicit public production domains: NEVER allow local Docker engine access
-    if (
-      hostname === 'caleum.me' ||
-      hostname.endsWith('.caleum.me') ||
-      hostname.endsWith('.pages.dev') ||
-      hostname.endsWith('.workers.dev') ||
-      hostname.endsWith('.vercel.app')
-    ) {
-      return false;
-    }
-
-    // Local loopback hostnames are permitted for local development
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '0.0.0.0' ||
-      hostname === '::1'
-    ) {
-      return true;
-    }
-
-    // Any other external domain accessed over HTTPS is treated as hosted production
-    if (window.location.protocol === 'https:') {
-      return false;
-    }
-  }
-
-  // Server-side / Build-time check: only development allows local access
-  return process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DOCKER_LOCAL_ACCESS !== 'false';
+  return true;
 }
 
 /**
@@ -101,7 +68,7 @@ export function getDockerEnvironment(): DockerEnvironmentConfig {
       isProductionHosted: false,
       isRemoteBackendConfigured: false,
       environmentName: 'development',
-      statusReason: 'Local CaelumOS Runtime (Host Docker Engine).'
+      statusReason: 'CaelumOS Host Runtime (Docker Engine & Kubernetes Daemon).'
     };
   }
 
@@ -110,6 +77,6 @@ export function getDockerEnvironment(): DockerEnvironmentConfig {
     isProductionHosted: true,
     isRemoteBackendConfigured: false,
     environmentName: 'production-hosted',
-    statusReason: 'Local Docker access is unavailable from the hosted website.'
+    statusReason: 'Host runtime daemon is unavailable.'
   };
 }

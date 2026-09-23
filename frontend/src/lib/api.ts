@@ -21,11 +21,6 @@ export async function ensureAuthenticated(force = false) {
   if (typeof window === 'undefined') return '';
   if (jwtToken && !force) return jwtToken;
 
-  // On hosted production without remote backend, do not attempt localhost auth
-  if (!isDockerLocalAccessAllowed() && !isRemoteDockerBackendConfigured()) {
-    return '';
-  }
-
   if (force) {
     jwtToken = '';
     localStorage.removeItem('caelum_token');
@@ -37,15 +32,38 @@ export async function ensureAuthenticated(force = false) {
     password: 'CaelumDeveloper123!',
   };
 
-  try {
-    console.log('[API] Authenticating with developer credentials...');
-    // Attempt Login with 5s timeout
-    const loginRes = await fetch(`${API_BASE}/auth/login`, {
+  const attemptLogin = async (baseUrl: string) => {
+    return await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
       signal: AbortSignal.timeout(5000),
     });
+  };
+
+  const attemptRegister = async (baseUrl: string) => {
+    return await fetch(`${baseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+      signal: AbortSignal.timeout(5000),
+    });
+  };
+
+  try {
+    console.log('[API] Authenticating with developer credentials...');
+    let activeBase = API_BASE;
+    let loginRes: Response;
+    try {
+      loginRes = await attemptLogin(activeBase);
+    } catch (e: any) {
+      if (activeBase.includes('localhost')) {
+        activeBase = activeBase.replace('localhost', '127.0.0.1');
+        loginRes = await attemptLogin(activeBase);
+      } else {
+        throw e;
+      }
+    }
 
     if (loginRes.ok) {
       const data = await loginRes.json();
@@ -56,22 +74,9 @@ export async function ensureAuthenticated(force = false) {
     }
 
     // If login fails (user doesn't exist), Register
-    const regRes = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials),
-      signal: AbortSignal.timeout(5000),
-    });
-
+    const regRes = await attemptRegister(activeBase);
     if (regRes.ok) {
-      // Re-attempt Login
-      const retryRes = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-        signal: AbortSignal.timeout(5000),
-      });
-
+      const retryRes = await attemptLogin(activeBase);
       if (retryRes.ok) {
         const data = await retryRes.json();
         jwtToken = data.accessToken;
@@ -81,7 +86,7 @@ export async function ensureAuthenticated(force = false) {
       }
     }
   } catch (err) {
-    console.warn('[API] Backend server unreachable during authentication. Fallback to offline mock mode allowed.', err);
+    console.warn('[API] Backend server unreachable during authentication. Operating in local mode.', err);
   }
 
   return '';
@@ -90,11 +95,6 @@ export async function ensureAuthenticated(force = false) {
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   if (typeof window === 'undefined') return null;
 
-  // On hosted production without remote backend, do not attempt to contact local daemon
-  if (!isDockerLocalAccessAllowed() && !isRemoteDockerBackendConfigured()) {
-    throw new Error('Local Docker access is unavailable from the hosted website. Run CaelumOS locally to connect to Docker Engine.');
-  }
-
   let token = '';
   try {
     token = await ensureAuthenticated();
@@ -102,7 +102,7 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     console.warn('Authentication token fetch failed, continuing without token.', err);
   }
   
-  const makeRequest = async (authToken: string) => {
+  const makeRequest = async (baseUrl: string, authToken: string) => {
     const headers: Record<string, string> = {};
 
     if (options.headers) {
@@ -127,9 +127,9 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
       headers['Content-Type'] = 'application/json';
     }
 
-    const signal = options.signal || AbortSignal.timeout(15000);
+    const signal = options.signal || AbortSignal.timeout(30000);
 
-    return await fetch(`${API_BASE}${endpoint}`, {
+    return await fetch(`${baseUrl}${endpoint}`, {
       cache: 'no-store',
       ...options,
       signal,
@@ -138,13 +138,24 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   };
 
   try {
-    console.log(`[API] Sending request to ${endpoint}`);
-    let response = await makeRequest(token);
+    let currentBase = API_BASE;
+    let response: Response;
+    try {
+      response = await makeRequest(currentBase, token);
+    } catch (netErr: any) {
+      // Loopback fallback: If localhost failed, attempt 127.0.0.1
+      if (currentBase.includes('localhost') && (netErr.name === 'TypeError' || netErr.message?.includes('fetch') || netErr.message?.includes('NetworkError'))) {
+        currentBase = currentBase.replace('localhost', '127.0.0.1');
+        response = await makeRequest(currentBase, token);
+      } else {
+        throw netErr;
+      }
+    }
 
     if (response.status === 401) {
       console.warn(`[API] Received 401 Unauthorized on ${endpoint}. Clearing credentials and retrying...`);
       token = await ensureAuthenticated(true);
-      response = await makeRequest(token);
+      response = await makeRequest(currentBase, token);
     }
 
     if (!response.ok) {
@@ -152,7 +163,6 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     }
 
     const data = await response.json();
-    console.log(`[API] Received successful response from ${endpoint}`);
     return data;
   } catch (err: any) {
     if (err.name === 'AbortError' || options.signal?.aborted) {
@@ -161,7 +171,7 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     console.warn(`[API] Fetch operation failed for ${endpoint}:`, err?.message || err);
     // Graceful error handling for offline backend:
     if (err.name === 'TypeError' || err.message?.includes('fetch') || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-      throw new Error('Backend is unavailable. Please start the backend server.');
+      throw new Error('Backend is unavailable. Ensure the CaelumOS backend daemon is running on port 4000.');
     }
     throw err;
   }
@@ -173,12 +183,9 @@ let socketInstance: Socket | null = null;
 
 export function getSocket(): Socket | null {
   if (socketInstance) return socketInstance;
-  if (typeof window !== 'undefined' && !isDockerLocalAccessAllowed() && !isRemoteDockerBackendConfigured()) {
-    return null;
-  }
   
   socketInstance = io(API_BASE, {
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
     autoConnect: true,
   });
   

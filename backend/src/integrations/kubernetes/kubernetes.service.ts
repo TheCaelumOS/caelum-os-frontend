@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import * as k8s from '@kubernetes/client-node';
+import { CreateDeploymentDto, CreateServiceDto } from './dto/create-k8s.dto';
 
 @Injectable()
 export class KubernetesService {
@@ -281,6 +282,342 @@ export class KubernetesService {
     } catch (err: any) {
       this.logger.warn(`Failed to list events: ${err.message}`);
       return [];
+    }
+  }
+
+  private extractErrorMessage(err: any): string {
+    if (err?.body?.message) return err.body.message;
+    if (typeof err?.body === 'string') {
+      try {
+        const parsed = JSON.parse(err.body);
+        if (parsed.message) return parsed.message;
+      } catch {}
+      return err.body;
+    }
+    return err?.message || 'Unknown Kubernetes error';
+  }
+
+  async getPodDetails(namespace: string, name: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      const pod = await this.k8sApi.readNamespacedPod({ name, namespace });
+      const readyContainers = (pod.status?.containerStatuses || []).filter(c => c.ready).length;
+      const totalContainers = pod.spec?.containers?.length || 0;
+      const totalRestarts = (pod.status?.containerStatuses || []).reduce((acc, c) => acc + (c.restartCount || 0), 0);
+
+      return {
+        name: pod.metadata?.name || '',
+        namespace: pod.metadata?.namespace || '',
+        uid: pod.metadata?.uid || '',
+        status: pod.status?.phase || 'Unknown',
+        ready: `${readyContainers}/${totalContainers}`,
+        podIP: pod.status?.podIP || 'Pending',
+        hostIP: pod.status?.hostIP || 'N/A',
+        nodeName: pod.spec?.nodeName || 'N/A',
+        startTime: pod.status?.startTime || pod.metadata?.creationTimestamp || '',
+        restartCount: totalRestarts,
+        labels: pod.metadata?.labels || {},
+        annotations: pod.metadata?.annotations || {},
+        conditions: (pod.status?.conditions || []).map(c => ({
+          type: c.type || '',
+          status: c.status || '',
+          reason: c.reason || '',
+          message: c.message || '',
+          lastTransitionTime: c.lastTransitionTime || '',
+        })),
+        containers: (pod.spec?.containers || []).map(c => {
+          const cs = (pod.status?.containerStatuses || []).find(s => s.name === c.name);
+          let state = 'Unknown';
+          let stateDetails = '';
+          if (cs?.state?.running) {
+            state = 'Running';
+            stateDetails = `Started at ${cs.state.running.startedAt || ''}`;
+          } else if (cs?.state?.waiting) {
+            state = 'Waiting';
+            stateDetails = cs.state.waiting.reason || 'Waiting';
+          } else if (cs?.state?.terminated) {
+            state = 'Terminated';
+            stateDetails = `Exit code ${cs.state.terminated.exitCode}: ${cs.state.terminated.reason || ''}`;
+          }
+          return {
+            name: c.name,
+            image: c.image || '',
+            ready: Boolean(cs?.ready),
+            restartCount: cs?.restartCount || 0,
+            state,
+            stateDetails,
+            resources: c.resources || {},
+            ports: (c.ports || []).map(p => `${p.containerPort}/${p.protocol || 'TCP'}`),
+          };
+        }),
+      };
+    } catch (err: any) {
+      this.logger.error(`Failed to fetch pod ${namespace}/${name}: ${this.extractErrorMessage(err)}`);
+      throw new NotFoundException(`Pod ${namespace}/${name} not found: ${this.extractErrorMessage(err)}`);
+    }
+  }
+
+  async getPodLogs(namespace: string, name: string, container?: string, tailLines = 200) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      const logs = await this.k8sApi.readNamespacedPodLog({
+        name,
+        namespace,
+        container: container || undefined,
+        tailLines: Number(tailLines) || 200,
+      });
+      return {
+        logs: typeof logs === 'string' ? logs : String(logs || ''),
+        container: container || 'default',
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.warn(`Failed to fetch logs for ${namespace}/${name}: ${msg}`);
+      return {
+        logs: `Error retrieving logs: ${msg}`,
+        container: container || 'default',
+      };
+    }
+  }
+
+  async deletePod(namespace: string, name: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      await this.k8sApi.deleteNamespacedPod({ name, namespace });
+      return {
+        success: true,
+        message: `Pod ${name} in namespace ${namespace} deleted successfully`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to delete pod ${namespace}/${name}: ${msg}`);
+      throw new BadRequestException(`Failed to delete pod: ${msg}`);
+    }
+  }
+
+  async restartPod(namespace: string, name: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      // In Kubernetes, deleting a pod managed by a controller triggers immediate recreation
+      await this.k8sApi.deleteNamespacedPod({ name, namespace });
+      return {
+        success: true,
+        message: `Pod ${name} restart triggered (pod terminated for controller recreation)`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to restart pod ${namespace}/${name}: ${msg}`);
+      throw new BadRequestException(`Failed to restart pod: ${msg}`);
+    }
+  }
+
+  async scaleDeployment(namespace: string, name: string, replicas: number) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.appsApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      await this.appsApi.patchNamespacedDeploymentScale({
+        name,
+        namespace,
+        body: [{ op: 'replace', path: '/spec/replicas', value: replicas }],
+      });
+      return {
+        success: true,
+        replicas,
+        message: `Deployment ${name} scaled to ${replicas} replicas`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to scale deployment ${namespace}/${name}: ${msg}`);
+      throw new BadRequestException(`Failed to scale deployment: ${msg}`);
+    }
+  }
+
+  async createDeployment(dto: CreateDeploymentDto) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.appsApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      const body: k8s.V1Deployment = {
+        apiVersion: 'apps/v1',
+        kind: 'Deployment',
+        metadata: {
+          name: dto.name,
+          namespace: dto.namespace,
+          labels: { app: dto.name },
+        },
+        spec: {
+          replicas: dto.replicas ?? 1,
+          selector: {
+            matchLabels: { app: dto.name },
+          },
+          template: {
+            metadata: {
+              labels: { app: dto.name },
+            },
+            spec: {
+              containers: [
+                {
+                  name: dto.name,
+                  image: dto.image,
+                  ports: dto.port ? [{ containerPort: dto.port }] : undefined,
+                },
+              ],
+            },
+          },
+        },
+      };
+
+      await this.appsApi.createNamespacedDeployment({
+        namespace: dto.namespace,
+        body,
+      });
+
+      return {
+        success: true,
+        message: `Deployment ${dto.name} created successfully in namespace ${dto.namespace}`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to create deployment ${dto.namespace}/${dto.name}: ${msg}`);
+      throw new BadRequestException(`Failed to create deployment: ${msg}`);
+    }
+  }
+
+  async deleteDeployment(namespace: string, name: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.appsApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      await this.appsApi.deleteNamespacedDeployment({ name, namespace });
+      return {
+        success: true,
+        message: `Deployment ${name} deleted successfully from namespace ${namespace}`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to delete deployment ${namespace}/${name}: ${msg}`);
+      throw new BadRequestException(`Failed to delete deployment: ${msg}`);
+    }
+  }
+
+  async listConfigMaps(namespace?: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) return [];
+    try {
+      const isAll = !namespace || namespace === 'all';
+      const res = isAll
+        ? await this.k8sApi.listConfigMapForAllNamespaces()
+        : await this.k8sApi.listNamespacedConfigMap({ namespace });
+
+      return (res.items || []).map(cm => ({
+        name: cm.metadata?.name || '',
+        namespace: cm.metadata?.namespace || '',
+        dataCount: Object.keys(cm.data || {}).length + Object.keys(cm.binaryData || {}).length,
+        keys: Object.keys(cm.data || {}).concat(Object.keys(cm.binaryData || {})),
+        age: cm.metadata?.creationTimestamp || '',
+      }));
+    } catch (err: any) {
+      this.logger.warn(`Failed to list configmaps: ${err.message}`);
+      return [];
+    }
+  }
+
+  async getConfigMap(namespace: string, name: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      const cm = await this.k8sApi.readNamespacedConfigMap({ name, namespace });
+      return {
+        name: cm.metadata?.name || '',
+        namespace: cm.metadata?.namespace || '',
+        labels: cm.metadata?.labels || {},
+        age: cm.metadata?.creationTimestamp || '',
+        data: cm.data || {},
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to fetch configmap ${namespace}/${name}: ${msg}`);
+      throw new NotFoundException(`ConfigMap not found: ${msg}`);
+    }
+  }
+
+  async createService(dto: CreateServiceDto) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      const body: k8s.V1Service = {
+        apiVersion: 'v1',
+        kind: 'Service',
+        metadata: {
+          name: dto.name,
+          namespace: dto.namespace,
+        },
+        spec: {
+          type: dto.type || 'ClusterIP',
+          selector: {
+            app: dto.selectorApp,
+          },
+          ports: [
+            {
+              port: dto.port,
+              targetPort: (dto.targetPort || dto.port) as any,
+              protocol: 'TCP',
+            },
+          ],
+        },
+      };
+
+      await this.k8sApi.createNamespacedService({
+        namespace: dto.namespace,
+        body,
+      });
+
+      return {
+        success: true,
+        message: `Service ${dto.name} created successfully in namespace ${dto.namespace}`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to create service ${dto.namespace}/${dto.name}: ${msg}`);
+      throw new BadRequestException(`Failed to create service: ${msg}`);
+    }
+  }
+
+  async deleteService(namespace: string, name: string) {
+    this.ensureLoaded();
+    if (!this.isLoaded || !this.k8sApi) {
+      throw new BadRequestException('Kubernetes cluster connection unavailable');
+    }
+    try {
+      await this.k8sApi.deleteNamespacedService({ name, namespace });
+      return {
+        success: true,
+        message: `Service ${name} deleted successfully from namespace ${namespace}`,
+      };
+    } catch (err: any) {
+      const msg = this.extractErrorMessage(err);
+      this.logger.error(`Failed to delete service ${namespace}/${name}: ${msg}`);
+      throw new BadRequestException(`Failed to delete service: ${msg}`);
     }
   }
 }
