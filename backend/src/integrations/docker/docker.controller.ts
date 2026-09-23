@@ -63,6 +63,13 @@ export class DockerController {
     return this.dockerService.getDaemonLogs();
   }
 
+  @Get('compose')
+  @ApiOperation({ summary: 'List active Docker compose projects' })
+  @ApiResponse({ status: 200, description: 'Docker compose projects listed successfully.' })
+  listCompose() {
+    return this.dockerService.listCompose();
+  }
+
   @Post('container/:id/action')
   @ApiOperation({ summary: 'Execute lifecycle controls (start, stop, restart, remove) on a container' })
   @ApiResponse({ status: 200, description: 'Container control triggered successfully.' })

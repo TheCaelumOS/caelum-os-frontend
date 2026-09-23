@@ -1,88 +1,91 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import * as k8s from '@kubernetes/client-node';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { execFileSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CreateDeploymentDto, CreateServiceDto } from './dto/create-k8s.dto';
 
 @Injectable()
 export class KubernetesService {
   private readonly logger = new Logger(KubernetesService.name);
-  private kc: k8s.KubeConfig | null = null;
-  private k8sApi: k8s.CoreV1Api | null = null;
-  private appsApi: k8s.AppsV1Api | null = null;
-  private versionApi: k8s.VersionApi | null = null;
-  private netApi: k8s.NetworkingV1Api | null = null;
-  private isLoaded = false;
 
-  constructor() {
-    this.initKubeConfig();
-  }
-
-  private initKubeConfig(): boolean {
-    try {
-      this.kc = new k8s.KubeConfig();
-      this.kc.loadFromDefault();
-      this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
-      this.appsApi = this.kc.makeApiClient(k8s.AppsV1Api);
-      this.versionApi = this.kc.makeApiClient(k8s.VersionApi);
-      this.netApi = this.kc.makeApiClient(k8s.NetworkingV1Api);
-      this.isLoaded = true;
-      this.logger.log(`Kubernetes context loaded: ${this.kc.getCurrentContext()}`);
-      return true;
-    } catch (e: any) {
-      this.isLoaded = false;
-      this.kc = null;
-      this.k8sApi = null;
-      this.appsApi = null;
-      this.versionApi = null;
-      this.netApi = null;
-      this.logger.warn(`Kubernetes Kubeconfig not loaded: ${e.message}`);
-      return false;
-    }
-  }
-
-  private ensureLoaded(): boolean {
-    if (!this.isLoaded || !this.kc) {
-      return this.initKubeConfig();
-    }
-    return true;
-  }
-
-  async getClusterSummary() {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.kc || !this.k8sApi || !this.versionApi) {
-      return {
-        connected: false,
-        error: 'Kubernetes configuration not found. Ensure minikube or local cluster is configured.',
-      };
-    }
-
-    try {
-      const context = this.kc.getCurrentContext() || 'unknown';
-      const currentCluster = this.kc.getCurrentCluster();
-      const server = currentCluster?.server || 'unknown';
-
-      let version = 'unknown';
-      try {
-        const v = await this.versionApi.getCode();
-        version = v.gitVersion || `${v.major}.${v.minor}`;
-      } catch (err: any) {
-        this.logger.warn(`Could not fetch cluster server version: ${err.message}`);
+  /**
+   * Resiliently locate the kubectl executable on Windows or Linux
+   */
+  private getKubectlBinary(): string {
+    const candidates = [
+      'C:\\Program Files\\Kubernetes\\Minikube\\kubectl.exe',
+      'C:\\Users\\karth\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Kubernetes.kubectl_Microsoft.Winget.Source_8wekyb3d8bbwe\\kubectl.exe',
+      'C:\\Program Files\\Docker\\Docker\\resources\\bin\\kubectl.exe',
+      'kubectl.exe',
+      'kubectl',
+    ];
+    for (const c of candidates) {
+      if (c.includes('\\') && fs.existsSync(c)) {
+        return c;
       }
+    }
+    return 'kubectl';
+  }
+
+  /**
+   * Execute real kubectl command against current active context
+   */
+  private runKubectl(args: string[], timeoutMs = 15000): string {
+    const bin = this.getKubectlBinary();
+    const userHome = process.env.USERPROFILE || process.env.HOME || '';
+    const kubeConfig = process.env.KUBECONFIG || path.join(userHome, '.kube', 'config');
+    const env = {
+      ...process.env,
+      KUBECONFIG: kubeConfig,
+    };
+
+    try {
+      return execFileSync(bin, args, {
+        encoding: 'utf8',
+        env,
+        timeout: timeoutMs,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (err: any) {
+      const stderr = err.stderr ? err.stderr.toString().trim() : '';
+      const stdout = err.stdout ? err.stdout.toString().trim() : '';
+      const msg = stderr || stdout || err.message || 'kubectl execution failed';
+      throw new Error(msg);
+    }
+  }
+
+  /**
+   * Get cluster summary using active context and dynamic port
+   */
+  async getClusterSummary() {
+    try {
+      let context = 'unknown';
+      try {
+        context = this.runKubectl(['config', 'current-context'], 5000).trim();
+      } catch {}
+
+      let server = 'unknown';
+      try {
+        const s = this.runKubectl(['config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}'], 5000).trim();
+        if (s) server = s;
+      } catch {}
 
       const [nodes, namespaces, pods, deployments] = await Promise.all([
-        this.listNodes(),
-        this.listNamespaces(),
-        this.listPods('all'),
-        this.listDeployments('all'),
+        this.listNodes().catch(() => []),
+        this.listNamespaces().catch(() => []),
+        this.listPods('all').catch(() => []),
+        this.listDeployments('all').catch(() => []),
       ]);
 
       const isReady = nodes.some(n => n.status === 'Ready');
+      const version = nodes[0]?.version || 'v1.34.0';
 
       return {
-        connected: true,
-        context,
+        connected: nodes.length > 0 || isReady,
+        context: context || 'minikube',
         server,
         version,
-        status: isReady ? 'Ready' : 'Connected',
+        status: isReady ? 'Ready' : (nodes.length > 0 ? 'Connected' : 'Offline'),
         nodeCount: nodes.length,
         podCount: pods.length,
         deploymentCount: deployments.length,
@@ -92,23 +95,26 @@ export class KubernetesService {
       this.logger.error(`Error fetching cluster summary: ${err.message}`);
       return {
         connected: false,
-        error: err.message || 'Failed to connect to Kubernetes cluster',
+        status: 'unavailable',
+        error: err.message || 'Kubernetes cluster unreachable. Ensure minikube is running with a valid context.',
       };
     }
   }
 
+  /**
+   * List all cluster nodes
+   */
   async listNodes() {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) return [];
     try {
-      const res = await this.k8sApi.listNode();
-      return (res.items || []).map(node => {
-        const readyCond = node.status?.conditions?.find(c => c.type === 'Ready');
+      const out = this.runKubectl(['get', 'nodes', '-o', 'json'], 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((node: any) => {
+        const readyCond = node.status?.conditions?.find((c: any) => c.type === 'Ready');
         const roles = Object.keys(node.metadata?.labels || {})
-          .filter(l => l.startsWith('node-role.kubernetes.io/'))
-          .map(l => l.split('/')[1])
-          .join(', ') || 'worker';
-        const internalIP = node.status?.addresses?.find(a => a.type === 'InternalIP')?.address || 'N/A';
+          .filter((l: string) => l.startsWith('node-role.kubernetes.io/'))
+          .map((l: string) => l.split('/')[1])
+          .join(', ') || 'control-plane';
+        const internalIP = node.status?.addresses?.find((a: any) => a.type === 'InternalIP')?.address || 'N/A';
 
         return {
           name: node.metadata?.name || 'unknown',
@@ -126,28 +132,36 @@ export class KubernetesService {
     }
   }
 
+  /**
+   * List all namespaces
+   */
   async listNamespaces(): Promise<string[]> {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) return [];
     try {
-      const res = await this.k8sApi.listNamespace();
-      return (res.items || []).map(ns => ns.metadata?.name).filter((name): name is string => Boolean(name));
+      const out = this.runKubectl(['get', 'namespaces', '-o', 'json'], 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((ns: any) => ns.metadata?.name).filter((name: any): name is string => Boolean(name));
     } catch (err: any) {
       this.logger.warn(`Failed to list namespaces: ${err.message}`);
       return [];
     }
   }
 
+  /**
+   * List pods (all or namespaced)
+   */
   async listPods(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) return [];
     try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.k8sApi.listPodForAllNamespaces()
-        : await this.k8sApi.listNamespacedPod({ namespace });
+      const args = ['get', 'pods'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('-o', 'json');
 
-      return (res.items || []).map(pod => ({
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((pod: any) => ({
         name: pod.metadata?.name || '',
         namespace: pod.metadata?.namespace || '',
         status: pod.status?.phase || 'Unknown',
@@ -161,16 +175,139 @@ export class KubernetesService {
     }
   }
 
-  async listDeployments(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.appsApi) return [];
+  /**
+   * Get detailed pod specifications, containers, and conditions
+   */
+  async getPodDetails(namespace: string, name: string) {
     try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.appsApi.listDeploymentForAllNamespaces()
-        : await this.appsApi.listNamespacedDeployment({ namespace });
+      const out = this.runKubectl(['get', 'pod', name, '-n', namespace, '-o', 'json'], 10000);
+      const pod = JSON.parse(out);
 
-      return (res.items || []).map(dep => ({
+      const containerStatuses = pod.status?.containerStatuses || [];
+      const containers = (pod.spec?.containers || []).map((c: any) => {
+        const cStatus = containerStatuses.find((cs: any) => cs.name === c.name);
+        let state = 'Unknown';
+        let startedAt = '';
+        if (cStatus?.state?.running) {
+          state = 'Running';
+          startedAt = cStatus.state.running.startedAt;
+        } else if (cStatus?.state?.waiting) {
+          state = `Waiting (${cStatus.state.waiting.reason || 'Init'})`;
+        } else if (cStatus?.state?.terminated) {
+          state = `Terminated (${cStatus.state.terminated.reason || 'Stopped'})`;
+        }
+
+        return {
+          name: c.name,
+          image: c.image || 'unknown',
+          ready: Boolean(cStatus?.ready),
+          restartCount: cStatus?.restartCount || 0,
+          state,
+          startedAt,
+          ports: (c.ports || []).map((p: any) => `${p.containerPort}/${p.protocol || 'TCP'}`),
+          resources: c.resources || {},
+        };
+      });
+
+      const conditions = (pod.status?.conditions || []).map((cond: any) => ({
+        type: cond.type,
+        status: cond.status,
+        lastTransitionTime: cond.lastTransitionTime,
+        reason: cond.reason || '',
+        message: cond.message || '',
+      }));
+
+      return {
+        name: pod.metadata?.name || name,
+        namespace: pod.metadata?.namespace || namespace,
+        uid: pod.metadata?.uid || '',
+        status: pod.status?.phase || 'Unknown',
+        ip: pod.status?.podIP || 'Pending',
+        hostIP: pod.status?.hostIP || 'Pending',
+        node: pod.spec?.nodeName || 'N/A',
+        startTime: pod.status?.startTime || pod.metadata?.creationTimestamp || '',
+        labels: pod.metadata?.labels || {},
+        annotations: pod.metadata?.annotations || {},
+        containers,
+        conditions,
+      };
+    } catch (err: any) {
+      throw new NotFoundException(`Pod "${name}" in namespace "${namespace}" could not be retrieved: ${err.message}`);
+    }
+  }
+
+  /**
+   * Get logs for a specific container in a pod
+   */
+  async getPodLogs(namespace: string, name: string, container?: string, tailLines = 100) {
+    try {
+      const args = ['logs', name, '-n', namespace, `--tail=${tailLines}`];
+      if (container) {
+        args.push('-c', container);
+      }
+      const logs = this.runKubectl(args, 10000);
+      return {
+        name,
+        namespace,
+        container: container || '',
+        logs: logs.trim() || '(No logs emitted)',
+      };
+    } catch (err: any) {
+      return {
+        name,
+        namespace,
+        container: container || '',
+        logs: `Error fetching logs: ${err.message}`,
+      };
+    }
+  }
+
+  /**
+   * Delete a pod from the cluster
+   */
+  async deletePod(namespace: string, name: string) {
+    try {
+      this.runKubectl(['delete', 'pod', name, '-n', namespace, '--wait=false'], 10000);
+      return {
+        success: true,
+        message: `Pod "${name}" deleted from namespace "${namespace}".`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to delete pod "${name}": ${err.message}`);
+    }
+  }
+
+  /**
+   * Restart a pod (delete pod so its controller recreates it with clean state)
+   */
+  async restartPod(namespace: string, name: string) {
+    try {
+      this.runKubectl(['delete', 'pod', name, '-n', namespace, '--wait=false'], 10000);
+      return {
+        success: true,
+        message: `Pod "${name}" restart initiated. Replacement instance is being spun up.`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to restart pod "${name}": ${err.message}`);
+    }
+  }
+
+  /**
+   * List deployments
+   */
+  async listDeployments(namespace?: string) {
+    try {
+      const args = ['get', 'deployments'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('-o', 'json');
+
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((dep: any) => ({
         name: dep.metadata?.name || '',
         namespace: dep.metadata?.namespace || '',
         replicas: `${dep.status?.readyReplicas || 0}/${dep.status?.replicas || 0}`,
@@ -183,16 +320,84 @@ export class KubernetesService {
     }
   }
 
-  async listStatefulSets(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.appsApi) return [];
+  /**
+   * Create a new deployment
+   */
+  async createDeployment(dto: CreateDeploymentDto) {
     try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.appsApi.listStatefulSetForAllNamespaces()
-        : await this.appsApi.listNamespacedStatefulSet({ namespace });
+      const args = [
+        'create', 'deployment', dto.name,
+        `--image=${dto.image}`,
+        `--replicas=${dto.replicas || 1}`,
+        '-n', dto.namespace || 'default',
+      ];
+      if (dto.port) {
+        args.push(`--port=${dto.port}`);
+      }
 
-      return (res.items || []).map(ss => ({
+      this.runKubectl(args, 15000);
+      return {
+        success: true,
+        name: dto.name,
+        namespace: dto.namespace || 'default',
+        message: `Deployment "${dto.name}" created successfully.`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to create deployment: ${err.message}`);
+    }
+  }
+
+  /**
+   * Scale deployment replicas
+   */
+  async scaleDeployment(namespace: string, name: string, replicas: number) {
+    try {
+      this.runKubectl(['scale', 'deployment', name, `--replicas=${replicas}`, '-n', namespace], 10000);
+      return {
+        success: true,
+        name,
+        namespace,
+        replicas,
+        message: `Deployment "${name}" scaled to ${replicas} replicas.`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to scale deployment "${name}": ${err.message}`);
+    }
+  }
+
+  /**
+   * Delete deployment
+   */
+  async deleteDeployment(namespace: string, name: string) {
+    try {
+      this.runKubectl(['delete', 'deployment', name, '-n', namespace], 10000);
+      return {
+        success: true,
+        name,
+        namespace,
+        message: `Deployment "${name}" deleted successfully.`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to delete deployment "${name}": ${err.message}`);
+    }
+  }
+
+  /**
+   * List StatefulSets
+   */
+  async listStatefulSets(namespace?: string) {
+    try {
+      const args = ['get', 'statefulsets'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('-o', 'json');
+
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((ss: any) => ({
         name: ss.metadata?.name || '',
         namespace: ss.metadata?.namespace || '',
         replicas: `${ss.status?.readyReplicas || 0}/${ss.status?.replicas || 0}`,
@@ -204,49 +409,149 @@ export class KubernetesService {
     }
   }
 
+  /**
+   * List Services
+   */
   async listServices(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) return [];
     try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.k8sApi.listServiceForAllNamespaces()
-        : await this.k8sApi.listNamespacedService({ namespace });
+      const args = ['get', 'services'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('-o', 'json');
 
-      return (res.items || []).map(svc => ({
-        name: svc.metadata?.name || '',
-        namespace: svc.metadata?.namespace || '',
-        type: svc.spec?.type || 'ClusterIP',
-        clusterIP: svc.spec?.clusterIP || 'None',
-        ports: (svc.spec?.ports || []).map(p => `${p.port}/${p.protocol}`).join(', ') || 'N/A',
-        age: svc.metadata?.creationTimestamp || '',
-      }));
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((svc: any) => {
+        const ports = (svc.spec?.ports || [])
+          .map((p: any) => `${p.port}:${p.targetPort || p.port}/${p.protocol || 'TCP'}`)
+          .join(', ');
+
+        return {
+          name: svc.metadata?.name || '',
+          namespace: svc.metadata?.namespace || '',
+          type: svc.spec?.type || 'ClusterIP',
+          clusterIP: svc.spec?.clusterIP || 'None',
+          ports: ports || 'None',
+          age: svc.metadata?.creationTimestamp || '',
+        };
+      });
     } catch (err: any) {
       this.logger.warn(`Failed to list services: ${err.message}`);
       return [];
     }
   }
 
-  async listIngress(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.netApi) return [];
+  /**
+   * Create a new Service
+   */
+  async createService(dto: CreateServiceDto) {
     try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.netApi.listIngressForAllNamespaces()
-        : await this.netApi.listNamespacedIngress({ namespace });
+      const typeStr = (dto.type || 'ClusterIP').toLowerCase();
+      const args = [
+        'create', 'service', typeStr, dto.name,
+        `--tcp=${dto.port}:${dto.targetPort || dto.port}`,
+        '-n', dto.namespace || 'default',
+      ];
 
-      return (res.items || []).map(ing => {
-        const rules = (ing.spec?.rules || []).map(r => {
-          const host = r.host || '*';
-          const paths = (r.http?.paths || []).map(p => p.backend?.service?.name || '').filter(Boolean).join(', ');
-          return `${host} -> ${paths}`;
-        }).join('; ') || 'No rules configured';
+      this.runKubectl(args, 15000);
+      return {
+        success: true,
+        name: dto.name,
+        namespace: dto.namespace || 'default',
+        message: `Service "${dto.name}" created successfully.`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to create service: ${err.message}`);
+    }
+  }
 
+  /**
+   * Delete Service
+   */
+  async deleteService(namespace: string, name: string) {
+    try {
+      this.runKubectl(['delete', 'service', name, '-n', namespace], 10000);
+      return {
+        success: true,
+        name,
+        namespace,
+        message: `Service "${name}" deleted successfully.`,
+      };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to delete service "${name}": ${err.message}`);
+    }
+  }
+
+  /**
+   * List ConfigMaps
+   */
+  async listConfigMaps(namespace?: string) {
+    try {
+      const args = ['get', 'configmaps'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('-o', 'json');
+
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((cm: any) => ({
+        name: cm.metadata?.name || '',
+        namespace: cm.metadata?.namespace || '',
+        data: `${Object.keys(cm.data || {}).length} keys`,
+        age: cm.metadata?.creationTimestamp || '',
+      }));
+    } catch (err: any) {
+      this.logger.warn(`Failed to list configmaps: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get ConfigMap details
+   */
+  async getConfigMap(namespace: string, name: string) {
+    try {
+      const out = this.runKubectl(['get', 'configmap', name, '-n', namespace, '-o', 'json'], 10000);
+      const cm = JSON.parse(out);
+      return {
+        name,
+        namespace,
+        data: cm.data || {},
+      };
+    } catch (err: any) {
+      throw new NotFoundException(`ConfigMap "${name}" in namespace "${namespace}" not found: ${err.message}`);
+    }
+  }
+
+  /**
+   * List Ingress
+   */
+  async listIngress(namespace?: string) {
+    try {
+      const args = ['get', 'ingress'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('-o', 'json');
+
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((ing: any) => {
+        const hosts = (ing.spec?.rules || []).map((r: any) => r.host).filter(Boolean).join(', ') || '*';
+        const addrs = (ing.status?.loadBalancer?.ingress || []).map((i: any) => i.ip || i.hostname).filter(Boolean).join(', ') || '-';
         return {
           name: ing.metadata?.name || '',
           namespace: ing.metadata?.namespace || '',
-          rules,
+          hosts,
+          address: addrs,
           age: ing.metadata?.creationTimestamp || '',
         };
       });
@@ -256,368 +561,33 @@ export class KubernetesService {
     }
   }
 
+  /**
+   * List Events
+   */
   async listEvents(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) return [];
     try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.k8sApi.listEventForAllNamespaces()
-        : await this.k8sApi.listNamespacedEvent({ namespace });
+      const args = ['get', 'events'];
+      if (!namespace || namespace === 'all') {
+        args.push('-A');
+      } else {
+        args.push('-n', namespace);
+      }
+      args.push('--sort-by=.metadata.creationTimestamp', '-o', 'json');
 
-      const sorted = (res.items || []).sort((a, b) => {
-        const tA = new Date(a.lastTimestamp || a.metadata?.creationTimestamp || 0).getTime();
-        const tB = new Date(b.lastTimestamp || b.metadata?.creationTimestamp || 0).getTime();
-        return tB - tA;
-      });
-
-      return sorted.map(ev => ({
-        timestamp: ev.lastTimestamp || ev.metadata?.creationTimestamp || '',
-        type: ev.type || 'Normal',
-        reason: ev.reason || 'Event',
-        message: ev.message || '',
-        object: ev.involvedObject ? `${ev.involvedObject.kind || ''}/${ev.involvedObject.name || ''}` : '',
+      const out = this.runKubectl(args, 10000);
+      const json = JSON.parse(out);
+      return (json.items || []).map((ev: any) => ({
+        name: ev.metadata?.name || '',
         namespace: ev.metadata?.namespace || '',
+        type: ev.type || 'Normal',
+        reason: ev.reason || '',
+        message: ev.message || '',
+        count: ev.count || 1,
+        lastTimestamp: ev.lastTimestamp || ev.metadata?.creationTimestamp || '',
       }));
     } catch (err: any) {
       this.logger.warn(`Failed to list events: ${err.message}`);
       return [];
-    }
-  }
-
-  private extractErrorMessage(err: any): string {
-    if (err?.body?.message) return err.body.message;
-    if (typeof err?.body === 'string') {
-      try {
-        const parsed = JSON.parse(err.body);
-        if (parsed.message) return parsed.message;
-      } catch {}
-      return err.body;
-    }
-    return err?.message || 'Unknown Kubernetes error';
-  }
-
-  async getPodDetails(namespace: string, name: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      const pod = await this.k8sApi.readNamespacedPod({ name, namespace });
-      const readyContainers = (pod.status?.containerStatuses || []).filter(c => c.ready).length;
-      const totalContainers = pod.spec?.containers?.length || 0;
-      const totalRestarts = (pod.status?.containerStatuses || []).reduce((acc, c) => acc + (c.restartCount || 0), 0);
-
-      return {
-        name: pod.metadata?.name || '',
-        namespace: pod.metadata?.namespace || '',
-        uid: pod.metadata?.uid || '',
-        status: pod.status?.phase || 'Unknown',
-        ready: `${readyContainers}/${totalContainers}`,
-        podIP: pod.status?.podIP || 'Pending',
-        hostIP: pod.status?.hostIP || 'N/A',
-        nodeName: pod.spec?.nodeName || 'N/A',
-        startTime: pod.status?.startTime || pod.metadata?.creationTimestamp || '',
-        restartCount: totalRestarts,
-        labels: pod.metadata?.labels || {},
-        annotations: pod.metadata?.annotations || {},
-        conditions: (pod.status?.conditions || []).map(c => ({
-          type: c.type || '',
-          status: c.status || '',
-          reason: c.reason || '',
-          message: c.message || '',
-          lastTransitionTime: c.lastTransitionTime || '',
-        })),
-        containers: (pod.spec?.containers || []).map(c => {
-          const cs = (pod.status?.containerStatuses || []).find(s => s.name === c.name);
-          let state = 'Unknown';
-          let stateDetails = '';
-          if (cs?.state?.running) {
-            state = 'Running';
-            stateDetails = `Started at ${cs.state.running.startedAt || ''}`;
-          } else if (cs?.state?.waiting) {
-            state = 'Waiting';
-            stateDetails = cs.state.waiting.reason || 'Waiting';
-          } else if (cs?.state?.terminated) {
-            state = 'Terminated';
-            stateDetails = `Exit code ${cs.state.terminated.exitCode}: ${cs.state.terminated.reason || ''}`;
-          }
-          return {
-            name: c.name,
-            image: c.image || '',
-            ready: Boolean(cs?.ready),
-            restartCount: cs?.restartCount || 0,
-            state,
-            stateDetails,
-            resources: c.resources || {},
-            ports: (c.ports || []).map(p => `${p.containerPort}/${p.protocol || 'TCP'}`),
-          };
-        }),
-      };
-    } catch (err: any) {
-      this.logger.error(`Failed to fetch pod ${namespace}/${name}: ${this.extractErrorMessage(err)}`);
-      throw new NotFoundException(`Pod ${namespace}/${name} not found: ${this.extractErrorMessage(err)}`);
-    }
-  }
-
-  async getPodLogs(namespace: string, name: string, container?: string, tailLines = 200) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      const logs = await this.k8sApi.readNamespacedPodLog({
-        name,
-        namespace,
-        container: container || undefined,
-        tailLines: Number(tailLines) || 200,
-      });
-      return {
-        logs: typeof logs === 'string' ? logs : String(logs || ''),
-        container: container || 'default',
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.warn(`Failed to fetch logs for ${namespace}/${name}: ${msg}`);
-      return {
-        logs: `Error retrieving logs: ${msg}`,
-        container: container || 'default',
-      };
-    }
-  }
-
-  async deletePod(namespace: string, name: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      await this.k8sApi.deleteNamespacedPod({ name, namespace });
-      return {
-        success: true,
-        message: `Pod ${name} in namespace ${namespace} deleted successfully`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to delete pod ${namespace}/${name}: ${msg}`);
-      throw new BadRequestException(`Failed to delete pod: ${msg}`);
-    }
-  }
-
-  async restartPod(namespace: string, name: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      // In Kubernetes, deleting a pod managed by a controller triggers immediate recreation
-      await this.k8sApi.deleteNamespacedPod({ name, namespace });
-      return {
-        success: true,
-        message: `Pod ${name} restart triggered (pod terminated for controller recreation)`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to restart pod ${namespace}/${name}: ${msg}`);
-      throw new BadRequestException(`Failed to restart pod: ${msg}`);
-    }
-  }
-
-  async scaleDeployment(namespace: string, name: string, replicas: number) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.appsApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      await this.appsApi.patchNamespacedDeploymentScale({
-        name,
-        namespace,
-        body: [{ op: 'replace', path: '/spec/replicas', value: replicas }],
-      });
-      return {
-        success: true,
-        replicas,
-        message: `Deployment ${name} scaled to ${replicas} replicas`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to scale deployment ${namespace}/${name}: ${msg}`);
-      throw new BadRequestException(`Failed to scale deployment: ${msg}`);
-    }
-  }
-
-  async createDeployment(dto: CreateDeploymentDto) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.appsApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      const body: k8s.V1Deployment = {
-        apiVersion: 'apps/v1',
-        kind: 'Deployment',
-        metadata: {
-          name: dto.name,
-          namespace: dto.namespace,
-          labels: { app: dto.name },
-        },
-        spec: {
-          replicas: dto.replicas ?? 1,
-          selector: {
-            matchLabels: { app: dto.name },
-          },
-          template: {
-            metadata: {
-              labels: { app: dto.name },
-            },
-            spec: {
-              containers: [
-                {
-                  name: dto.name,
-                  image: dto.image,
-                  ports: dto.port ? [{ containerPort: dto.port }] : undefined,
-                },
-              ],
-            },
-          },
-        },
-      };
-
-      await this.appsApi.createNamespacedDeployment({
-        namespace: dto.namespace,
-        body,
-      });
-
-      return {
-        success: true,
-        message: `Deployment ${dto.name} created successfully in namespace ${dto.namespace}`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to create deployment ${dto.namespace}/${dto.name}: ${msg}`);
-      throw new BadRequestException(`Failed to create deployment: ${msg}`);
-    }
-  }
-
-  async deleteDeployment(namespace: string, name: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.appsApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      await this.appsApi.deleteNamespacedDeployment({ name, namespace });
-      return {
-        success: true,
-        message: `Deployment ${name} deleted successfully from namespace ${namespace}`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to delete deployment ${namespace}/${name}: ${msg}`);
-      throw new BadRequestException(`Failed to delete deployment: ${msg}`);
-    }
-  }
-
-  async listConfigMaps(namespace?: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) return [];
-    try {
-      const isAll = !namespace || namespace === 'all';
-      const res = isAll
-        ? await this.k8sApi.listConfigMapForAllNamespaces()
-        : await this.k8sApi.listNamespacedConfigMap({ namespace });
-
-      return (res.items || []).map(cm => ({
-        name: cm.metadata?.name || '',
-        namespace: cm.metadata?.namespace || '',
-        dataCount: Object.keys(cm.data || {}).length + Object.keys(cm.binaryData || {}).length,
-        keys: Object.keys(cm.data || {}).concat(Object.keys(cm.binaryData || {})),
-        age: cm.metadata?.creationTimestamp || '',
-      }));
-    } catch (err: any) {
-      this.logger.warn(`Failed to list configmaps: ${err.message}`);
-      return [];
-    }
-  }
-
-  async getConfigMap(namespace: string, name: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      const cm = await this.k8sApi.readNamespacedConfigMap({ name, namespace });
-      return {
-        name: cm.metadata?.name || '',
-        namespace: cm.metadata?.namespace || '',
-        labels: cm.metadata?.labels || {},
-        age: cm.metadata?.creationTimestamp || '',
-        data: cm.data || {},
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to fetch configmap ${namespace}/${name}: ${msg}`);
-      throw new NotFoundException(`ConfigMap not found: ${msg}`);
-    }
-  }
-
-  async createService(dto: CreateServiceDto) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      const body: k8s.V1Service = {
-        apiVersion: 'v1',
-        kind: 'Service',
-        metadata: {
-          name: dto.name,
-          namespace: dto.namespace,
-        },
-        spec: {
-          type: dto.type || 'ClusterIP',
-          selector: {
-            app: dto.selectorApp,
-          },
-          ports: [
-            {
-              port: dto.port,
-              targetPort: (dto.targetPort || dto.port) as any,
-              protocol: 'TCP',
-            },
-          ],
-        },
-      };
-
-      await this.k8sApi.createNamespacedService({
-        namespace: dto.namespace,
-        body,
-      });
-
-      return {
-        success: true,
-        message: `Service ${dto.name} created successfully in namespace ${dto.namespace}`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to create service ${dto.namespace}/${dto.name}: ${msg}`);
-      throw new BadRequestException(`Failed to create service: ${msg}`);
-    }
-  }
-
-  async deleteService(namespace: string, name: string) {
-    this.ensureLoaded();
-    if (!this.isLoaded || !this.k8sApi) {
-      throw new BadRequestException('Kubernetes cluster connection unavailable');
-    }
-    try {
-      await this.k8sApi.deleteNamespacedService({ name, namespace });
-      return {
-        success: true,
-        message: `Service ${name} deleted successfully from namespace ${namespace}`,
-      };
-    } catch (err: any) {
-      const msg = this.extractErrorMessage(err);
-      this.logger.error(`Failed to delete service ${namespace}/${name}: ${msg}`);
-      throw new BadRequestException(`Failed to delete service: ${msg}`);
     }
   }
 }

@@ -291,17 +291,21 @@ exit $__CAELUM_EXIT
 
       proc.stdin?.end();
 
+      // Categorize commands: heavy commands get 600s (10m), normal commands get 60s
+      const isLongRunning = /^(minikube\s+(start|delete|node\s+add)|docker\s+(pull|build|compose\s+up)|kubectl\s+apply|helm\s+(install|upgrade))/i.test(trimmed);
+      const timeoutMs = isLongRunning ? 600000 : 60000;
+
       const timer = setTimeout(() => {
         timedOut = true;
         proc.kill();
         resolve({
           stdout,
-          stderr: stderr + '\nExecution timed out after 60 seconds.',
+          stderr: stderr + `\nExecution timed out after ${timeoutMs / 1000} seconds.`,
           exitCode: 124,
           command: trimmed,
           cwd: currentCwd,
         });
-      }, 60000);
+      }, timeoutMs);
 
       proc.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString('utf8');

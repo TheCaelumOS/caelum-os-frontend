@@ -92,6 +92,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const [images, setImages] = useState<DockerImage[]>([]);
   const [networks, setNetworks] = useState<DockerNetwork[]>([]);
   const [volumes, setVolumes] = useState<DockerVolume[]>([]);
+  const [composeProjects, setComposeProjects] = useState<any[]>([]);
   const [daemonLogs, setDaemonLogs] = useState<string>('');
 
   // Diagnostics modal/notice
@@ -138,6 +139,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
       setImages([]);
       setNetworks([]);
       setVolumes([]);
+      setComposeProjects([]);
       setDaemonLogs('');
       setLogs('');
       setSelectedId('');
@@ -150,7 +152,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     try {
       setConnectionState('checking');
       const data = await apiRequest('/docker/health');
-      if (data && data.connected) {
+      if (data && (data.connected || data.status === 'healthy' || data.status === 'running')) {
         setConnectionState('connected');
         setEngineStatus(data);
         setError(null);
@@ -166,6 +168,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         setImages([]);
         setNetworks([]);
         setVolumes([]);
+        setComposeProjects([]);
         setDaemonLogs('');
         setLogs('');
       }
@@ -179,6 +182,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
       setImages([]);
       setNetworks([]);
       setVolumes([]);
+      setComposeProjects([]);
       setDaemonLogs('');
       setLogs('');
     } finally {
@@ -193,7 +197,17 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     else if (tab === 'images') await fetchImages();
     else if (tab === 'networks') await fetchNetworks();
     else if (tab === 'volumes') await fetchVolumes();
+    else if (tab === 'compose') await fetchComposeProjects();
     else if (tab === 'logs') await fetchDaemonLogs();
+  };
+
+  const fetchComposeProjects = async () => {
+    try {
+      const data = await apiRequest('/docker/compose');
+      setComposeProjects(Array.isArray(data) ? data : []);
+    } catch {
+      setComposeProjects([]);
+    }
   };
 
   const fetchContainers = async () => {
@@ -996,6 +1010,28 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                     <p className="text-[11px] text-slate-500">Multi-container configuration for Caelum database and cache backends</p>
                   </div>
                 </div>
+
+                {/* Active Compose Projects */}
+                {composeProjects.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                      Running Compose Stacks ({composeProjects.length})
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {composeProjects.map((p, idx) => (
+                        <div key={p.Name || idx} className="p-3 rounded-xl bg-neutral-900/60 border border-neutral-800 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-bold text-slate-200 block">{p.Name}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{p.ConfigFiles || 'compose.yaml'}</span>
+                          </div>
+                          <span className="text-emerald-400 font-mono text-[9px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold uppercase">
+                            {p.Status || 'running'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Service Status Cards based on real containers */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

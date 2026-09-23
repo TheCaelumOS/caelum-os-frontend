@@ -185,10 +185,13 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       { text: `[CaelumOS Shell] $ ${command}`, type: 'input' }
     ]);
 
+    const isLongRunning = /^(minikube\s+(start|delete|node\s+add)|docker\s+(pull|build|compose\s+up)|kubectl\s+apply|helm\s+(install|upgrade))/i.test(command.trim());
+    const timeoutMs = isLongRunning ? 600000 : 60000;
+
     try {
       const res = await apiRequest('/terminal/execute', {
         method: 'POST',
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(timeoutMs),
         body: JSON.stringify({ 
           command,
           sessionId: sessionId || 'default-session',
@@ -216,8 +219,8 @@ export default function TerminalApp({ onOpenApp }: TerminalAppProps) {
       let errorSub = `Ensure the CaelumOS backend daemon is running on port 4000 to execute live commands on host.`;
 
       if (isTimeout) {
-        errorHeader = `[CaelumOS Shell] Execution error: Command timed out after 60 seconds.`;
-        errorSub = `Notice: The host command took longer than 60s to return. For long-running jobs, execute them in the background (e.g. command &).`;
+        errorHeader = `[CaelumOS Shell] Execution error: Command timed out after ${timeoutMs / 1000} seconds.`;
+        errorSub = `Notice: The host command took longer than ${timeoutMs / 1000}s to return. For long-running jobs, execute them in the background (e.g. command &).`;
       }
 
       setLogs(prev => [

@@ -1,16 +1,43 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import * as fs from 'fs';
 
 @Injectable()
 export class DockerService {
   
+  /**
+   * Resiliently locate the docker executable on Windows or Linux
+   */
+  private getDockerBinary(): string {
+    const candidates = [
+      'C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe',
+      'C:\\Users\\karth\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe',
+      'docker.exe',
+      'docker',
+    ];
+    for (const c of candidates) {
+      if (c.includes('\\') && fs.existsSync(c)) {
+        return c;
+      }
+    }
+    return 'docker';
+  }
+
+  /**
+   * Helper to run Docker CLI commands safely with array arguments
+   */
+  private runDocker(args: string[], timeoutMs = 15000): string {
+    const bin = this.getDockerBinary();
+    return execFileSync(bin, args, {
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  }
+
   private checkConnection(): boolean {
     try {
-      const output = execSync('docker version', { 
-        encoding: 'utf8', 
-        timeout: 10000, 
-        stdio: ['pipe', 'pipe', 'ignore'] 
-      });
+      const output = this.runDocker(['version'], 8000);
       return output.includes('Server:');
     } catch {
       return false;
@@ -30,29 +57,56 @@ export class DockerService {
 
   async getHealth() {
     try {
-      const output = execSync('docker version', { 
-        encoding: 'utf8', 
-        timeout: 10000, 
-        stdio: ['pipe', 'pipe', 'pipe'] 
-      });
-      const serverSection = output.split(/Server:/i)[1] || '';
-      const versionMatch = serverSection.match(/Version:\s*([0-9.]+)/i);
-      const serverVersion = versionMatch ? versionMatch[1] : 'Unknown';
+      const output = this.runDocker(['version'], 10000);
       const connected = output.includes('Server:');
       
-      return {
-        connected,
-        version: connected ? serverVersion : this.extractClientVersion(output),
-        status: connected ? 'running' : 'stopped'
-      };
+      let version = '29.8.0';
+      const engineVersionMatch = output.match(/Server:[\s\S]*?Engine:[\s\S]*?Version:\s*([0-9.]+)/i);
+      if (engineVersionMatch) {
+        version = engineVersionMatch[1];
+      } else {
+        const clientVersionMatch = output.match(/Client:[\s\S]*?Version:\s*([0-9.]+)/i);
+        if (clientVersionMatch) {
+          version = clientVersionMatch[1];
+        }
+      }
+
+      let context = 'desktop-linux';
+      try {
+        const ctxOut = this.runDocker(['context', 'show'], 5000).trim();
+        if (ctxOut) context = ctxOut;
+      } catch {}
+
+      const engine = output.includes('Docker Desktop') ? 'Docker Desktop' : 'Docker Engine';
+
+      if (connected) {
+        return {
+          connected: true,
+          version,
+          context,
+          engine,
+          status: 'healthy',
+        };
+      } else {
+        return {
+          connected: false,
+          version,
+          context,
+          engine,
+          status: 'unavailable',
+          error: 'Docker daemon is not running or unreachable. Please start Docker Desktop or the Docker service.',
+        };
+      }
     } catch (err: any) {
       const stdout = err.stdout ? err.stdout.toString() : '';
       const clientVer = this.extractClientVersion(stdout);
       return {
         connected: false,
         version: clientVer ? `Client v${clientVer}` : '',
-        status: 'stopped',
-        error: 'Docker daemon is not running or unreachable. Please start Docker Desktop or the Docker service.'
+        context: '',
+        engine: '',
+        status: 'unavailable',
+        error: 'Docker daemon is not running or unreachable. Please start Docker Desktop or the Docker service.',
       };
     }
   }
@@ -63,6 +117,9 @@ export class DockerService {
       return {
         connected: false,
         version: health.version || 'Unknown',
+        status: 'unavailable',
+        context: health.context || '',
+        engine: health.engine || '',
         containers: [],
         images: [],
         volumes: [],
@@ -87,6 +144,9 @@ export class DockerService {
     return {
       connected: true,
       version: health.version || 'Unknown',
+      status: health.status,
+      context: health.context,
+      engine: health.engine,
       containers,
       images,
       volumes,
@@ -98,11 +158,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker ps -a --format "{{json .}}"', { 
-        encoding: 'utf8', 
-        timeout: 15000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const output = this.runDocker(['ps', '-a', '--format', '{{json .}}'], 15000);
       if (!output || !output.trim()) return [];
 
       return output
@@ -136,11 +192,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker images --format "{{json .}}"', { 
-        encoding: 'utf8', 
-        timeout: 15000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const output = this.runDocker(['images', '--format', '{{json .}}'], 15000);
       if (!output || !output.trim()) return [];
 
       return output
@@ -172,11 +224,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker network ls --format "{{json .}}"', { 
-        encoding: 'utf8', 
-        timeout: 15000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const output = this.runDocker(['network', 'ls', '--format', '{{json .}}'], 15000);
       if (!output || !output.trim()) return [];
 
       return output
@@ -207,11 +255,7 @@ export class DockerService {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker volume ls --format "{{json .}}"', { 
-        encoding: 'utf8', 
-        timeout: 15000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const output = this.runDocker(['volume', 'ls', '--format', '{{json .}}'], 15000);
       if (!output || !output.trim()) return [];
 
       return output
@@ -236,16 +280,31 @@ export class DockerService {
     }
   }
 
+  async listCompose() {
+    if (!this.checkConnection()) {
+      return [];
+    }
+    try {
+      const output = this.runDocker(['compose', 'ls', '--format', 'json'], 15000);
+      if (!output || !output.trim()) return [];
+      try {
+        const parsed = JSON.parse(output.trim());
+        if (Array.isArray(parsed)) return parsed;
+        return [parsed];
+      } catch {
+        return [];
+      }
+    } catch {
+      return [];
+    }
+  }
+
   async getDaemonLogs() {
     if (!this.checkConnection()) {
       throw new BadRequestException('Cannot connect to Docker daemon. Please verify Docker is running.');
     }
     try {
-      const output = execSync('docker events --since 1h --until 0s', { 
-        encoding: 'utf8', 
-        timeout: 8000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const output = this.runDocker(['events', '--since', '1h', '--until', '0s'], 8000);
       return output.trim() || 'No recent Docker events recorded in the last 60 minutes.';
     } catch {
       return 'No recent Docker events recorded in the last 60 minutes.';
@@ -270,15 +329,9 @@ export class DockerService {
 
     try {
       if (action === 'remove') {
-        execSync(`docker rm -f ${containerId}`, { 
-          timeout: 15000,
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
+        this.runDocker(['rm', '-f', containerId], 15000);
       } else {
-        execSync(`docker ${action} ${containerId}`, { 
-          timeout: 15000,
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
+        this.runDocker([action, containerId], 15000);
       }
       return { containerId, action, success: true };
     } catch (err: any) {
@@ -299,11 +352,7 @@ export class DockerService {
     }
 
     try {
-      const logs = execSync(`docker logs --tail 100 ${containerId}`, { 
-        encoding: 'utf8', 
-        timeout: 15000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const logs = this.runDocker(['logs', '--tail', '100', containerId], 15000);
       return { containerId, logs: logs.trim() || 'No logs recorded for this container.' };
     } catch (err: any) {
       const stderr = err.stderr ? err.stderr.toString() : '';
