@@ -68,8 +68,17 @@ export default function HeroSection() {
             {/* Action Buttons */}
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <Link
-                href="/download"
+                href="/os"
                 className="inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs group"
+              >
+                <Terminal className="w-4 h-4 text-blue-200" />
+                <span>Launch CaelumOS</span>
+                <ArrowRight className="w-4 h-4 text-blue-200 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+
+              <Link
+                href="/download"
+                className="inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
               >
                 <Download className="w-4 h-4" />
                 <span>Get Caelum</span>
@@ -77,10 +86,9 @@ export default function HeroSection() {
 
               <a
                 href="#capabilities"
-                className="inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 transition-colors shadow-xs"
+                className="inline-flex items-center justify-center space-x-2 px-5 py-3.5 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
               >
-                <span>Explore Caelum</span>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                <span>Explore</span>
               </a>
             </div>
 
