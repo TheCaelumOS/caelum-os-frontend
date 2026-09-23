@@ -554,15 +554,26 @@ export class KubernetesService {
 
       const out = this.runKubectl(args, 10000);
       const json = JSON.parse(out);
-      return (json.items || []).map((cm: any) => ({
-        name: cm.metadata?.name || '',
-        namespace: cm.metadata?.namespace || '',
-        data: `${Object.keys(cm.data || {}).length} keys`,
-        age: cm.metadata?.creationTimestamp || '',
-      }));
+      return (json.items || []).map((cm: any) => {
+        const dataObj = cm.data || {};
+        const binaryObj = cm.binaryData || {};
+        const keys = [...Object.keys(dataObj), ...Object.keys(binaryObj)];
+        return {
+          name: cm.metadata?.name || '',
+          namespace: cm.metadata?.namespace || '',
+          dataCount: keys.length,
+          keys,
+          data: `${keys.length} keys`,
+          dataEntries: dataObj,
+          creationTimestamp: cm.metadata?.creationTimestamp || '',
+          age: cm.metadata?.creationTimestamp || '',
+          labels: cm.metadata?.labels || {},
+          annotations: cm.metadata?.annotations || {},
+        };
+      });
     } catch (err: any) {
       this.logger.warn(`Failed to list configmaps: ${err.message}`);
-      return [];
+      throw new BadRequestException(`Failed to list configmaps: ${err.message}`);
     }
   }
 
@@ -573,10 +584,21 @@ export class KubernetesService {
     try {
       const out = this.runKubectl(['get', 'configmap', name, '-n', namespace, '-o', 'json'], 10000);
       const cm = JSON.parse(out);
+      const dataObj = cm.data || {};
+      const binaryObj = cm.binaryData || {};
+      const keys = [...Object.keys(dataObj), ...Object.keys(binaryObj)];
       return {
-        name,
-        namespace,
-        data: cm.data || {},
+        name: cm.metadata?.name || name,
+        namespace: cm.metadata?.namespace || namespace,
+        uid: cm.metadata?.uid || '',
+        creationTimestamp: cm.metadata?.creationTimestamp || '',
+        age: cm.metadata?.creationTimestamp || '',
+        labels: cm.metadata?.labels || {},
+        annotations: cm.metadata?.annotations || {},
+        dataCount: keys.length,
+        keys,
+        data: dataObj,
+        binaryData: Object.keys(binaryObj),
       };
     } catch (err: any) {
       throw new NotFoundException(`ConfigMap "${name}" in namespace "${namespace}" not found: ${err.message}`);

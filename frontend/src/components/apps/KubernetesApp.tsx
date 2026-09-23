@@ -162,15 +162,26 @@ interface ConfigMapItem {
   namespace: string;
   dataCount: number;
   keys: string[];
-  age: string;
+  data?: string | Record<string, string>;
+  dataEntries?: Record<string, string>;
+  creationTimestamp?: string;
+  age?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 interface ConfigMapDetails {
   name: string;
   namespace: string;
-  labels: Record<string, string>;
-  age: string;
+  uid?: string;
+  creationTimestamp?: string;
+  age?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  dataCount?: number;
+  keys?: string[];
   data: Record<string, string>;
+  binaryData?: string[];
 }
 
 interface KubernetesAppProps {
@@ -225,6 +236,9 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
 
   const [selectedConfigMap, setSelectedConfigMap] = useState<ConfigMapDetails | null>(null);
   const [loadingConfigMap, setLoadingConfigMap] = useState<boolean>(false);
+  const [loadingConfigMaps, setLoadingConfigMaps] = useState<boolean>(false);
+  const [configMapsError, setConfigMapsError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [selectedServiceDetails, setSelectedServiceDetails] = useState<ServiceDetails | null>(null);
   const [loadingServiceDetails, setLoadingServiceDetails] = useState<boolean>(false);
@@ -322,9 +336,41 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
       setServices(Array.isArray(svcList) ? svcList : []);
       setIngresses(Array.isArray(ingList) ? ingList : []);
       setEvents(Array.isArray(evList) ? evList : []);
-      setConfigMaps(Array.isArray(cmList) ? cmList : []);
-    } catch (e) {
+
+      // Defensive parsing for ConfigMaps
+      let rawCms: any[] = [];
+      if (Array.isArray(cmList)) {
+        rawCms = cmList;
+      } else if (cmList && Array.isArray((cmList as any).items)) {
+        rawCms = (cmList as any).items;
+      }
+
+      const normalizedCms: ConfigMapItem[] = rawCms.map((cm: any) => {
+        const dataEntries = cm.dataEntries || (typeof cm.data === 'object' && cm.data !== null ? cm.data : {}) || {};
+        const keys: string[] = Array.isArray(cm.keys) 
+          ? cm.keys 
+          : Object.keys(dataEntries);
+        const dataCount: number = typeof cm.dataCount === 'number'
+          ? cm.dataCount
+          : (typeof cm.data === 'string' && cm.data.includes('key') ? parseInt(cm.data, 10) || keys.length : keys.length);
+        return {
+          name: cm.name || cm.metadata?.name || 'unknown',
+          namespace: cm.namespace || cm.metadata?.namespace || ns,
+          dataCount,
+          keys,
+          data: cm.data || `${keys.length} keys`,
+          dataEntries,
+          age: cm.age || cm.creationTimestamp || cm.metadata?.creationTimestamp || '',
+          creationTimestamp: cm.creationTimestamp || cm.metadata?.creationTimestamp || '',
+          labels: cm.labels || cm.metadata?.labels || {},
+          annotations: cm.annotations || cm.metadata?.annotations || {},
+        };
+      });
+      setConfigMaps(normalizedCms);
+      setConfigMapsError(null);
+    } catch (e: any) {
       console.warn('Error fetching namespaced resources:', e);
+      setConfigMapsError(e?.message || 'Failed to fetch resources');
     }
   };
 
@@ -618,14 +664,70 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
   };
 
   // ConfigMap Actions
+  const handleRefreshConfigMaps = async (targetNs?: string) => {
+    const ns = targetNs || activeNamespace;
+    setLoadingConfigMaps(true);
+    setConfigMapsError(null);
+    try {
+      const res = await apiRequest(`/kubernetes/configmaps?namespace=${ns}`);
+      let rawCms: any[] = [];
+      if (Array.isArray(res)) {
+        rawCms = res;
+      } else if (res && Array.isArray((res as any).items)) {
+        rawCms = (res as any).items;
+      }
+      const normalizedCms: ConfigMapItem[] = rawCms.map((cm: any) => {
+        const dataEntries = cm.dataEntries || (typeof cm.data === 'object' && cm.data !== null ? cm.data : {}) || {};
+        const keys: string[] = Array.isArray(cm.keys) ? cm.keys : Object.keys(dataEntries);
+        const dataCount: number = typeof cm.dataCount === 'number' ? cm.dataCount : keys.length;
+        return {
+          name: cm.name || cm.metadata?.name || 'unknown',
+          namespace: cm.namespace || cm.metadata?.namespace || ns,
+          dataCount,
+          keys,
+          data: cm.data || `${keys.length} keys`,
+          dataEntries,
+          age: cm.age || cm.creationTimestamp || cm.metadata?.creationTimestamp || '',
+          creationTimestamp: cm.creationTimestamp || cm.metadata?.creationTimestamp || '',
+          labels: cm.labels || cm.metadata?.labels || {},
+          annotations: cm.annotations || cm.metadata?.annotations || {},
+        };
+      });
+      setConfigMaps(normalizedCms);
+      showFeedback('success', `ConfigMaps refreshed (${normalizedCms.length} found)`);
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to fetch ConfigMaps';
+      setConfigMapsError(msg);
+      showFeedback('error', msg);
+    } finally {
+      setLoadingConfigMaps(false);
+    }
+  };
+
   const handleOpenConfigMap = async (cm: ConfigMapItem) => {
     setLoadingConfigMap(true);
     setSelectedConfigMap(null);
+    const ns = cm.namespace || activeNamespace || 'default';
     try {
-      const details: ConfigMapDetails = await apiRequest(`/kubernetes/configmaps/${cm.namespace}/${cm.name}`);
-      setSelectedConfigMap(details);
+      const details: any = await apiRequest(`/kubernetes/configmaps/${ns}/${cm.name}`);
+      const rawData = (details?.data && typeof details.data === 'object') ? details.data : (cm.dataEntries || {});
+      const keys = Array.isArray(details?.keys) ? details.keys : Object.keys(rawData);
+      const normalizedDetails: ConfigMapDetails = {
+        name: details?.name || cm.name,
+        namespace: details?.namespace || ns,
+        uid: details?.uid || '',
+        creationTimestamp: details?.creationTimestamp || cm.creationTimestamp || '',
+        age: details?.age || details?.creationTimestamp || cm.age || '',
+        labels: details?.labels || cm.labels || {},
+        annotations: details?.annotations || cm.annotations || {},
+        dataCount: details?.dataCount ?? keys.length,
+        keys,
+        data: rawData,
+        binaryData: Array.isArray(details?.binaryData) ? details.binaryData : [],
+      };
+      setSelectedConfigMap(normalizedDetails);
     } catch (e: any) {
-      showFeedback('error', e.message || 'Failed to fetch configmap');
+      showFeedback('error', e.message || `Failed to fetch ConfigMap "${cm.name}"`);
     } finally {
       setLoadingConfigMap(false);
     }
@@ -1283,48 +1385,118 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
                 </h4>
                 <span className="text-[10px] text-slate-500 font-mono">Cluster configuration and environment objects</span>
               </div>
-              <select
-                value={activeNamespace}
-                onChange={(e) => setActiveNamespace(e.target.value)}
-                className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none"
-              >
-                <option value="all">All Namespaces</option>
-                {namespaces.map(ns => (
-                  <option key={ns} value={ns}>{ns}</option>
-                ))}
-              </select>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => handleRefreshConfigMaps()}
+                  disabled={loadingConfigMaps}
+                  title="Refresh ConfigMaps"
+                  className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${loadingConfigMaps ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+                <select
+                  value={activeNamespace}
+                  onChange={(e) => setActiveNamespace(e.target.value)}
+                  className="bg-neutral-900 border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none cursor-pointer"
+                >
+                  <option value="all">All Namespaces</option>
+                  {namespaces.map(ns => (
+                    <option key={ns} value={ns}>{ns}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            {configMaps.length === 0 ? (
-              <div className="p-4 bg-neutral-900/40 border border-neutral-850 rounded-2xl text-xs font-mono text-slate-450">
-                {error ? 'Unable to load ConfigMaps while cluster is unreachable.' : 'No ConfigMaps found in namespace.'}
+
+            {/* Error State */}
+            {configMapsError && (
+              <div className="p-3.5 bg-red-950/20 border border-red-500/25 rounded-2xl flex items-center justify-between text-xs text-red-400">
+                <div className="flex items-center space-x-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span className="font-semibold text-red-300">{configMapsError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRefreshConfigMaps()}
+                  className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[10px] font-bold rounded-lg transition-colors border border-red-500/30 cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loadingConfigMaps && configMaps.length === 0 ? (
+              <div className="p-8 bg-neutral-900/40 border border-neutral-850 rounded-2xl flex flex-col items-center justify-center space-y-2.5 text-slate-400">
+                <RefreshCw className="w-5 h-5 text-emerald-400 animate-spin" />
+                <span className="text-xs font-mono">Fetching ConfigMaps from cluster...</span>
+              </div>
+            ) : configMaps.length === 0 ? (
+              <div className="p-6 bg-neutral-900/40 border border-neutral-850 rounded-2xl flex flex-col items-center justify-center space-y-2 text-xs font-mono text-slate-400">
+                <span>{error ? 'Unable to load ConfigMaps while cluster is unreachable.' : `No ConfigMaps found in namespace "${activeNamespace === 'all' ? 'cluster' : activeNamespace}".`}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRefreshConfigMaps()}
+                  className="mt-1 px-3 py-1 bg-neutral-850 hover:bg-neutral-800 text-slate-300 rounded-lg text-xs font-sans transition-colors cursor-pointer border border-neutral-800"
+                >
+                  Refresh Namespace
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
                 {configMaps.map(cm => (
                   <div 
                     key={cm.name + cm.namespace}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleOpenConfigMap(cm)}
-                    className="p-3.5 bg-neutral-900/35 border border-neutral-900/85 hover:border-neutral-800 rounded-2xl flex items-center justify-between cursor-pointer transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleOpenConfigMap(cm);
+                      }
+                    }}
+                    className="p-3.5 bg-neutral-900/35 border border-neutral-900/85 hover:border-emerald-500/40 hover:bg-neutral-900/60 rounded-2xl flex items-center justify-between cursor-pointer transition-all group select-none"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1.5 min-w-0 pr-4">
                       <div className="flex items-center space-x-2.5">
-                        <FileCode className="w-4 h-4 text-emerald-400" />
-                        <span className="font-bold text-xs text-slate-200">{cm.name}</span>
+                        <FileCode className="w-4 h-4 text-emerald-400 flex-shrink-0 group-hover:scale-105 transition-transform" />
+                        <span className="font-bold text-xs text-slate-200 group-hover:text-white transition-colors truncate max-w-[280px]">
+                          {cm.name}
+                        </span>
                         {cm.namespace && (
                           <span className="text-[9px] bg-neutral-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
                             {cm.namespace}
                           </span>
                         )}
+                        {cm.age && (
+                          <span className="text-[9px] text-slate-500 font-mono hidden sm:inline-block">
+                            {cm.age}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[9.5px] text-slate-450 font-mono">
-                        Keys: {cm.keys.length > 0 ? cm.keys.join(', ') : 'None'}
+                      <div className="text-[9.5px] text-slate-400 font-mono flex items-center space-x-1.5 flex-wrap">
+                        <span className="text-slate-500 font-semibold">Keys:</span>
+                        {cm.keys && cm.keys.length > 0 ? (
+                          cm.keys.slice(0, 4).map(k => (
+                            <span key={k} className="px-1.5 py-0.5 rounded bg-neutral-850/80 text-[9px] text-emerald-300 font-bold border border-neutral-800">
+                              {k}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="italic text-slate-500">None</span>
+                        )}
+                        {cm.keys && cm.keys.length > 4 && (
+                          <span className="text-[9px] text-slate-500 font-bold">+{cm.keys.length - 4} more</span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2.5 flex-shrink-0">
                       <span className="text-[9px] font-bold bg-neutral-850 text-emerald-400 px-2 py-0.5 rounded border border-neutral-800 font-mono">
                         {cm.dataCount} {cm.dataCount === 1 ? 'key' : 'keys'}
                       </span>
-                      <ChevronRight className="w-4 h-4 text-slate-500" />
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </div>
                 ))}
@@ -2205,27 +2377,101 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
                 </div>
               ) : selectedConfigMap ? (
                 <>
-                  <div className="text-[10.5px] text-slate-400 space-y-1 bg-neutral-900/40 p-3 rounded-xl border border-neutral-800/60">
-                    <div>Created: <span className="text-slate-200">{selectedConfigMap.age}</span></div>
+                  {/* Metadata Specs */}
+                  <div className="text-[11px] text-slate-400 space-y-1.5 bg-neutral-900/40 p-3.5 rounded-xl border border-neutral-800/60 font-sans">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Created:</span>
+                      <span className="text-slate-200 font-mono">{selectedConfigMap.creationTimestamp || selectedConfigMap.age || 'N/A'}</span>
+                    </div>
+                    {selectedConfigMap.uid && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500 font-medium">UID:</span>
+                        <span className="text-slate-400 font-mono truncate max-w-[320px]">{selectedConfigMap.uid}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Namespace:</span>
+                      <span className="text-slate-300 font-mono">{selectedConfigMap.namespace}</span>
+                    </div>
                   </div>
 
+                  {/* Labels */}
+                  {selectedConfigMap.labels && Object.keys(selectedConfigMap.labels).length > 0 && (
+                    <div className="space-y-1.5 font-sans">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Labels</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(selectedConfigMap.labels).map(([k, v]) => (
+                          <span key={k} className="px-2 py-0.5 bg-neutral-900 border border-neutral-800 rounded text-[9.5px] text-slate-300 font-mono">
+                            {k}={v}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Data Entries */}
                   <div>
-                    <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 font-sans">Data Keys</h5>
-                    {Object.keys(selectedConfigMap.data).length === 0 ? (
-                      <div className="text-slate-500 italic text-[11px]">No plain-text data entries in this ConfigMap.</div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-sans">
+                        Data Entries ({selectedConfigMap.data && typeof selectedConfigMap.data === 'object' ? Object.keys(selectedConfigMap.data).length : 0})
+                      </h5>
+                    </div>
+                    {(!selectedConfigMap.data || typeof selectedConfigMap.data !== 'object' || Object.keys(selectedConfigMap.data).length === 0) ? (
+                      <div className="p-4 bg-neutral-900/30 border border-neutral-850 rounded-xl text-slate-500 italic text-[11px]">
+                        No plain-text data entries in this ConfigMap.
+                      </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-3 font-mono">
                         {Object.entries(selectedConfigMap.data).map(([key, val]) => (
-                          <div key={key} className="space-y-1">
-                            <span className="text-[11px] font-bold text-emerald-400 block">{key}:</span>
-                            <pre className="p-3 bg-black/60 border border-neutral-850 rounded-xl text-[10px] text-slate-350 overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed">
-                              {val}
+                          <div key={key} className="space-y-1 bg-neutral-950/40 border border-neutral-850 rounded-xl p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-emerald-400 truncate max-w-[320px]">{key}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                                    navigator.clipboard.writeText(String(val));
+                                    setCopiedKey(key);
+                                    setTimeout(() => setCopiedKey(null), 2000);
+                                  }
+                                }}
+                                className="px-2 py-0.5 rounded bg-neutral-850 hover:bg-neutral-800 border border-neutral-750 text-[10px] text-slate-300 hover:text-white flex items-center space-x-1 cursor-pointer transition-colors"
+                              >
+                                {copiedKey === key ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-emerald-400 font-sans">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span className="font-sans">Copy Value</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <pre className="p-2.5 bg-black/70 border border-neutral-900 rounded-lg text-[10px] text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-48 leading-relaxed selection:bg-emerald-500/30">
+                              {String(val)}
                             </pre>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+
+                  {/* Binary Data Notice if applicable */}
+                  {selectedConfigMap.binaryData && selectedConfigMap.binaryData.length > 0 && (
+                    <div className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-xl space-y-1 text-[11px] font-sans">
+                      <span className="text-slate-400 font-bold block">Binary Data Keys</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedConfigMap.binaryData.map(bk => (
+                          <span key={bk} className="px-2 py-0.5 rounded bg-neutral-800 text-[10px] font-mono text-cyan-400 border border-neutral-700">
+                            {bk}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : null}
             </div>

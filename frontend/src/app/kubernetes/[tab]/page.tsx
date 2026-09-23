@@ -9,6 +9,7 @@ export function generateStaticParams() {
     { tab: 'deployments' },
     { tab: 'statefulsets' },
     { tab: 'services' },
+    { tab: 'configmaps' },
     { tab: 'ingress' },
     { tab: 'logs' }
   ];
