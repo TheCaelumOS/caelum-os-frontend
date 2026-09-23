@@ -450,21 +450,75 @@ export class KubernetesService {
   async createService(dto: CreateServiceDto) {
     try {
       const typeStr = (dto.type || 'ClusterIP').toLowerCase();
+      const targetPort = dto.targetPort || dto.port;
+      const ns = dto.namespace || 'default';
       const args = [
         'create', 'service', typeStr, dto.name,
-        `--tcp=${dto.port}:${dto.targetPort || dto.port}`,
-        '-n', dto.namespace || 'default',
+        `--tcp=${dto.port}:${targetPort}`,
+        '-n', ns,
       ];
 
       this.runKubectl(args, 15000);
+
+      // If selectorApp is provided, patch the service selector
+      if (dto.selectorApp && dto.selectorApp.trim()) {
+        try {
+          const patchJson = JSON.stringify({
+            spec: {
+              selector: {
+                app: dto.selectorApp.trim(),
+              },
+            },
+          });
+          this.runKubectl(['patch', 'service', dto.name, '-n', ns, '-p', patchJson], 10000);
+        } catch (patchErr: any) {
+          this.logger.warn(`Service created, but failed to patch selector: ${patchErr.message}`);
+        }
+      }
+
       return {
         success: true,
         name: dto.name,
-        namespace: dto.namespace || 'default',
-        message: `Service "${dto.name}" created successfully.`,
+        namespace: ns,
+        message: `Service "${dto.name}" created successfully in namespace "${ns}".`,
       };
     } catch (err: any) {
       throw new BadRequestException(`Failed to create service: ${err.message}`);
+    }
+  }
+
+  /**
+   * Get Service details
+   */
+  async getServiceDetails(namespace: string, name: string) {
+    try {
+      const out = this.runKubectl(['get', 'service', name, '-n', namespace, '-o', 'json'], 10000);
+      const svc = JSON.parse(out);
+      const ports = (svc.spec?.ports || []).map((p: any) => ({
+        name: p.name || '',
+        port: p.port,
+        protocol: p.protocol || 'TCP',
+        targetPort: p.targetPort || p.port,
+        nodePort: p.nodePort,
+      }));
+
+      return {
+        name: svc.metadata?.name || '',
+        namespace: svc.metadata?.namespace || '',
+        uid: svc.metadata?.uid || '',
+        creationTimestamp: svc.metadata?.creationTimestamp || '',
+        type: svc.spec?.type || 'ClusterIP',
+        clusterIP: svc.spec?.clusterIP || 'None',
+        clusterIPs: svc.spec?.clusterIPs || [],
+        externalIPs: svc.spec?.externalIPs || [],
+        ports,
+        selector: svc.spec?.selector || {},
+        sessionAffinity: svc.spec?.sessionAffinity || 'None',
+        labels: svc.metadata?.labels || {},
+        annotations: svc.metadata?.annotations || {},
+      };
+    } catch (err: any) {
+      throw new NotFoundException(`Service ${name} not found in namespace ${namespace}: ${err.message}`);
     }
   }
 

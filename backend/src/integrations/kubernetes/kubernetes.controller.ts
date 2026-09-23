@@ -130,6 +130,16 @@ export class KubernetesController {
     return this.k8sService.listServices(namespace);
   }
 
+  @Get('services/:namespace/:name')
+  @ApiOperation({ summary: 'Get details of a specific service' })
+  @ApiResponse({ status: 200, description: 'Service details fetched successfully.' })
+  getServiceDetails(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.getServiceDetails(namespace, name);
+  }
+
   @Post('services')
   @ApiOperation({ summary: 'Create a new service in a namespace' })
   @ApiResponse({ status: 201, description: 'Service created successfully.' })

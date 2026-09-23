@@ -110,6 +110,30 @@ interface ServiceItem {
   age: string;
 }
 
+interface ServicePort {
+  name: string;
+  port: number;
+  protocol: string;
+  targetPort: number | string;
+  nodePort?: number;
+}
+
+interface ServiceDetails {
+  name: string;
+  namespace: string;
+  uid: string;
+  creationTimestamp: string;
+  type: string;
+  clusterIP: string;
+  clusterIPs: string[];
+  externalIPs: string[];
+  ports: ServicePort[];
+  selector: Record<string, string>;
+  sessionAffinity: string;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+}
+
 interface StatefulSetItem {
   name: string;
   namespace: string;
@@ -201,6 +225,9 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
 
   const [selectedConfigMap, setSelectedConfigMap] = useState<ConfigMapDetails | null>(null);
   const [loadingConfigMap, setLoadingConfigMap] = useState<boolean>(false);
+
+  const [selectedServiceDetails, setSelectedServiceDetails] = useState<ServiceDetails | null>(null);
+  const [loadingServiceDetails, setLoadingServiceDetails] = useState<boolean>(false);
 
   const tabs = [
     { id: 'clusters', name: 'Clusters' },
@@ -521,22 +548,37 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
   };
 
   // Service Actions
+  const handleOpenServiceDetails = async (svc: ServiceItem) => {
+    setLoadingServiceDetails(true);
+    setSelectedServiceDetails(null);
+    try {
+      const details: ServiceDetails = await apiRequest(`/kubernetes/services/${svc.namespace}/${svc.name}`);
+      setSelectedServiceDetails(details);
+    } catch (e: any) {
+      showFeedback('error', e.message || 'Failed to fetch service details');
+    } finally {
+      setLoadingServiceDetails(false);
+    }
+  };
+
   const handleCreateService = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSvcForm.name || !newSvcForm.selectorApp) {
-      showFeedback('error', 'Name and target selector app are required');
+    if (!newSvcForm.name) {
+      showFeedback('error', 'Service name is required');
       return;
     }
     setCreatingSvc(true);
     try {
-      const payload = {
+      const payload: any = {
         name: newSvcForm.name.trim().toLowerCase(),
         namespace: newSvcForm.namespace,
         type: newSvcForm.type,
         port: Number(newSvcForm.port) || 80,
         targetPort: Number(newSvcForm.targetPort) || Number(newSvcForm.port) || 80,
-        selectorApp: newSvcForm.selectorApp.trim(),
       };
+      if (newSvcForm.selectorApp && newSvcForm.selectorApp.trim()) {
+        payload.selectorApp = newSvcForm.selectorApp.trim();
+      }
       const res = await apiRequest('/kubernetes/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1161,31 +1203,71 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
               </div>
             ) : (
               <div className="space-y-3 font-mono text-xs text-slate-300">
-                {services.map(svc => (
-                  <div key={svc.name + svc.namespace} className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-2xl flex justify-between items-center">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold text-slate-200 font-sans">{svc.name}</span>
-                        {svc.namespace && (
-                          <span className="text-[9px] bg-neutral-800 text-slate-400 px-1.5 py-0.5 rounded">
-                            {svc.namespace}
+                {services.map(svc => {
+                  const isSvcSelected = selectedServiceDetails?.name === svc.name && selectedServiceDetails?.namespace === svc.namespace;
+                  return (
+                    <div 
+                      key={svc.name + svc.namespace} 
+                      onClick={() => handleOpenServiceDetails(svc)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenServiceDetails(svc); }}
+                      title="Click to view Service details and endpoints"
+                      className={`p-3.5 rounded-2xl flex items-center justify-between transition-all cursor-pointer select-none group ${
+                        isSvcSelected
+                          ? 'bg-indigo-500/10 border border-indigo-500/70 ring-1 ring-indigo-500/30 shadow-md'
+                          : 'bg-neutral-900/35 border border-neutral-900/85 hover:border-indigo-500/40 hover:bg-neutral-900/60'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0 pr-4">
+                        <div className="flex items-center space-x-2.5">
+                          <Network className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                            isSvcSelected ? 'text-indigo-400' : 'text-indigo-400/80 group-hover:text-indigo-400'
+                          }`} />
+                          <span className="font-bold text-xs text-slate-200 truncate max-w-[280px] font-sans group-hover:text-white transition-colors">
+                            {svc.name}
                           </span>
-                        )}
+                          {svc.namespace && (
+                            <span className="text-[9px] bg-neutral-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                              {svc.namespace}
+                            </span>
+                          )}
+                          <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                            svc.type === 'LoadBalancer' 
+                              ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25'
+                              : svc.type === 'NodePort'
+                                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+                                : 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25'
+                          }`}>
+                            {svc.type}
+                          </span>
+                        </div>
+                        <div className="text-[9.5px] text-slate-450 flex flex-wrap gap-x-4">
+                          <span>Cluster-IP: <span className="text-slate-300 font-bold">{svc.clusterIP}</span></span>
+                          <span>Port(s): <span className="text-slate-300">{svc.ports}</span></span>
+                        </div>
                       </div>
-                      <div className="text-[9px] text-slate-450">Type: {svc.type} | Cluster-IP: {svc.clusterIP}</div>
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <div className="flex items-center space-x-1 pl-2 border-l border-neutral-850">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenServiceDetails(svc); }}
+                            title="View Service Details"
+                            className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteService(svc); }}
+                            title="Delete Service"
+                            className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[9px] text-indigo-400 font-bold">Port: {svc.ports}</span>
-                      <button
-                        onClick={() => handleDeleteService(svc)}
-                        title="Delete Service"
-                        className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1832,10 +1914,9 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
               </div>
 
               <div>
-                <label className="block text-slate-400 text-[11px] mb-1 font-semibold">App Selector Label (app=...) *</label>
+                <label className="block text-slate-400 text-[11px] mb-1 font-semibold">App Selector Label (Optional, e.g. app=...)</label>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. caelum-demo"
                   value={newSvcForm.selectorApp}
                   onChange={(e) => setNewSvcForm({ ...newSvcForm, selectorApp: e.target.value })}
@@ -1861,6 +1942,183 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Service Details Modal */}
+      {(selectedServiceDetails || loadingServiceDetails) && (
+        <div 
+          onClick={() => setSelectedServiceDetails(null)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl bg-[#121216] border border-neutral-800 rounded-2xl shadow-2xl text-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+          >
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-neutral-800 flex items-center justify-between bg-neutral-950/60">
+              <div className="flex items-center space-x-3 truncate">
+                <Network className="w-5 h-5 text-indigo-400 flex-shrink-0" />
+                <div className="truncate">
+                  <span className="font-bold text-sm text-slate-100 block truncate">
+                    {loadingServiceDetails ? 'Loading Service Details...' : selectedServiceDetails?.name}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Namespace: {selectedServiceDetails?.namespace}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedServiceDetails(null)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs font-mono">
+              {loadingServiceDetails ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-400" />
+                  <span>Querying Kubernetes API for service metadata...</span>
+                </div>
+              ) : selectedServiceDetails ? (
+                <>
+                  {/* Status & Key Metrics Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3 bg-neutral-900/60 border border-neutral-800/80 rounded-xl">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Type</span>
+                      <span className="text-xs font-bold text-indigo-400 font-sans">{selectedServiceDetails.type}</span>
+                    </div>
+                    <div className="p-3 bg-neutral-900/60 border border-neutral-800/80 rounded-xl">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Cluster IP</span>
+                      <span className="text-xs font-bold text-slate-200 truncate block">{selectedServiceDetails.clusterIP}</span>
+                    </div>
+                    <div className="p-3 bg-neutral-900/60 border border-neutral-800/80 rounded-xl">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Session Affinity</span>
+                      <span className="text-xs font-bold text-amber-400">{selectedServiceDetails.sessionAffinity}</span>
+                    </div>
+                    <div className="p-3 bg-neutral-900/60 border border-neutral-800/80 rounded-xl">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Ports Configured</span>
+                      <span className="text-xs font-bold text-emerald-400">{selectedServiceDetails.ports.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Ports Configuration Table */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Port Mappings</span>
+                    <div className="border border-neutral-850 rounded-xl overflow-hidden bg-neutral-950/40">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-neutral-900/80 text-slate-400 border-b border-neutral-850">
+                          <tr>
+                            <th className="py-2 px-3 font-semibold">Name</th>
+                            <th className="py-2 px-3 font-semibold">Service Port</th>
+                            <th className="py-2 px-3 font-semibold">Target Port</th>
+                            <th className="py-2 px-3 font-semibold">Protocol</th>
+                            {selectedServiceDetails.ports.some(p => p.nodePort) && (
+                              <th className="py-2 px-3 font-semibold">NodePort</th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-850/60 text-slate-300">
+                          {selectedServiceDetails.ports.map((p, idx) => (
+                            <tr key={idx} className="hover:bg-white/[0.02]">
+                              <td className="py-2 px-3 text-slate-400">{p.name || '-'}</td>
+                              <td className="py-2 px-3 font-bold text-indigo-400">{p.port}</td>
+                              <td className="py-2 px-3 text-slate-200">{p.targetPort}</td>
+                              <td className="py-2 px-3">
+                                <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-[9px] font-bold text-cyan-400 border border-neutral-700">
+                                  {p.protocol}
+                                </span>
+                              </td>
+                              {selectedServiceDetails.ports.some(pt => pt.nodePort) && (
+                                <td className="py-2 px-3 text-amber-400">{p.nodePort || '-'}</td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Selector Labels */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pod Selector</span>
+                    {Object.keys(selectedServiceDetails.selector).length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(selectedServiceDetails.selector).map(([k, v]) => (
+                          <div key={k} className="px-2.5 py-1 bg-neutral-900/80 border border-neutral-800 rounded-lg text-[10px]">
+                            <span className="text-slate-400">{k}:</span> <span className="text-indigo-400 font-bold">{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-500 italic p-2 bg-neutral-900/40 rounded-lg border border-neutral-850">
+                        No pod selector configured (headless or external endpoint service)
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Metadata Specs */}
+                  <div className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-xl space-y-1.5 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Created At:</span>
+                      <span className="text-slate-300">{selectedServiceDetails.creationTimestamp}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">UID:</span>
+                      <span className="text-slate-400 truncate max-w-[280px]">{selectedServiceDetails.uid}</span>
+                    </div>
+                    {selectedServiceDetails.clusterIPs.length > 1 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Cluster IPs:</span>
+                        <span className="text-slate-300">{selectedServiceDetails.clusterIPs.join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Labels */}
+                  {Object.keys(selectedServiceDetails.labels).length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Labels</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(selectedServiceDetails.labels).map(([k, v]) => (
+                          <span key={k} className="px-2 py-0.5 bg-neutral-900 border border-neutral-800 rounded text-[9.5px] text-slate-300">
+                            {k}={v}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions Footer inside modal */}
+                  <div className="pt-3 border-t border-neutral-850 flex justify-between items-center">
+                    <span className="text-[10px] text-slate-500">Service active in cluster DNS</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetSvc: ServiceItem = {
+                          name: selectedServiceDetails.name,
+                          namespace: selectedServiceDetails.namespace,
+                          type: selectedServiceDetails.type,
+                          clusterIP: selectedServiceDetails.clusterIP,
+                          ports: selectedServiceDetails.ports.map(p => `${p.port}:${p.targetPort}/${p.protocol}`).join(', '),
+                          age: selectedServiceDetails.creationTimestamp,
+                        };
+                        setSelectedServiceDetails(null);
+                        handleDeleteService(targetSvc);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold flex items-center space-x-1.5 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Service</span>
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       )}

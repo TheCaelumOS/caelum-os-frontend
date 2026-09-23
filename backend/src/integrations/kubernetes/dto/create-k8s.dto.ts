@@ -69,8 +69,8 @@ export class CreateServiceDto {
   @Max(65535)
   targetPort?: number;
 
-  @ApiProperty({ description: 'Pod selector label app value', example: 'nginx-app' })
+  @ApiPropertyOptional({ description: 'Pod selector label app value', example: 'nginx-app' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  selectorApp!: string;
+  selectorApp?: string;
 }
