@@ -333,6 +333,13 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
     }
   };
 
+  // Namespace Selection Action
+  const handleSelectNamespace = (ns: string) => {
+    setActiveNamespace(ns);
+    fetchNamespacedResources(ns);
+    showFeedback('success', `Active namespace set to: ${ns === 'all' ? 'All Namespaces' : ns}`);
+  };
+
   // Pod Actions
   const handleOpenPodDetails = async (pod: Pod) => {
     setLoadingPodDetails(true);
@@ -608,6 +615,13 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
               </span>
             </div>
           </div>
+          {/* Active Namespace Status in Sidebar */}
+          <div className="px-3 py-1.5 mb-2.5 rounded-xl bg-neutral-900/60 border border-neutral-850 flex items-center justify-between text-[10px] font-mono">
+            <span className="text-slate-500">Namespace:</span>
+            <span className="font-bold text-indigo-400 truncate max-w-[105px]" title={activeNamespace}>
+              {activeNamespace === 'all' ? 'All' : activeNamespace}
+            </span>
+          </div>
           <div className="space-y-1">
             {tabs.map(t => (
               <button
@@ -675,64 +689,83 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
               </div>
             ) : (
               <div className="space-y-3">
-                {pods.map(p => (
-                  <div key={p.name + p.namespace} className="p-3.5 bg-neutral-900/35 border border-neutral-900/85 hover:border-neutral-800 rounded-2xl flex items-center justify-between transition-all">
-                    <div className="space-y-1 min-w-0 pr-4">
-                      <div className="flex items-center space-x-2.5">
-                        <Layers className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                        <span className="font-bold text-xs text-slate-200 truncate max-w-[280px]">{p.name}</span>
-                        {p.namespace && (
-                          <span className="text-[9px] bg-neutral-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
-                            {p.namespace}
+                {pods.map(p => {
+                  const isPodSelected = selectedPodDetails?.name === p.name && selectedPodDetails?.namespace === p.namespace;
+                  return (
+                    <div 
+                      key={p.name + p.namespace} 
+                      onClick={() => handleOpenPodDetails(p)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenPodDetails(p); }}
+                      title="Click to view Pod details and metrics"
+                      className={`p-3.5 rounded-2xl flex items-center justify-between transition-all cursor-pointer select-none group ${
+                        isPodSelected
+                          ? 'bg-indigo-500/10 border border-indigo-500/70 ring-1 ring-indigo-500/30 shadow-md'
+                          : 'bg-neutral-900/35 border border-neutral-900/85 hover:border-indigo-500/40 hover:bg-neutral-900/60'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0 pr-4">
+                        <div className="flex items-center space-x-2.5">
+                          <Layers className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                            isPodSelected ? 'text-indigo-400' : 'text-cyan-400 group-hover:text-indigo-400'
+                          }`} />
+                          <span className="font-bold text-xs text-slate-200 truncate max-w-[280px] group-hover:text-white transition-colors">
+                            {p.name}
                           </span>
-                        )}
+                          {p.namespace && (
+                            <span className="text-[9px] bg-neutral-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                              {p.namespace}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9.5px] text-slate-400 font-mono">
+                          <div>IP: <span className="text-slate-350">{p.ip}</span></div>
+                          <div>Node: <span className="text-slate-350">{p.node}</span></div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[9.5px] text-slate-400 font-mono">
-                        <div>IP: <span className="text-slate-350">{p.ip}</span></div>
-                        <div>Node: <span className="text-slate-350">{p.node}</span></div>
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded border uppercase font-mono ${
+                          p.status === 'Running' 
+                            ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        }`}>
+                          {p.status}
+                        </span>
+                        <div className="flex items-center space-x-1 pl-2 border-l border-neutral-850">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenPodDetails(p); }}
+                            title="View Pod Details"
+                            className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenPodLogs(p); }}
+                            title="View Pod Logs"
+                            className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
+                          >
+                            <Terminal className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRestartPod(p); }}
+                            title="Restart Pod"
+                            className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                          >
+                            <RotateCw className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeletePod(p); }}
+                            title="Delete Pod"
+                            className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                      <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded border uppercase font-mono ${
-                        p.status === 'Running' 
-                          ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                      }`}>
-                        {p.status}
-                      </span>
-                      <div className="flex items-center space-x-1 pl-2 border-l border-neutral-850">
-                        <button
-                          onClick={() => handleOpenPodDetails(p)}
-                          title="View Pod Details"
-                          className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
-                        >
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenPodLogs(p)}
-                          title="View Pod Logs"
-                          className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
-                        >
-                          <Terminal className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleRestartPod(p)}
-                          title="Restart Pod"
-                          className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
-                        >
-                          <RotateCw className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePod(p)}
-                          title="Delete Pod"
-                          className="p-1.5 rounded-lg bg-neutral-850/60 hover:bg-neutral-800 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -890,22 +923,153 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
         {/* Namespaces Tab */}
         {activeTab === 'namespaces' && (
           <div className="space-y-4">
-            <h4 className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Namespaces</h4>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">
+                  Namespaces (Active: {activeNamespace === 'all' ? 'All Namespaces' : activeNamespace})
+                </h4>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  Select a namespace to focus all Pods, Deployments, Services, StatefulSets, and ConfigMaps
+                </p>
+              </div>
+              <span className="text-[10px] font-mono bg-neutral-900 border border-neutral-850 text-slate-300 px-2.5 py-1 rounded-lg">
+                {namespaces.length} Discovered
+              </span>
+            </div>
+
             {namespaces.length === 0 ? (
               <div className="p-4 bg-neutral-900/40 border border-neutral-850 rounded-2xl text-xs font-mono text-slate-450">
-                {error ? 'Unable to load namespaces while cluster is unreachable.' : 'No namespaces found.'}
+                {error ? 'Unable to load namespaces while cluster is unreachable.' : 'No namespaces found in cluster.'}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {namespaces.map(ns => (
-                  <div key={ns} className="p-3 bg-neutral-900/40 border border-neutral-850 rounded-2xl flex items-center space-x-3 text-xs text-slate-300">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 font-bold font-mono">ns</div>
-                    <div>
-                      <span className="font-bold block">{ns}</span>
-                      <span className="text-[9px] text-slate-450 font-mono">Status: Active</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {/* Global Option: All Namespaces */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleSelectNamespace('all')}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectNamespace('all'); }}
+                  className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-center justify-between group ${
+                    activeNamespace === 'all'
+                      ? 'bg-indigo-500/15 border-indigo-500 shadow-[0_0_18px_rgba(99,102,241,0.22)] ring-1 ring-indigo-500/50'
+                      : 'bg-neutral-900/40 border border-neutral-850 hover:border-neutral-750 hover:bg-neutral-900/70 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold font-mono text-sm transition-colors flex-shrink-0 ${
+                      activeNamespace === 'all'
+                        ? 'bg-indigo-500 text-white shadow-sm'
+                        : 'bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 group-hover:bg-indigo-500/25'
+                    }`}>
+                      *
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className={`font-bold text-xs truncate ${
+                          activeNamespace === 'all' ? 'text-white' : 'text-slate-200'
+                        }`}>
+                          All Namespaces
+                        </span>
+                        {activeNamespace === 'all' && (
+                          <span className="text-[9px] bg-indigo-500/30 text-indigo-300 font-bold px-1.5 py-0.5 rounded font-mono">
+                            SELECTED
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[9.5px] text-slate-450 font-mono block">
+                        Scope: Cluster-wide (all resources)
+                      </span>
                     </div>
                   </div>
-                ))}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    {activeNamespace === 'all' ? (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); selectTab('pods'); }}
+                          className="text-[10px] text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2 py-1 rounded-lg font-mono flex items-center space-x-1 transition-colors cursor-pointer"
+                        >
+                          <span>View Pods</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                        <div className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                        Click to select
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Individual Discovered Namespaces */}
+                {namespaces.map(ns => {
+                  const isSelected = activeNamespace === ns;
+                  return (
+                    <div
+                      key={ns}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectNamespace(ns)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectNamespace(ns); }}
+                      className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-center justify-between group ${
+                        isSelected
+                          ? 'bg-indigo-500/15 border-indigo-500 shadow-[0_0_18px_rgba(99,102,241,0.22)] ring-1 ring-indigo-500/50'
+                          : 'bg-neutral-900/40 border border-neutral-850 hover:border-neutral-750 hover:bg-neutral-900/70 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold font-mono text-xs transition-colors flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-indigo-500 text-white shadow-sm'
+                            : 'bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 group-hover:bg-indigo-500/25'
+                        }`}>
+                          ns
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className={`font-bold text-xs truncate ${
+                              isSelected ? 'text-white' : 'text-slate-200'
+                            }`}>
+                              {ns}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] bg-indigo-500/30 text-indigo-300 font-bold px-1.5 py-0.5 rounded font-mono">
+                                SELECTED
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[9.5px] text-slate-450 font-mono block">
+                            Status: Active
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {isSelected ? (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); selectTab('pods'); }}
+                              className="text-[10px] text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2 py-1 rounded-lg font-mono flex items-center space-x-1 transition-colors cursor-pointer"
+                            >
+                              <span>View Pods</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                            <div className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-xs">
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                            Click to select
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
