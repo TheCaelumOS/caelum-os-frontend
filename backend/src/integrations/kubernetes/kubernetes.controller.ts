@@ -2,7 +2,7 @@ import { Controller, Get, Post, Delete, Param, Query, Body, UseGuards } from '@n
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { KubernetesService } from './kubernetes.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { CreateDeploymentDto, ScaleDeploymentDto, CreateServiceDto } from './dto/create-k8s.dto';
+import { CreateDeploymentDto, ScaleDeploymentDto, ScaleStatefulSetDto, CreateServiceDto } from './dto/create-k8s.dto';
 
 @ApiTags('Integrations: Kubernetes Engine')
 @Controller('kubernetes')
@@ -23,6 +23,13 @@ export class KubernetesController {
   @ApiResponse({ status: 200, description: 'Nodes list fetched successfully.' })
   listNodes() {
     return this.k8sService.listNodes();
+  }
+
+  @Get('nodes/:name')
+  @ApiOperation({ summary: 'Get detailed node specification, conditions, and capacity' })
+  @ApiResponse({ status: 200, description: 'Node details fetched successfully.' })
+  getNodeDetails(@Param('name') name: string) {
+    return this.k8sService.getNodeDetails(name);
   }
 
   @Get('namespaces')
@@ -88,6 +95,16 @@ export class KubernetesController {
     return this.k8sService.listDeployments(namespace);
   }
 
+  @Get('deployments/:namespace/:name')
+  @ApiOperation({ summary: 'Get detailed deployment specifications, strategy, and conditions' })
+  @ApiResponse({ status: 200, description: 'Deployment details fetched successfully.' })
+  getDeploymentDetails(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.getDeploymentDetails(namespace, name);
+  }
+
   @Post('deployments')
   @ApiOperation({ summary: 'Create a new deployment in a namespace' })
   @ApiResponse({ status: 201, description: 'Deployment created successfully.' })
@@ -121,6 +138,37 @@ export class KubernetesController {
   @ApiResponse({ status: 200, description: 'StatefulSets list fetched successfully.' })
   listStatefulSets(@Query('namespace') namespace?: string) {
     return this.k8sService.listStatefulSets(namespace);
+  }
+
+  @Get('statefulsets/:namespace/:name')
+  @ApiOperation({ summary: 'Get detailed specifications of a specific statefulset' })
+  @ApiResponse({ status: 200, description: 'StatefulSet details fetched successfully.' })
+  getStatefulSetDetails(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.getStatefulSetDetails(namespace, name);
+  }
+
+  @Post('statefulsets/:namespace/:name/scale')
+  @ApiOperation({ summary: 'Scale statefulset replica count' })
+  @ApiResponse({ status: 200, description: 'StatefulSet scaled successfully.' })
+  scaleStatefulSet(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+    @Body() dto: ScaleStatefulSetDto,
+  ) {
+    return this.k8sService.scaleStatefulSet(namespace, name, dto.replicas);
+  }
+
+  @Delete('statefulsets/:namespace/:name')
+  @ApiOperation({ summary: 'Delete a statefulset from the cluster' })
+  @ApiResponse({ status: 200, description: 'StatefulSet deleted successfully.' })
+  deleteStatefulSet(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.deleteStatefulSet(namespace, name);
   }
 
   @Get('services')
@@ -174,11 +222,58 @@ export class KubernetesController {
     return this.k8sService.getConfigMap(namespace, name);
   }
 
+  @Get('secrets')
+  @ApiOperation({ summary: 'List secrets in a namespace or all namespaces (masked by default)' })
+  @ApiResponse({ status: 200, description: 'Secrets list fetched successfully.' })
+  listSecrets(@Query('namespace') namespace?: string) {
+    return this.k8sService.listSecrets(namespace);
+  }
+
+  @Get('secrets/:namespace/:name')
+  @ApiOperation({ summary: 'Get metadata and masked values of a specific secret' })
+  @ApiResponse({ status: 200, description: 'Secret details fetched successfully.' })
+  getSecretDetails(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.getSecretDetails(namespace, name);
+  }
+
+  @Post('secrets/:namespace/:name/reveal')
+  @ApiOperation({ summary: 'Explicitly decode and reveal secret values on-demand' })
+  @ApiResponse({ status: 200, description: 'Secret revealed successfully.' })
+  revealSecret(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.revealSecret(namespace, name);
+  }
+
+  @Delete('secrets/:namespace/:name')
+  @ApiOperation({ summary: 'Delete a secret from the cluster' })
+  @ApiResponse({ status: 200, description: 'Secret deleted successfully.' })
+  deleteSecret(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.deleteSecret(namespace, name);
+  }
+
   @Get('ingress')
   @ApiOperation({ summary: 'List ingress controllers and routes in a specific namespace or all namespaces' })
   @ApiResponse({ status: 200, description: 'Ingress list fetched successfully.' })
   listIngress(@Query('namespace') namespace?: string) {
     return this.k8sService.listIngress(namespace);
+  }
+
+  @Get('ingress/:namespace/:name')
+  @ApiOperation({ summary: 'Get detailed specification of an ingress resource' })
+  @ApiResponse({ status: 200, description: 'Ingress details fetched successfully.' })
+  getIngressDetails(
+    @Param('namespace') namespace: string,
+    @Param('name') name: string,
+  ) {
+    return this.k8sService.getIngressDetails(namespace, name);
   }
 
   @Get('events')

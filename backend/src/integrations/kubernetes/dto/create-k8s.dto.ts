@@ -9,6 +9,14 @@ export class ScaleDeploymentDto {
   replicas!: number;
 }
 
+export class ScaleStatefulSetDto {
+  @ApiProperty({ description: 'Target replica count', example: 2 })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  replicas!: number;
+}
+
 export class CreateDeploymentDto {
   @ApiProperty({ description: 'Deployment name', example: 'nginx-app' })
   @IsString()

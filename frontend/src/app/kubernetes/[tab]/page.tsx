@@ -10,6 +10,7 @@ export function generateStaticParams() {
     { tab: 'statefulsets' },
     { tab: 'services' },
     { tab: 'configmaps' },
+    { tab: 'secrets' },
     { tab: 'ingress' },
     { tab: 'logs' }
   ];
