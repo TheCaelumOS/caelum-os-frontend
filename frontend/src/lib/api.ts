@@ -95,11 +95,13 @@ export async function ensureAuthenticated(force = false) {
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   if (typeof window === 'undefined') return null;
 
-  let token = '';
-  try {
-    token = await ensureAuthenticated();
-  } catch (err) {
-    console.warn('Authentication token fetch failed, continuing without token.', err);
+  let token = typeof window !== 'undefined' ? (localStorage.getItem('caelum_token') || '') : '';
+  if (!token && !endpoint.startsWith('/github/')) {
+    try {
+      token = await ensureAuthenticated();
+    } catch (err) {
+      console.warn('Authentication token fetch failed, continuing without token.', err);
+    }
   }
   
   const makeRequest = async (baseUrl: string, authToken: string) => {
@@ -153,13 +155,32 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     }
 
     if (response.status === 401) {
-      console.warn(`[API] Received 401 Unauthorized on ${endpoint}. Clearing credentials and retrying...`);
-      token = await ensureAuthenticated(true);
-      response = await makeRequest(currentBase, token);
+      if (!endpoint.startsWith('/github/')) {
+        console.warn(`[API] Received 401 Unauthorized on ${endpoint}. Clearing credentials and retrying...`);
+        token = await ensureAuthenticated(true);
+        response = await makeRequest(currentBase, token);
+      } else {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('caelum_token');
+        }
+      }
     }
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData?.message) {
+          errorMessage = Array.isArray(errorData.message) ? errorData.message.join(', ') : errorData.message;
+        } else if (errorData?.error) {
+          errorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error);
+        }
+      } catch {
+        // Response was not JSON, retain HTTP status text
+      }
+      const apiErr: any = new Error(errorMessage);
+      apiErr.status = response.status;
+      throw apiErr;
     }
 
     const data = await response.json();

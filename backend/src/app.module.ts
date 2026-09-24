@@ -11,11 +11,19 @@ import { FilesystemModule } from './filesystem/filesystem.module';
 import { TerminalModule } from './terminal/terminal.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 
+import * as path from 'path';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: [
+        path.resolve(process.cwd(), '.env'),
+        path.resolve(process.cwd(), 'backend', '.env'),
+        path.resolve(__dirname, '..', '.env'),
+        path.resolve(__dirname, '..', '..', '.env'),
+        '.env',
+      ],
     }),
     PrismaModule,
     HealthModule,

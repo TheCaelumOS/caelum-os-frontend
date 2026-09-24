@@ -9,8 +9,10 @@ import { AzureController } from './azure/azure.controller';
 import { AzureService } from './azure/azure.service';
 import { TerraformController } from './terraform/terraform.controller';
 import { TerraformService } from './terraform/terraform.service';
+import { GithubModule } from './github/github.module';
 
 @Module({
+  imports: [GithubModule],
   controllers: [
     DockerController,
     KubernetesController,
@@ -31,6 +33,7 @@ import { TerraformService } from './terraform/terraform.service';
     AwsService,
     AzureService,
     TerraformService,
+    GithubModule,
   ],
 })
 export class IntegrationsModule {}

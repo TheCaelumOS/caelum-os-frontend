@@ -21,6 +21,7 @@ model User {
   logs          ActivityLog[]
   preferences   UserPreference?
   conversations AIConversation[]
+  githubConnection GithubConnection?
 }
 
 model Workspace {
@@ -121,4 +122,21 @@ model AIConversation {
   
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GithubConnection {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUserId          String
+  githubLogin           String
+  githubName            String?
+  githubAvatarUrl       String?
+  githubEmail           String?
+  accessTokenEncrypted  String    @db.Text
+  refreshTokenEncrypted String?   @db.Text
+  tokenExpiresAt        DateTime?
+  refreshTokenExpiresAt DateTime?
+  connectedAt           DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }

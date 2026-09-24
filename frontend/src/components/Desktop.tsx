@@ -177,7 +177,7 @@ export default function Desktop() {
     { id: 'kubernetes', title: 'Kubernetes Orchestrator', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 820, height: 520 },
     { id: 'monitoring', title: 'Grafana / Prometheus Monitor', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 820, height: 520 },
     { id: 'aiassistant', title: 'AI Assistant Co-Pilot', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 720, height: 480 },
-    { id: 'github', title: 'Git Adapter Repository', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 800, height: 500 },
+    { id: 'github', title: 'GitHub Workspace', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
     { id: 'vscode', title: 'VS Code Editor', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 900, height: 560 },
     { id: 'browser', title: 'Firefox Web Browser', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'light', width: 850, height: 520 },
     { id: 'terraform', title: 'Terraform Provisioner', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 840, height: 520 },
@@ -814,7 +814,7 @@ export default function Desktop() {
           {windows.find(w => w.id === 'github')?.isOpen && (
             <WindowFrame
               id="github"
-              title="Git Adapter Repository"
+              title="GitHub Workspace"
               isOpen={windows.find(w => w.id === 'github')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'github')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'github')?.isMaximized || false}
@@ -824,8 +824,8 @@ export default function Desktop() {
               onMaximize={() => toggleWindowMaximize('github')}
               onFocus={() => focusWindow('github')}
               theme="dark"
-              defaultWidth={800}
-              defaultHeight={500}
+              defaultWidth={880}
+              defaultHeight={560}
             >
               <GitApp />
             </WindowFrame>
