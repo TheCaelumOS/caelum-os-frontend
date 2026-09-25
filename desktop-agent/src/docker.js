@@ -170,13 +170,58 @@ async function getStatus() {
   };
 }
 
+async function getContainerStats() {
+  const isUp = await checkConnection();
+  if (!isUp) return [];
+  try {
+    const output = await runDocker(['stats', '--no-stream', '--format', '{{json .}}'], 4000);
+    if (!output || !output.trim()) return [];
+    return output
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        try {
+          const item = JSON.parse(line);
+          return {
+            id: item.ID || item.Container || '',
+            name: item.Name || '',
+            cpu: item.CPUPerc || '0%',
+            memory: item.MemUsage || '',
+            memPerc: item.MemPerc || '0%',
+            netIO: item.NetIO || '',
+            blockIO: item.BlockIO || '',
+            pids: item.PIDs || '0',
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 async function listContainers() {
   const isUp = await checkConnection();
   if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
-  const output = await runDocker(['ps', '-a', '--format', '{{json .}}'], 10000);
+  const [output, statsList] = await Promise.all([
+    runDocker(['ps', '-a', '--format', '{{json .}}'], 10000),
+    getContainerStats().catch(() => []),
+  ]);
   if (!output || !output.trim()) return [];
+
+  const statsMap = new Map();
+  for (const s of statsList) {
+    if (s.id) {
+      statsMap.set(s.id, s);
+      if (s.id.length >= 12) statsMap.set(s.id.substring(0, 12), s);
+    }
+    if (s.name) statsMap.set(s.name, s);
+  }
 
   return output
     .split(/\r?\n/)
@@ -185,14 +230,23 @@ async function listContainers() {
     .map(line => {
       try {
         const item = JSON.parse(line);
+        const id = item.ID || '';
+        const name = item.Names || item.ID || 'unnamed';
+        const isRunning = (item.State || (item.Status && item.Status.toLowerCase().startsWith('up') ? 'running' : 'exited')).toLowerCase() === 'running';
+        const stat = statsMap.get(id) || statsMap.get(id.substring(0, 12)) || statsMap.get(name) || null;
+
         return {
-          id: item.ID || '',
-          name: item.Names || item.ID || 'unnamed',
+          id,
+          name,
           image: item.Image || 'unknown',
           status: item.Status || '',
-          state: (item.State || (item.Status && item.Status.toLowerCase().startsWith('up') ? 'running' : 'exited')).toLowerCase(),
+          state: isRunning ? 'running' : (item.State ? item.State.toLowerCase() : 'exited'),
           ports: item.Ports || '',
           created: item.CreatedAt || '',
+          cpu: stat ? stat.cpu : (isRunning ? '0%' : '-'),
+          memory: stat ? stat.memory : (isRunning ? '-' : '-'),
+          memPerc: stat ? stat.memPerc : '',
+          netIO: stat ? stat.netIO : '',
         };
       } catch {
         return null;
@@ -361,10 +415,51 @@ async function getContainerLogs(containerId, tail = 200) {
   }
 }
 
+async function inspectContainer(containerId) {
+  const isUp = await checkConnection();
+  if (!isUp) {
+    throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
+  }
+
+  const containerIdRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!containerId || !containerIdRegex.test(containerId)) {
+    throw new Error('Invalid container ID or name format.');
+  }
+
+  try {
+    const output = await runDocker(['inspect', containerId], 8000);
+    const parsed = JSON.parse(output);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : parsed;
+  } catch (err) {
+    throw new Error(`Failed to inspect container '${containerId}': ${err.message}`);
+  }
+}
+
+async function pruneResources(type = 'all') {
+  const isUp = await checkConnection();
+  if (!isUp) {
+    throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
+  }
+
+  let args = ['system', 'prune', '-f'];
+  if (type === 'containers') args = ['container', 'prune', '-f'];
+  else if (type === 'images') args = ['image', 'prune', '-f'];
+  else if (type === 'volumes') args = ['volume', 'prune', '-f'];
+  else if (type === 'networks') args = ['network', 'prune', '-f'];
+
+  try {
+    const output = await runDocker(args, 20000);
+    return { success: true, type, output: output.trim() };
+  } catch (err) {
+    throw new Error(`Failed to prune ${type}: ${err.message}`);
+  }
+}
+
 module.exports = {
   getHealth,
   getStatus,
   listContainers,
+  getContainerStats,
   listImages,
   listNetworks,
   listVolumes,
@@ -372,4 +467,6 @@ module.exports = {
   getDaemonLogs,
   controlContainer,
   getContainerLogs,
+  inspectContainer,
+  pruneResources,
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { getSocket } from '../../lib/api';
+import { apiRequest, getSocket } from '../../lib/api';
 import { Activity, Cpu, Database } from 'lucide-react';
 
 interface ResourceGraphProps {
@@ -83,78 +83,87 @@ function ResourceGraph({ label, color, value, data }: ResourceGraphProps) {
 }
 
 export default function SystemMonitorApp() {
-  const [cpu, setCpu] = useState<number[]>(Array(40).fill(10));
-  const [net, setNet] = useState<number[]>(Array(40).fill(15));
-  const [mem, setMem] = useState<number[]>(Array(40).fill(40));
+  const [cpu, setCpu] = useState<number[]>(Array(40).fill(12));
+  const [net, setNet] = useState<number[]>(Array(40).fill(5));
+  const [mem, setMem] = useState<number[]>(Array(40).fill(45));
   const [uptime, setUptime] = useState<string>('Live');
   const [processCount, setProcessCount] = useState<number>(142);
+  const [activePods, setActivePods] = useState<string>('Live');
 
   useEffect(() => {
-    let socketConnected = false;
-    let fallbackInterval: NodeJS.Timeout | null = null;
+    let isMounted = true;
     let socket: any = null;
 
-    try {
-      socket = getSocket();
-      socket.on('connect', () => {
-        socketConnected = true;
-        if (fallbackInterval) {
-          clearInterval(fallbackInterval);
-          fallbackInterval = null;
-        }
-      });
+    // 1. Direct real-time telemetry fetcher
+    const fetchTelemetry = async () => {
+      try {
+        const stats = await apiRequest('/system/metrics');
+        if (!isMounted || !stats) return;
 
-      socket.on('system-stats', (stats: any) => {
-        socketConnected = true;
-        
-        const cpuLoad = stats.cpu?.load ?? 10;
-        const memLoad = stats.memory ? (stats.memory.active / stats.memory.total) * 100 : 40;
-        
+        const cpuLoad = typeof stats.cpu?.load === 'number' ? stats.cpu.load : 10;
+        const memLoad = typeof stats.memory?.percentage === 'number' ? stats.memory.percentage : 40;
         let netRate = 0;
         if (stats.network && stats.network.length > 0) {
-          netRate = (stats.network[0].rx_sec + stats.network[0].tx_sec) / (1024 * 1024); // MB/s
+          netRate = (stats.network[0].rx_sec || 0) + (stats.network[0].tx_sec || 0);
         }
 
         setCpu(prev => [...prev.slice(1), cpuLoad]);
         setMem(prev => [...prev.slice(1), memLoad]);
-        setNet(prev => [...prev.slice(1), Math.min(100, netRate * 10)]); // scaled for graph
+        setNet(prev => [...prev.slice(1), Math.min(100, netRate * 25)]);
 
         if (stats.uptime) {
-          const sec = stats.uptime;
-          const h = Math.floor(sec / 3600);
-          const m = Math.floor((sec % 3600) / 60);
-          setUptime(`${h}h ${m}m`);
+          setUptime(stats.uptime);
         }
-        setProcessCount(stats.processes?.all ?? 142);
-      });
-    } catch (err) {
-      console.warn('WebSocket connection skipped, starting interval updates.', err);
-    }
+        if (stats.processCount) {
+          setProcessCount(stats.processCount);
+        }
+        if (stats.activePodsDisplay) {
+          setActivePods(stats.activePodsDisplay);
+        }
+      } catch (err) {
+        // Retain previous real telemetry without synthetic jitter
+      }
+    };
 
-    // Set up mock intervals as a fallback if WebSocket connection is not responding
-    fallbackInterval = setInterval(() => {
-      if (!socketConnected) {
-        setCpu(prev => {
-          const nextVal = Math.max(10, Math.min(95, prev[prev.length - 1] + (Math.random() - 0.5) * 12));
-          return [...prev.slice(1), nextVal];
-        });
-        setNet(prev => {
-          const nextVal = Math.max(15, Math.min(90, prev[prev.length - 1] + (Math.random() - 0.5) * 15));
-          return [...prev.slice(1), nextVal];
-        });
-        setMem(prev => {
-          const nextVal = Math.max(40, Math.min(85, prev[prev.length - 1] + (Math.random() - 0.5) * 4));
-          return [...prev.slice(1), nextVal];
+    fetchTelemetry();
+    const intervalTimer = setInterval(fetchTelemetry, 1500);
+
+    // 2. WebSocket listener if available
+    try {
+      socket = getSocket();
+      if (socket) {
+        socket.on('system-stats', (stats: any) => {
+          if (!isMounted || !stats) return;
+          const cpuLoad = stats.cpu?.load ?? 10;
+          const memLoad = stats.memory ? (stats.memory.active / stats.memory.total) * 100 : 40;
+          let netRate = 0;
+          if (stats.network && stats.network.length > 0) {
+            netRate = (stats.network[0].rx_sec + stats.network[0].tx_sec) / (1024 * 1024);
+          }
+
+          setCpu(prev => [...prev.slice(1), cpuLoad]);
+          setMem(prev => [...prev.slice(1), memLoad]);
+          setNet(prev => [...prev.slice(1), Math.min(100, netRate * 10)]);
+
+          if (stats.uptime) {
+            const sec = stats.uptime;
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            setUptime(`${h}h ${m}m`);
+          }
+          if (stats.processes?.all) {
+            setProcessCount(stats.processes.all);
+          }
         });
       }
-    }, 1000);
+    } catch {}
 
     return () => {
+      isMounted = false;
+      clearInterval(intervalTimer);
       if (socket) {
-        socket.off('connect');
         socket.off('system-stats');
       }
-      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, []);
 
@@ -207,7 +216,7 @@ export default function SystemMonitorApp() {
       <div className="grid grid-cols-3 gap-2.5 pt-3 border-t border-neutral-800 text-[10px] leading-none text-slate-500 font-mono">
         <div>Processes: <span className="text-slate-350 font-bold">{processCount}</span></div>
         <div>Uptime: <span className="text-slate-350 font-bold">{uptime}</span></div>
-        <div>Active Pods: <span className="text-slate-350 font-bold">3/3</span></div>
+        <div>Active Pods: <span className="text-slate-350 font-bold">{activePods}</span></div>
       </div>
 
     </div>

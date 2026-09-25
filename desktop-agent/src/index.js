@@ -221,12 +221,31 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
+    // System Metrics & Telemetry
+    if ((pathname === '/system/metrics' || pathname === '/system/telemetry') && method === 'GET') {
+      const data = await system.getTelemetry();
+      return sendJson(res, 200, data);
+    }
+
     const actionMatch = pathname.match(/^\/docker\/container(?:s)?\/([a-zA-Z0-9_-]+)\/action$/);
     if ((actionMatch || pathname === '/docker/action') && method === 'POST') {
       const body = await parseBody(req);
       const containerId = actionMatch ? actionMatch[1] : body.containerId;
       const action = body.action;
       const result = await docker.controlContainer(containerId, action);
+      return sendJson(res, 200, result);
+    }
+
+    const inspectMatch = pathname.match(/^\/docker\/container(?:s)?\/([a-zA-Z0-9_-]+)\/inspect$/);
+    if (inspectMatch && method === 'GET') {
+      const containerId = inspectMatch[1];
+      const result = await docker.inspectContainer(containerId);
+      return sendJson(res, 200, result);
+    }
+
+    if (pathname === '/docker/prune' && method === 'POST') {
+      const body = await parseBody(req);
+      const result = await docker.pruneResources(body.type || 'all');
       return sendJson(res, 200, result);
     }
 
@@ -267,6 +286,13 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
+    const nodeDetailsMatch = pathname.match(/^\/kubernetes\/nodes\/([a-zA-Z0-9_.-]+)$/);
+    if (nodeDetailsMatch && method === 'GET') {
+      const [, name] = nodeDetailsMatch;
+      const result = await k8s.getNodeDetails(name);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname === '/kubernetes/namespaces' && method === 'GET') {
       const data = await k8s.listNamespaces();
       return sendJson(res, 200, data);
@@ -282,8 +308,15 @@ const server = http.createServer(async (req, res) => {
     if (podLogsMatch && method === 'GET') {
       const [, ns, podName] = podLogsMatch;
       const container = parsedUrl.query.container;
-      const tail = parseInt(parsedUrl.query.tail, 10) || 100;
+      const tail = parseInt(parsedUrl.query.tailLines || parsedUrl.query.tail, 10) || 100;
       const result = await k8s.getPodLogs(ns, podName, container, tail);
+      return sendJson(res, 200, { logs: result, success: true });
+    }
+
+    const podRestartMatch = pathname.match(/^\/kubernetes\/pods\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/restart$/);
+    if (podRestartMatch && method === 'POST') {
+      const [, ns, podName] = podRestartMatch;
+      const result = await k8s.restartPod(ns, podName);
       return sendJson(res, 200, result);
     }
 
@@ -294,10 +327,23 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
+    const podDetailsMatch = pathname.match(/^\/kubernetes\/pods\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (podDetailsMatch && method === 'GET') {
+      const [, ns, podName] = podDetailsMatch;
+      const result = await k8s.getPodDetails(ns, podName);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname === '/kubernetes/deployments' && method === 'GET') {
       const ns = parsedUrl.query.namespace || 'all';
       const data = await k8s.listDeployments(ns);
       return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/kubernetes/deployments' && method === 'POST') {
+      const body = await parseBody(req);
+      const result = await k8s.createDeployment(body);
+      return sendJson(res, 200, result);
     }
 
     const depScaleMatch = pathname.match(/^\/kubernetes\/deployments\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/scale$/);
@@ -309,10 +355,24 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
+    const depRestartMatch = pathname.match(/^\/kubernetes\/deployments\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/restart$/);
+    if (depRestartMatch && method === 'POST') {
+      const [, ns, name] = depRestartMatch;
+      const result = await k8s.restartDeployment(ns, name);
+      return sendJson(res, 200, result);
+    }
+
     const depDeleteMatch = pathname.match(/^\/kubernetes\/deployments\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
     if (depDeleteMatch && method === 'DELETE') {
       const [, ns, name] = depDeleteMatch;
       const result = await k8s.deleteDeployment(ns, name);
+      return sendJson(res, 200, result);
+    }
+
+    const depDetailsMatch = pathname.match(/^\/kubernetes\/deployments\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (depDetailsMatch && method === 'GET') {
+      const [, ns, name] = depDetailsMatch;
+      const result = await k8s.getDeploymentDetails(ns, name);
       return sendJson(res, 200, result);
     }
 
@@ -335,10 +395,47 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
+    const svcDetailsMatch = pathname.match(/^\/kubernetes\/services\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (svcDetailsMatch && method === 'GET') {
+      const [, ns, name] = svcDetailsMatch;
+      const result = await k8s.getServiceDetails(ns, name);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname === '/kubernetes/statefulsets' && method === 'GET') {
       const ns = parsedUrl.query.namespace || 'all';
       const data = await k8s.listStatefulSets(ns);
       return sendJson(res, 200, data);
+    }
+
+    const ssScaleMatch = pathname.match(/^\/kubernetes\/statefulsets\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/scale$/);
+    if (ssScaleMatch && method === 'POST') {
+      const [, ns, name] = ssScaleMatch;
+      const body = await parseBody(req);
+      const replicas = parseInt(body.replicas, 10) || 1;
+      const result = await k8s.scaleStatefulSet(ns, name, replicas);
+      return sendJson(res, 200, result);
+    }
+
+    const ssRestartMatch = pathname.match(/^\/kubernetes\/statefulsets\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/restart$/);
+    if (ssRestartMatch && method === 'POST') {
+      const [, ns, name] = ssRestartMatch;
+      const result = await k8s.restartStatefulSet(ns, name);
+      return sendJson(res, 200, result);
+    }
+
+    const ssDeleteMatch = pathname.match(/^\/kubernetes\/statefulsets\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (ssDeleteMatch && method === 'DELETE') {
+      const [, ns, name] = ssDeleteMatch;
+      const result = await k8s.deleteStatefulSet(ns, name);
+      return sendJson(res, 200, result);
+    }
+
+    const ssDetailsMatch = pathname.match(/^\/kubernetes\/statefulsets\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (ssDetailsMatch && method === 'GET') {
+      const [, ns, name] = ssDetailsMatch;
+      const result = await k8s.getStatefulSetDetails(ns, name);
+      return sendJson(res, 200, result);
     }
 
     if (pathname === '/kubernetes/ingress' && method === 'GET') {
@@ -347,16 +444,44 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
+    const ingDeleteMatch = pathname.match(/^\/kubernetes\/ingress\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (ingDeleteMatch && method === 'DELETE') {
+      const [, ns, name] = ingDeleteMatch;
+      const result = await k8s.deleteIngress(ns, name);
+      return sendJson(res, 200, result);
+    }
+
+    const ingDetailsMatch = pathname.match(/^\/kubernetes\/ingress\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (ingDetailsMatch && method === 'GET') {
+      const [, ns, name] = ingDetailsMatch;
+      const result = await k8s.getIngressDetails(ns, name);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname === '/kubernetes/configmaps' && method === 'GET') {
       const ns = parsedUrl.query.namespace || 'all';
       const data = await k8s.listConfigMaps(ns);
       return sendJson(res, 200, data);
     }
 
+    const cmDetailsMatch = pathname.match(/^\/kubernetes\/configmaps\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (cmDetailsMatch && method === 'GET') {
+      const [, ns, name] = cmDetailsMatch;
+      const result = await k8s.getConfigMapDetails(ns, name);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname === '/kubernetes/secrets' && method === 'GET') {
       const ns = parsedUrl.query.namespace || 'all';
       const data = await k8s.listSecrets(ns);
       return sendJson(res, 200, data);
+    }
+
+    const secDetailsMatch = pathname.match(/^\/kubernetes\/secrets\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (secDetailsMatch && method === 'GET') {
+      const [, ns, name] = secDetailsMatch;
+      const result = await k8s.getSecretDetails(ns, name);
+      return sendJson(res, 200, result);
     }
 
     if (pathname === '/kubernetes/events' && method === 'GET') {

@@ -499,27 +499,336 @@ async function listEvents(namespace) {
   }
 }
 
+async function getNodeDetails(name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name)) throw new Error('Invalid node name');
+  const out = await runKubectl(['get', 'node', name, '-o', 'json', '--request-timeout=6s'], 8000);
+  const node = JSON.parse(out);
+  const readyCond = node.status?.conditions?.find(c => c.type === 'Ready');
+  const conditions = (node.status?.conditions || []).map(c => ({
+    type: c.type,
+    status: c.status,
+    reason: c.reason,
+    message: c.message,
+    lastTransitionTime: c.lastTransitionTime,
+  }));
+  return {
+    name: node.metadata?.name || name,
+    uid: node.metadata?.uid || '',
+    creationTimestamp: node.metadata?.creationTimestamp || '',
+    status: readyCond?.status === 'True' ? 'Ready' : 'NotReady',
+    addresses: node.status?.addresses || [],
+    nodeInfo: node.status?.nodeInfo || {},
+    capacity: node.status?.capacity || {},
+    allocatable: node.status?.allocatable || {},
+    conditions,
+    labels: node.metadata?.labels || {},
+    annotations: node.metadata?.annotations || {},
+  };
+}
+
+async function getPodDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid pod or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'pod', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const pod = JSON.parse(out);
+
+  const containerStatuses = pod.status?.containerStatuses || [];
+  const containers = (pod.spec?.containers || []).map(c => {
+    const cStatus = containerStatuses.find(cs => cs.name === c.name);
+    let state = 'Unknown';
+    let startedAt = '';
+    if (cStatus?.state?.running) {
+      state = 'Running';
+      startedAt = cStatus.state.running.startedAt;
+    } else if (cStatus?.state?.waiting) {
+      state = `Waiting (${cStatus.state.waiting.reason || 'Init'})`;
+    } else if (cStatus?.state?.terminated) {
+      state = `Terminated (${cStatus.state.terminated.reason || 'Stopped'})`;
+    }
+
+    return {
+      name: c.name,
+      image: c.image || 'unknown',
+      ready: Boolean(cStatus?.ready),
+      restartCount: cStatus?.restartCount || 0,
+      state,
+      startedAt,
+      ports: (c.ports || []).map(p => `${p.containerPort}/${p.protocol || 'TCP'}`).join(', ') || 'None',
+    };
+  });
+
+  return {
+    name: pod.metadata?.name || name,
+    namespace: pod.metadata?.namespace || namespace,
+    uid: pod.metadata?.uid || '',
+    creationTimestamp: pod.metadata?.creationTimestamp || '',
+    status: pod.status?.phase || 'Unknown',
+    nodeName: pod.spec?.nodeName || 'N/A',
+    podIP: pod.status?.podIP || 'Pending',
+    hostIP: pod.status?.hostIP || 'N/A',
+    qosClass: pod.status?.qosClass || 'BestEffort',
+    containers,
+    conditions: pod.status?.conditions || [],
+    labels: pod.metadata?.labels || {},
+    annotations: pod.metadata?.annotations || {},
+  };
+}
+
+async function getPodYaml(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid pod or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'pod', name, '-n', namespace, '-o', 'yaml', '--request-timeout=6s'], 8000);
+  return out;
+}
+
+async function describePod(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid pod or namespace identifier');
+  }
+  const out = await runKubectl(['describe', 'pod', name, '-n', namespace, '--request-timeout=8s'], 9000);
+  return out;
+}
+
+async function getDeploymentDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid deployment or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'deployment', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const dep = JSON.parse(out);
+  return {
+    name: dep.metadata?.name || name,
+    namespace: dep.metadata?.namespace || namespace,
+    uid: dep.metadata?.uid || '',
+    creationTimestamp: dep.metadata?.creationTimestamp || '',
+    replicas: dep.spec?.replicas ?? 1,
+    readyReplicas: dep.status?.readyReplicas ?? 0,
+    availableReplicas: dep.status?.availableReplicas ?? 0,
+    updatedReplicas: dep.status?.updatedReplicas ?? 0,
+    strategy: dep.spec?.strategy?.type || 'RollingUpdate',
+    selector: dep.spec?.selector?.matchLabels || {},
+    labels: dep.metadata?.labels || {},
+    annotations: dep.metadata?.annotations || {},
+    containers: (dep.spec?.template?.spec?.containers || []).map(c => ({
+      name: c.name,
+      image: c.image || 'unknown',
+      ports: (c.ports || []).map(p => `${p.containerPort}/${p.protocol || 'TCP'}`).join(', ') || 'None',
+    })),
+    conditions: dep.status?.conditions || [],
+  };
+}
+
+async function restartDeployment(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name)) throw new Error('Invalid deployment name');
+  const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
+  await runKubectl(['rollout', 'restart', 'deployment', name, '-n', ns, '--request-timeout=8s'], 9000);
+  return { success: true, message: `Rollout restart triggered for deployment ${name} in ${ns}` };
+}
+
+async function getStatefulSetDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid statefulset or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'statefulset', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const ss = JSON.parse(out);
+  return {
+    name: ss.metadata?.name || name,
+    namespace: ss.metadata?.namespace || namespace,
+    uid: ss.metadata?.uid || '',
+    creationTimestamp: ss.metadata?.creationTimestamp || '',
+    replicas: ss.spec?.replicas ?? 1,
+    readyReplicas: ss.status?.readyReplicas ?? 0,
+    currentReplicas: ss.status?.currentReplicas ?? 0,
+    updatedReplicas: ss.status?.updatedReplicas ?? 0,
+    serviceName: ss.spec?.serviceName || 'None',
+    selector: ss.spec?.selector?.matchLabels || {},
+    labels: ss.metadata?.labels || {},
+    annotations: ss.metadata?.annotations || {},
+    containers: (ss.spec?.template?.spec?.containers || []).map(c => ({
+      name: c.name,
+      image: c.image || 'unknown',
+      ports: (c.ports || []).map(p => `${p.containerPort}/${p.protocol || 'TCP'}`).join(', ') || 'None',
+    })),
+  };
+}
+
+async function scaleStatefulSet(namespace, name, replicas) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  const num = parseInt(replicas, 10);
+  if (!name || !safeRegex.test(name) || isNaN(num) || num < 0 || num > 50) {
+    throw new Error('Invalid scaling parameters.');
+  }
+  const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
+  await runKubectl(['scale', 'statefulset', name, `--replicas=${num}`, '-n', ns, '--request-timeout=8s'], 9000);
+  return { success: true, name, replicas: num, namespace: ns };
+}
+
+async function restartStatefulSet(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name)) throw new Error('Invalid statefulset name');
+  const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
+  await runKubectl(['rollout', 'restart', 'statefulset', name, '-n', ns, '--request-timeout=8s'], 9000);
+  return { success: true, message: `Rollout restart triggered for statefulset ${name} in ${ns}` };
+}
+
+async function deleteStatefulSet(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name)) throw new Error('Invalid statefulset name');
+  const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
+  await runKubectl(['delete', 'statefulset', name, '-n', ns, '--request-timeout=8s'], 9000);
+  return { success: true, message: `StatefulSet ${name} deleted from ${ns}` };
+}
+
+async function getServiceDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid service or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'service', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const svc = JSON.parse(out);
+  return {
+    name: svc.metadata?.name || name,
+    namespace: svc.metadata?.namespace || namespace,
+    uid: svc.metadata?.uid || '',
+    creationTimestamp: svc.metadata?.creationTimestamp || '',
+    type: svc.spec?.type || 'ClusterIP',
+    clusterIP: svc.spec?.clusterIP || 'None',
+    clusterIPs: svc.spec?.clusterIPs || [svc.spec?.clusterIP || 'None'],
+    externalIPs: svc.spec?.externalIPs || [],
+    ports: (svc.spec?.ports || []).map(p => ({
+      name: p.name || '',
+      port: p.port,
+      protocol: p.protocol || 'TCP',
+      targetPort: p.targetPort || p.port,
+      nodePort: p.nodePort,
+    })),
+    selector: svc.spec?.selector || {},
+    endpoints: [],
+    sessionAffinity: svc.spec?.sessionAffinity || 'None',
+    labels: svc.metadata?.labels || {},
+    annotations: svc.metadata?.annotations || {},
+  };
+}
+
+async function getIngressDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid ingress or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'ingress', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const ing = JSON.parse(out);
+  return {
+    name: ing.metadata?.name || name,
+    namespace: ing.metadata?.namespace || namespace,
+    uid: ing.metadata?.uid || '',
+    creationTimestamp: ing.metadata?.creationTimestamp || '',
+    className: ing.spec?.ingressClassName || 'default',
+    rules: (ing.spec?.rules || []).map(r => ({
+      host: r.host || '*',
+      paths: (r.http?.paths || []).map(p => ({
+        path: p.path || '/',
+        pathType: p.pathType || 'Prefix',
+        serviceName: p.backend?.service?.name || '',
+        servicePort: p.backend?.service?.port?.number || p.backend?.service?.port?.name || 80,
+      })),
+    })),
+    tls: ing.spec?.tls || [],
+    loadBalancer: (ing.status?.loadBalancer?.ingress || []).map(lb => lb.ip || lb.hostname).filter(Boolean),
+    labels: ing.metadata?.labels || {},
+    annotations: ing.metadata?.annotations || {},
+  };
+}
+
+async function deleteIngress(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name)) throw new Error('Invalid ingress name');
+  const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
+  await runKubectl(['delete', 'ingress', name, '-n', ns, '--request-timeout=8s'], 9000);
+  return { success: true, message: `Ingress ${name} deleted from ${ns}` };
+}
+
+async function getConfigMapDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid configmap or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'configmap', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const cm = JSON.parse(out);
+  return {
+    name: cm.metadata?.name || name,
+    namespace: cm.metadata?.namespace || namespace,
+    uid: cm.metadata?.uid || '',
+    creationTimestamp: cm.metadata?.creationTimestamp || '',
+    data: cm.data || {},
+    labels: cm.metadata?.labels || {},
+    annotations: cm.metadata?.annotations || {},
+  };
+}
+
+async function getSecretDetails(namespace, name) {
+  const safeRegex = /^[a-zA-Z0-9_.-]+$/;
+  if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
+    throw new Error('Invalid secret or namespace identifier');
+  }
+  const out = await runKubectl(['get', 'secret', name, '-n', namespace, '-o', 'json', '--request-timeout=6s'], 8000);
+  const sec = JSON.parse(out);
+  const keys = Object.keys(sec.data || {});
+  return {
+    name: sec.metadata?.name || name,
+    namespace: sec.metadata?.namespace || namespace,
+    uid: sec.metadata?.uid || '',
+    creationTimestamp: sec.metadata?.creationTimestamp || '',
+    type: sec.type || 'Opaque',
+    keys,
+    labels: sec.metadata?.labels || {},
+    annotations: sec.metadata?.annotations || {},
+  };
+}
+
 module.exports = {
   checkClusterConnection,
   getClusterSummary,
   getContexts,
   switchContext,
   listNodes,
+  getNodeDetails,
   listNamespaces,
   listPods,
+  getPodDetails,
+  getPodYaml,
+  describePod,
   getPodLogs,
   restartPod,
   deletePod,
   listDeployments,
+  getDeploymentDetails,
   scaleDeployment,
+  restartDeployment,
   deleteDeployment,
   createDeployment,
   listStatefulSets,
+  getStatefulSetDetails,
+  scaleStatefulSet,
+  restartStatefulSet,
+  deleteStatefulSet,
   listServices,
+  getServiceDetails,
   createService,
   deleteService,
   listIngresses,
+  getIngressDetails,
+  deleteIngress,
   listConfigMaps,
+  getConfigMapDetails,
   listSecrets,
+  getSecretDetails,
   listEvents,
 };

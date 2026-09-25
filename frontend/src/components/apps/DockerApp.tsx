@@ -28,6 +28,10 @@ interface Container {
   state: 'running' | 'exited' | 'paused' | 'created' | string;
   ports: string;
   created: string;
+  cpu?: string;
+  memory?: string;
+  memPerc?: string;
+  netIO?: string;
 }
 
 interface DockerImage {
@@ -363,7 +367,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   };
 
   // Safe container log fetcher with race condition rejection
-  const fetchLogsForContainer = useCallback(async (id: string) => {
+  const fetchLogsForContainer = useCallback(async (id: string, silent = false) => {
     if (!id) {
       setLogs('');
       setLogsLoading(false);
@@ -378,8 +382,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     abortControllerRef.current = controller;
 
     const requestId = ++activeRequestIdRef.current;
-    setLogsLoading(true);
-    setLogsError(null);
+    if (!silent) {
+      setLogsLoading(true);
+      setLogsError(null);
+    }
 
     try {
       const data = await apiRequest(`/docker/container/${id}/logs?t=${Date.now()}`, {
@@ -399,8 +405,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         return;
       }
       if (requestId === activeRequestIdRef.current && id === selectedIdRef.current) {
-        setLogsError(e.message || 'Failed to fetch container logs.');
-        setLogsLoading(false);
+        if (!silent) {
+          setLogsError(e.message || 'Failed to fetch container logs.');
+          setLogsLoading(false);
+        }
       }
     }
   }, []);
@@ -526,8 +534,18 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   useEffect(() => {
     if (selectedId && activeTab === 'containers' && connectionState === 'connected') {
       fetchLogsForContainer(selectedId);
+
+      const target = containers.find(c => c.id === selectedId);
+      if (target?.state === 'running') {
+        const streamTimer = setInterval(() => {
+          if (selectedIdRef.current === selectedId && activeTabRef.current === 'containers') {
+            fetchLogsForContainer(selectedId, true);
+          }
+        }, 3000);
+        return () => clearInterval(streamTimer);
+      }
     }
-  }, [selectedId, activeTab, connectionState, fetchLogsForContainer]);
+  }, [selectedId, activeTab, connectionState, containers, fetchLogsForContainer]);
 
   useEffect(() => {
     if (initialSubPath && initialSubPath !== activeTab) {
@@ -787,7 +805,9 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                             <div className="text-[10px] text-slate-400 font-mono mt-1 truncate">{c.image}</div>
                             <div className="flex items-center justify-between text-[9px] text-slate-500 font-mono mt-1">
                               <span>{c.ports || 'No ports bound'}</span>
-                              <span>ID: {c.id.substring(0, 8)}</span>
+                              <span className={c.cpu && c.cpu !== '-' ? 'text-emerald-400 font-semibold' : ''}>
+                                {c.cpu && c.cpu !== '-' ? `CPU ${c.cpu}` : `ID: ${c.id.substring(0, 8)}`}
+                              </span>
                             </div>
                           </div>
                         );
@@ -814,7 +834,10 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                             </span>
                           </div>
                           <span className="text-[10px] font-mono text-slate-400 truncate block mt-0.5">
-                            ID: <span className="text-sky-400 font-bold">{selectedContainer.id}</span> &bull; {selectedContainer.image} &bull; {selectedContainer.status}
+                            ID: <span className="text-sky-400 font-bold">{selectedContainer.id.substring(0, 12)}</span> &bull; {selectedContainer.image}
+                            {selectedContainer.cpu && selectedContainer.cpu !== '-' && (
+                              <> &bull; <span className="text-emerald-400 font-semibold">CPU: {selectedContainer.cpu}</span> &bull; <span className="text-sky-400 font-semibold">RAM: {selectedContainer.memory}</span></>
+                            )}
                           </span>
                         </div>
 

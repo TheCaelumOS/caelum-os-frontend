@@ -1726,6 +1726,106 @@ export default function GitApp() {
       )}
 
       {/* =====================================================================
+          MODAL: COMMIT DETAILS & DIFF VIEWER
+      ====================================================================== */}
+      {selectedCommit && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121217] border border-neutral-800 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                  <GitCommit className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-200 truncate max-w-md">{selectedCommit.message}</h3>
+                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-mono mt-0.5">
+                    <span>SHA: {selectedCommit.shortSha}</span>
+                    <span>&bull;</span>
+                    <span>{selectedCommit.authorName}</span>
+                    <span>&bull;</span>
+                    <span>{new Date(selectedCommit.date).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCommit(null)}
+                className="p-1 rounded-lg hover:bg-neutral-800 text-slate-400 hover:text-white cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Commit Stats */}
+            {selectedCommit.stats && (
+              <div className="flex items-center space-x-3 text-xs font-mono py-1 px-3 bg-neutral-900/60 rounded-xl border border-neutral-850">
+                <span className="text-slate-400">{selectedCommit.stats.total} changes</span>
+                <span className="text-emerald-400 font-semibold">+{selectedCommit.stats.additions}</span>
+                <span className="text-red-400 font-semibold">-{selectedCommit.stats.deletions}</span>
+              </div>
+            )}
+
+            {/* Diff Viewer Files */}
+            <div className="flex-1 overflow-y-auto space-y-3 font-mono text-xs pr-1">
+              {selectedCommit.files && selectedCommit.files.length > 0 ? (
+                selectedCommit.files.map((file, idx) => (
+                  <div key={idx} className="border border-neutral-800 rounded-xl overflow-hidden bg-black/40">
+                    <div className="p-2.5 bg-neutral-900/80 border-b border-neutral-800 flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-slate-200 truncate">{file.filename}</span>
+                      <div className="flex items-center space-x-2 text-[10px]">
+                        <span className="text-emerald-400 font-semibold">+{file.additions}</span>
+                        <span className="text-red-400 font-semibold">-{file.deletions}</span>
+                        <span className="px-1.5 py-0.5 rounded uppercase font-bold text-[8px] bg-neutral-800 text-slate-400">
+                          {file.status}
+                        </span>
+                      </div>
+                    </div>
+                    {file.patch ? (
+                      <pre className="p-3 text-[10px] leading-relaxed overflow-x-auto font-mono">
+                        {file.patch.split('\n').map((line, lIdx) => {
+                          const isAdd = line.startsWith('+');
+                          const isDel = line.startsWith('-');
+                          const isHunk = line.startsWith('@@');
+                          return (
+                            <div
+                              key={lIdx}
+                              className={
+                                isAdd
+                                  ? 'text-emerald-400 bg-emerald-950/20'
+                                  : isDel
+                                  ? 'text-red-400 bg-red-950/20'
+                                  : isHunk
+                                  ? 'text-sky-400 bg-sky-950/20'
+                                  : 'text-slate-300'
+                              }
+                            >
+                              {line}
+                            </div>
+                          );
+                        })}
+                      </pre>
+                    ) : (
+                      <div className="p-3 text-slate-500 text-[10px] italic">Binary file or no text diff available.</div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center text-slate-500 text-xs">No file changes recorded for this commit.</div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-neutral-800">
+              <button
+                onClick={() => setSelectedCommit(null)}
+                className="px-4 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-slate-300 text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           MODAL: DISCONNECT CONFIRMATION
       ====================================================================== */}
       {showDisconnectModal && (
