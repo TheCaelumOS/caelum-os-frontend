@@ -40,6 +40,7 @@ import VscodeApp from './apps/VscodeApp';
 import AiAssistantApp from './apps/AiAssistantApp';
 import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
+import GrafanaApp from './apps/GrafanaApp';
 
 // SVGs and Brand Logos
 const TerraformLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
@@ -175,7 +176,8 @@ export default function Desktop() {
     { id: 'azure', title: 'Azure Cloud Console', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'light', width: 880, height: 540 },
     { id: 'docker', title: 'Docker Containerizer', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 800, height: 500 },
     { id: 'kubernetes', title: 'Kubernetes Orchestrator', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 820, height: 520 },
-    { id: 'monitoring', title: 'Grafana / Prometheus Monitor', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 820, height: 520 },
+    { id: 'monitoring', title: 'Grafana Observability', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
+    { id: 'grafana', title: 'Grafana Observability', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
     { id: 'aiassistant', title: 'AI Assistant Co-Pilot', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 720, height: 480 },
     { id: 'github', title: 'GitHub Workspace', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
     { id: 'vscode', title: 'VS Code Editor', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 900, height: 560 },
@@ -395,7 +397,7 @@ export default function Desktop() {
     { id: 'kubernetes', name: 'Kubernetes', icon: () => <div className="w-9 h-9 bg-[#326ce5]/10 border border-[#326ce5]/20 rounded-xl flex items-center justify-center"><KubernetesLogo className="w-5.5 h-5.5" /></div> },
     { id: 'terraform', name: 'Terraform', icon: () => <div className="w-9 h-9 bg-[#844fba]/10 border border-[#844fba]/20 rounded-xl flex items-center justify-center"><TerraformLogo className="w-5.5 h-5.5" /></div> },
     { id: 'github', name: 'GitHub', icon: () => <div className="w-9 h-9 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center"><GithubLogo className="w-5.5 h-5.5" /></div> },
-    { id: 'monitoring', name: 'Monitoring', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-amber-500"><Activity className="w-5 h-5" /></div> },
+    { id: 'monitoring', name: 'Grafana', icon: () => <div className="w-9 h-9 bg-[#f26522]/10 border border-[#f26522]/20 rounded-xl flex items-center justify-center text-orange-500"><GrafanaLogo className="w-5.5 h-5.5" /></div> },
     { id: 'aiassistant', name: 'AI Copilot', icon: () => <div className="w-9 h-9 bg-purple-600/10 border border-purple-500/20 rounded-xl flex items-center justify-center text-purple-400"><Sparkles className="w-5 h-5" /></div> },
     { id: 'browser', name: 'Browser', icon: () => <div className="w-9 h-9 bg-[#005af0]/10 border border-[#005af0]/20 rounded-xl flex items-center justify-center text-blue-400"><Globe className="w-5 h-5" /></div> },
     { id: 'settings', name: 'Settings', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-slate-400"><SettingsIcon className="w-5 h-5" /></div> },
@@ -774,24 +776,24 @@ export default function Desktop() {
             </WindowFrame>
           )}
 
-          {/* System Monitor */}
-          {windows.find(w => w.id === 'monitoring')?.isOpen && (
+          {/* Grafana Observability */}
+          {(windows.find(w => w.id === 'monitoring')?.isOpen || windows.find(w => w.id === 'grafana')?.isOpen) && (
             <WindowFrame
               id="monitoring"
-              title="System Monitor Live Telemetry"
-              isOpen={windows.find(w => w.id === 'monitoring')?.isOpen || false}
-              isMinimized={windows.find(w => w.id === 'monitoring')?.isMinimized || false}
-              isMaximized={windows.find(w => w.id === 'monitoring')?.isMaximized || false}
-              zIndex={windows.find(w => w.id === 'monitoring')?.zIndex || 2}
-              onClose={() => closeWindow('monitoring')}
-              onMinimize={() => toggleWindowMinimize('monitoring')}
-              onMaximize={() => toggleWindowMaximize('monitoring')}
-              onFocus={() => focusWindow('monitoring')}
+              title="Grafana Observability"
+              isOpen={windows.find(w => w.id === 'monitoring')?.isOpen || windows.find(w => w.id === 'grafana')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'monitoring')?.isMinimized || windows.find(w => w.id === 'grafana')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'monitoring')?.isMaximized || windows.find(w => w.id === 'grafana')?.isMaximized || false}
+              zIndex={Math.max(windows.find(w => w.id === 'monitoring')?.zIndex || 2, windows.find(w => w.id === 'grafana')?.zIndex || 2)}
+              onClose={() => { closeWindow('monitoring'); closeWindow('grafana'); }}
+              onMinimize={() => { toggleWindowMinimize('monitoring'); toggleWindowMinimize('grafana'); }}
+              onMaximize={() => { toggleWindowMaximize('monitoring'); toggleWindowMaximize('grafana'); }}
+              onFocus={() => { focusWindow('monitoring'); focusWindow('grafana'); }}
               theme="dark"
-              defaultWidth={820}
-              defaultHeight={520}
+              defaultWidth={920}
+              defaultHeight={580}
             >
-              <SystemMonitorApp />
+              <GrafanaApp />
             </WindowFrame>
           )}
 

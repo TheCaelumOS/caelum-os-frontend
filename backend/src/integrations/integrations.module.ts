@@ -10,9 +10,10 @@ import { AzureService } from './azure/azure.service';
 import { TerraformController } from './terraform/terraform.controller';
 import { TerraformService } from './terraform/terraform.service';
 import { GithubModule } from './github/github.module';
+import { GrafanaModule } from './grafana/grafana.module';
 
 @Module({
-  imports: [GithubModule],
+  imports: [GithubModule, GrafanaModule],
   controllers: [
     DockerController,
     KubernetesController,
@@ -34,6 +35,7 @@ import { GithubModule } from './github/github.module';
     AzureService,
     TerraformService,
     GithubModule,
+    GrafanaModule,
   ],
 })
 export class IntegrationsModule {}
