@@ -23,8 +23,7 @@ import {
   Globe,
   Settings as SettingsIcon,
   FolderIcon,
-  HardDrive,
-  Cpu
+  HardDrive
 } from 'lucide-react';
 import WindowFrame from './WindowFrame';
 import TerminalApp from './apps/TerminalApp';
@@ -41,8 +40,6 @@ import VscodeApp from './apps/VscodeApp';
 import AiAssistantApp from './apps/AiAssistantApp';
 import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
-import CaelumRuntimePanel from './CaelumRuntimePanel';
-import { checkCaelumRuntimeStatus, RuntimeSystemInfo } from '../lib/caelumRuntime';
 
 // SVGs and Brand Logos
 const TerraformLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
@@ -188,51 +185,6 @@ export default function Desktop() {
   ]);
 
   const [topZIndex, setTopZIndex] = useState(11);
-
-  // Native CaelumOS Runtime State & Zero-Friction Auto-Discovery
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeSystemInfo | null>(null);
-  const [runtimeLoading, setRuntimeLoading] = useState<boolean>(true);
-  const [showRuntimePanel, setShowRuntimePanel] = useState<boolean>(false);
-  const [runtimeToast, setRuntimeToast] = useState<{ title: string; subtitle?: string; type: 'info' | 'success' } | null>({
-    title: 'Initializing CaelumOS Runtime...',
-    subtitle: 'Connecting to local infrastructure daemon',
-    type: 'info'
-  });
-
-  const refreshRuntime = async (force = false) => {
-    setRuntimeLoading(true);
-    try {
-      const data = await checkCaelumRuntimeStatus(force);
-      setRuntimeStatus(data);
-      return data;
-    } catch {
-      setRuntimeStatus(null);
-      return null;
-    } finally {
-      setRuntimeLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    refreshRuntime(false).then((data) => {
-      if (!mounted) return;
-      if (data) {
-        setRuntimeToast({
-          title: '✓ CaelumOS Native Runtime Active',
-          subtitle: 'Docker, Kubernetes, Git & Dev Tools Ready',
-          type: 'success'
-        });
-      } else {
-        setRuntimeToast(null);
-      }
-      setTimeout(() => {
-        if (mounted) setRuntimeToast(null);
-      }, 3500);
-    });
-
-    return () => { mounted = false; };
-  }, []);
 
   // OS Global Settings State (persists to localStorage)
   const [osSettings, setOsSettings] = useState<OsSettings>(DEFAULT_OS_SETTINGS);
@@ -534,51 +486,19 @@ export default function Desktop() {
         </div>
 
         {/* Right status drawer */}
-        <div className="flex items-center space-x-2">
-          <button 
-            type="button"
-            onClick={() => setShowRuntimePanel(true)}
-            className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
-            title="Open CaelumOS Runtime Manager"
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${runtimeStatus ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-            <span className={`text-[10px] font-mono uppercase font-bold tracking-wider ${runtimeStatus ? 'text-emerald-400' : 'text-slate-400'}`}>
-              {runtimeStatus ? '● Local Runtime' : '○ Web Sandbox'}
-            </span>
-          </button>
-
-          <div 
-            onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-            className="flex items-center space-x-2 hover:bg-white/10 px-2 py-0.5 rounded-full cursor-pointer transition-all"
-          >
-            <Wifi className="w-3.5 h-3.5 text-slate-350" />
-            <Battery className="w-3.5 h-3.5 text-slate-350" />
-            <ChevronDown className="w-3 h-3 opacity-60 text-slate-350" />
-          </div>
+        <div 
+          onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+          className="flex items-center space-x-3 hover:bg-white/10 px-2.5 py-0.5 rounded-full cursor-pointer transition-all"
+        >
+          <span className="text-[10px] text-indigo-400 uppercase font-mono tracking-wider font-extrabold flex items-center space-x-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+            <span>Cloud Connected</span>
+          </span>
+          <Wifi className="w-3.5 h-3.5 text-slate-350" />
+          <Battery className="w-3.5 h-3.5 text-slate-350" />
+          <ChevronDown className="w-3 h-3 opacity-60 text-slate-350" />
         </div>
       </div>
-
-      {/* CaelumOS Runtime OS-Level Toast */}
-      <AnimatePresence>
-        {runtimeToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="absolute top-10 right-4 z-50 px-4 py-2.5 rounded-xl border border-neutral-700/80 bg-[#121216]/95 backdrop-blur-md text-xs shadow-2xl flex items-center space-x-3 select-none pointer-events-none"
-          >
-            <div className={`p-1.5 rounded-lg ${runtimeToast.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
-              <Cpu className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-extrabold text-white block text-[11px] font-mono">{runtimeToast.title}</span>
-              {runtimeToast.subtitle && (
-                <span className="text-[10px] text-slate-400 font-sans block">{runtimeToast.subtitle}</span>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Settings System Dropdown overlay */}
       <AnimatePresence>
@@ -617,20 +537,8 @@ export default function Desktop() {
                 className="w-full accent-orange-500 bg-neutral-800 h-1 rounded"
               />
             </div>
-            <div className="pt-2 border-t border-neutral-800 space-y-1.5">
+            <div className="pt-2 border-t border-neutral-800">
               <button
-                type="button"
-                onClick={() => {
-                  setShowSettingsDropdown(false);
-                  setShowRuntimePanel(true);
-                }}
-                className="py-1.5 px-2.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-white transition-colors flex items-center space-x-2 text-xs font-semibold cursor-pointer w-full justify-center border border-purple-500/30"
-              >
-                <Cpu className="w-3.5 h-3.5 text-purple-400" />
-                <span>Runtime Manager</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => {
                   setShowSettingsDropdown(false);
                   openApp('settings');
@@ -1146,17 +1054,6 @@ export default function Desktop() {
           </div>
         </div>
       )}
-
-      {/* CaelumOS Native Runtime Manager Modal */}
-      <CaelumRuntimePanel
-        isOpen={showRuntimePanel}
-        onClose={() => setShowRuntimePanel(false)}
-        runtimeInfo={runtimeStatus}
-        loading={runtimeLoading}
-        onRefresh={async () => {
-          await refreshRuntime(true);
-        }}
-      />
 
     </div>
   );
