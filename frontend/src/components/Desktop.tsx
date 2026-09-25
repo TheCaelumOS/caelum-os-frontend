@@ -385,7 +385,7 @@ export default function Desktop() {
 
   // Left Ubuntu-style Dock Order
   const dockItems = [
-    { id: 'launcher', name: 'Dashboard', icon: () => <Grid className="w-5.5 h-5.5 text-orange-500" /> },
+    { id: 'launcher', name: 'Dashboard', icon: () => <div className="w-9 h-9 bg-[#321768]/80 border border-purple-500/30 rounded-xl flex items-center justify-center overflow-hidden shadow-xs hover:scale-105 transition-transform"><img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6.5 h-6.5 object-contain" /></div> },
     { id: 'terminal', name: 'Terminal', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-emerald-400"><TermIcon className="w-5 h-5" /></div> },
     { id: 'nautilus', name: 'Files', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-orange-400"><FolderIcon className="w-5 h-5" /></div> },
     { id: 'dashboard', name: 'Deploy', icon: () => <div className="w-9 h-9 bg-purple-950/60 border border-purple-500/35 rounded-xl flex items-center justify-center text-purple-300"><ShieldCheck className="w-5 h-5" /></div> },
@@ -464,7 +464,13 @@ export default function Desktop() {
       <div className="absolute top-0 left-0 right-0 h-7 bg-neutral-950/85 border-b border-white/5 flex items-center justify-between px-4 z-40 text-xs font-medium">
         {/* Left Activities menu */}
         <div className="flex items-center space-x-3">
-          <span className="hover:text-white cursor-pointer font-bold text-[11px] text-slate-200">Activities</span>
+          <div 
+            onClick={() => setShowAppDrawer(!showAppDrawer)}
+            className="flex items-center space-x-1.5 cursor-pointer group"
+          >
+            <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-3.5 h-3.5 rounded object-contain group-hover:scale-110 transition-transform" />
+            <span className="group-hover:text-white font-bold text-[11px] text-slate-200">Activities</span>
+          </div>
           <a
             href="/"
             className="text-[10px] text-slate-400 hover:text-cyan-400 font-mono flex items-center space-x-1 px-2 py-0.5 rounded bg-white/5 border border-white/10 transition-colors"

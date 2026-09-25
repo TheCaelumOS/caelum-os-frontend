@@ -1,43 +1,33 @@
 import React from 'react';
 
 /**
- * Caleum - Corporate mark.
- * Dark navy rounded square with clean four-point star/spark symbol.
+ * Caelum - Official brand mark emblem.
+ * Sourced directly from the official CaelumOS brand asset.
  */
-export const CaleumLogo = ({ className = "w-7 h-7" }: { className?: string }) => (
-  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <rect width="32" height="32" rx="8" fill="#040C1C" />
-    <path 
-      d="M16 6.5C16 11.5 12.5 16 6.5 16C12.5 16 16 20.5 16 25.5Z" 
-      fill="#FFFFFF" 
-    />
-    <path 
-      d="M16 6.5C16 11.5 19.5 16 25.5 16C19.5 16 16 20.5 16 25.5Z" 
-      fill="#3293FD" 
-    />
-  </svg>
+export const CaleumLogo = ({ className = "w-7 h-7", alt = "Caelum" }: { className?: string; alt?: string }) => (
+  <img
+    src="/branding/caelumos-icon.png"
+    alt={alt}
+    className={`${className} object-contain`}
+  />
 );
 
 /**
- * CaelumOS - Flagship product mark.
+ * CaelumOS - Flagship product mark (canonical emblem).
  */
-export const CaelumOsLogo = ({ className = "w-7 h-7" }: { className?: string }) => (
-  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <rect width="32" height="32" rx="7" fill="#0f172a" />
-    <path 
-      d="M8 12L16 7L24 12V20L16 25L8 20V12Z" 
-      stroke="#38bdf8" 
-      strokeWidth="1.8" 
-      strokeLinejoin="round" 
-    />
-    <path d="M16 7V25" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity="0.7" />
-    <path d="M8 12L24 20" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity="0.7" />
-    <path d="M24 12L8 20" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity="0.7" />
-    <circle cx="16" cy="16" r="2" fill="#ffffff" />
-  </svg>
-);
+export const CaelumOsLogo = CaleumLogo;
+export const CaelumLogo = CaleumLogo;
 
-export const CaelumLogo = CaelumOsLogo;
+/**
+ * CaelumFullLogo - Official brand logo lockup (emblem + wordmark).
+ */
+export const CaelumFullLogo = ({ className = "h-8", alt = "CaelumOS", dark = false }: { className?: string; alt?: string; dark?: boolean }) => (
+  <img
+    src={dark ? "/branding/caelumos-logo-dark.png" : "/branding/caelumos-logo.png"}
+    alt={alt}
+    className={`${className} w-auto object-contain`}
+  />
+);
 
 export const AwsLogo = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg viewBox="0 0 32 32" className={className} fill="currentColor">

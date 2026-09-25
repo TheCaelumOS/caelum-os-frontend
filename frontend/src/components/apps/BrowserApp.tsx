@@ -343,7 +343,7 @@ export default function BrowserApp() {
                     />
                   </svg>
                 ) : tab.type === 'docs' ? (
-                  <Shield className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
+                  <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-3.5 h-3.5 rounded object-contain flex-shrink-0" />
                 ) : tab.type === 'home' ? (
                   <Compass className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
                 ) : (
@@ -598,9 +598,12 @@ export default function BrowserApp() {
           /* CAELUM OS DOCUMENTATION */
           <div className="flex-1 p-6 overflow-y-auto bg-slate-50 text-slate-800 leading-relaxed max-w-3xl mx-auto space-y-6 select-text text-[11px] sm:text-xs">
             <div className="border-b border-slate-200 pb-3 space-y-1">
-              <span className="text-purple-600 font-bold uppercase tracking-wider text-[9px]">
-                CaelumOS Core Architecture
-              </span>
+              <div className="flex items-center space-x-2">
+                <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-5 h-5 rounded-md object-contain" />
+                <span className="text-purple-600 font-bold uppercase tracking-wider text-[9px]">
+                  CaelumOS Core Architecture
+                </span>
+              </div>
               <h1 className="text-lg sm:text-xl font-bold text-slate-950">AI Orchestrator Overview</h1>
             </div>
 
@@ -681,14 +684,18 @@ export default function BrowserApp() {
                     { name: 'Docker Docs', url: 'https://docs.docker.com', icon: '🐳' },
                     { name: 'AWS Console', url: 'https://console.aws.amazon.com', icon: '☁️' },
                     { name: 'Stack Overflow', url: 'https://stackoverflow.com', icon: '🥞' },
-                    { name: 'CaelumOS Docs', url: 'https://docs.caelum-os.internal/architecture/overview', icon: '🛡️' },
+                    { name: 'CaelumOS Docs', url: 'https://docs.caelum-os.internal/architecture/overview', icon: 'caelumos' },
                   ].map((site) => (
                     <button
                       key={site.name}
                       onClick={() => navigateCurrentTab(site.url, true)}
                       className="bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center space-y-1.5 transition shadow-xs hover:shadow-sm cursor-pointer group"
                     >
-                      <span className="text-xl group-hover:scale-110 transition-transform">{site.icon}</span>
+                      {site.icon === 'caelumos' ? (
+                        <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6 h-6 rounded-md object-contain group-hover:scale-110 transition-transform" />
+                      ) : (
+                        <span className="text-xl group-hover:scale-110 transition-transform">{site.icon}</span>
+                      )}
                       <span className="text-[11px] font-semibold text-slate-700 group-hover:text-blue-600 truncate max-w-full">
                         {site.name}
                       </span>

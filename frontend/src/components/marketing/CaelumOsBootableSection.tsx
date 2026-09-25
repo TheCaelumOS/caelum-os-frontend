@@ -67,9 +67,12 @@ export default function CaelumOsBootableSection() {
               <span className="text-slate-600 font-normal">Dedicated Operating System</span>
             </div>
 
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
-              CaelumOS
-            </h2>
+            <div className="flex items-center space-x-3.5">
+              <CaleumLogo className="w-10 h-10 rounded-xl shadow-xs" />
+              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-sans">
+                CaelumOS
+              </h2>
+            </div>
 
             <p className="text-base sm:text-xl text-slate-600 font-normal leading-relaxed">
               A bootable developer operating environment is being developed as a separate part of the Caelum project.
