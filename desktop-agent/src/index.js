@@ -256,6 +256,12 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
+    if (pathname === '/kubernetes/context' && method === 'POST') {
+      const body = await parseBody(req);
+      const result = await k8s.switchContext(body.context);
+      return sendJson(res, 200, result);
+    }
+
     if (pathname === '/kubernetes/nodes' && method === 'GET') {
       const data = await k8s.listNodes();
       return sendJson(res, 200, data);
@@ -327,6 +333,18 @@ const server = http.createServer(async (req, res) => {
       const [, ns, name] = svcDeleteMatch;
       const result = await k8s.deleteService(ns, name);
       return sendJson(res, 200, result);
+    }
+
+    if (pathname === '/kubernetes/statefulsets' && method === 'GET') {
+      const ns = parsedUrl.query.namespace || 'all';
+      const data = await k8s.listStatefulSets(ns);
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/kubernetes/ingress' && method === 'GET') {
+      const ns = parsedUrl.query.namespace || 'all';
+      const data = await k8s.listIngresses(ns);
+      return sendJson(res, 200, data);
     }
 
     if (pathname === '/kubernetes/configmaps' && method === 'GET') {

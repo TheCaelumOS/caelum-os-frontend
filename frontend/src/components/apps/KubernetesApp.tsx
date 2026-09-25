@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../../lib/api';
 import { checkLocalConnectorHealth } from '../../lib/localConnector';
 import { 
@@ -311,6 +311,12 @@ interface KubernetesAppProps {
   onPathChange?: (subpath: string) => void;
 }
 
+export type KubernetesConnectionState = 
+  | 'checking' 
+  | 'connected' 
+  | 'unavailable' 
+  | 'runtime_offline';
+
 export default function KubernetesApp({ initialSubPath = '', onPathChange }: KubernetesAppProps) {
   const [clusterInfo, setClusterInfo] = useState<ClusterSummary | null>(null);
   const [namespaces, setNamespaces] = useState<string[]>([]);
@@ -389,6 +395,17 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
   const [selectedNodeDetails, setSelectedNodeDetails] = useState<NodeDetails | null>(null);
   const [loadingNodeDetails, setLoadingNodeDetails] = useState<boolean>(false);
 
+  // Native Kubernetes Connection State
+  const [connectionState, setConnectionState] = useState<KubernetesConnectionState>('checking');
+  const connectionStateRef = useRef<KubernetesConnectionState>(connectionState);
+  connectionStateRef.current = connectionState;
+
+  const activeTabRef = useRef<string>(activeTab);
+  activeTabRef.current = activeTab;
+
+  const activeNamespaceRef = useRef<string>(activeNamespace);
+  activeNamespaceRef.current = activeNamespace;
+
   // Tabs list with Secrets added
   const tabs = [
     { id: 'clusters', name: 'Clusters' },
@@ -411,84 +428,7 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
     }, 4500);
   };
 
-  const fetchClusterInfo = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // 1. Probe the Local Infrastructure Connector on 127.0.0.1:48721
-      const health = await checkLocalConnectorHealth();
-      if (!health) {
-        setError('Local CaelumOS Connector is not running. Please start the connector on your machine to manage your local cluster.');
-        setClusterInfo(null);
-        setNamespaces([]);
-        setNodes([]);
-        setPods([]);
-        setDeployments([]);
-        setStatefulSets([]);
-        setServices([]);
-        setSecrets([]);
-        setIngresses([]);
-        setEvents([]);
-        setConfigMaps([]);
-        return;
-      }
-
-      // 2. Connector is active! Query local Kubernetes cluster
-      const summary: ClusterSummary = await apiRequest('/kubernetes/cluster-info');
-      if (!summary || !summary.connected) {
-        setError(summary?.error || 'Kubernetes cluster is offline. Ensure Minikube / Kind / Docker Desktop K8s is running with a valid context.');
-        setClusterInfo(summary || null);
-        setNamespaces([]);
-        setNodes([]);
-        setPods([]);
-        setDeployments([]);
-        setStatefulSets([]);
-        setServices([]);
-        setSecrets([]);
-        setIngresses([]);
-        setEvents([]);
-        setConfigMaps([]);
-        return;
-      }
-
-      setClusterInfo(summary);
-
-      const [nsList, nodeList] = await Promise.all([
-        apiRequest('/kubernetes/namespaces'),
-        apiRequest('/kubernetes/nodes'),
-      ]);
-
-      const validNamespaces = Array.isArray(nsList) ? nsList : [];
-      setNamespaces(validNamespaces);
-      setNodes(Array.isArray(nodeList) ? nodeList : []);
-
-      let nextNs = activeNamespace;
-      if (validNamespaces.length > 0 && nextNs !== 'all' && !validNamespaces.includes(nextNs)) {
-        nextNs = validNamespaces.includes('default') ? 'default' : validNamespaces[0];
-        setActiveNamespace(nextNs);
-      }
-
-      await fetchNamespacedResources(nextNs);
-    } catch (e: any) {
-      console.warn('Kubernetes cluster unreachable:', e);
-      setError(e?.message?.includes('Connector') ? e.message : 'Kubernetes cluster connection unavailable. Ensure Minikube or local cluster is running.');
-      setClusterInfo(null);
-      setNamespaces([]);
-      setNodes([]);
-      setPods([]);
-      setDeployments([]);
-      setStatefulSets([]);
-      setServices([]);
-      setSecrets([]);
-      setIngresses([]);
-      setEvents([]);
-      setConfigMaps([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchNamespacedResources = async (ns: string) => {
+  const fetchNamespacedResources = async (ns: string, silent = false) => {
     try {
       const [podList, depList, ssList, svcList, secretList, ingList, evList, cmList] = await Promise.all([
         apiRequest(`/kubernetes/pods?namespace=${ns}`),
@@ -540,29 +480,124 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
       setConfigMaps(normalizedCms);
       setConfigMapsError(null);
     } catch (e: any) {
-      console.warn('Error fetching namespaced resources:', e);
-      setConfigMapsError(e?.message || 'Failed to fetch resources');
+      if (!silent) {
+        console.warn('Error fetching namespaced resources:', e);
+        setConfigMapsError(e?.message || 'Failed to fetch resources');
+      }
     }
   };
 
-  useEffect(() => {
-    fetchClusterInfo();
+  /**
+   * Native Kubernetes status check & background detection.
+   * Probes http://127.0.0.1:48721/health directly on user's machine.
+   * If running, retrieves the user's real local cluster resources.
+   * If stopped, remains in a calm native state and auto-detects when Minikube / K8s opens.
+   */
+  const fetchClusterInfo = useCallback(async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
+    if (!isSilent) {
+      setLoading(true);
+      setError(null);
+    }
+    try {
+      // 1. Probe the Local Runtime on 127.0.0.1:48721
+      const health = await checkLocalConnectorHealth();
+      if (!health) {
+        setConnectionState('runtime_offline');
+        setClusterInfo(null);
+        setNamespaces([]);
+        setNodes([]);
+        setPods([]);
+        setDeployments([]);
+        setStatefulSets([]);
+        setServices([]);
+        setSecrets([]);
+        setIngresses([]);
+        setEvents([]);
+        setConfigMaps([]);
+        if (!isSilent) setLoading(false);
+        return;
+      }
+
+      // 2. Query local Kubernetes cluster health
+      const summary: ClusterSummary = await apiRequest('/kubernetes/cluster-info');
+      if (summary && summary.connected) {
+        const wasConnected = connectionStateRef.current === 'connected';
+        setConnectionState('connected');
+        setClusterInfo(summary);
+        setError(null);
+
+        const [nsList, nodeList] = await Promise.all([
+          apiRequest('/kubernetes/namespaces'),
+          apiRequest('/kubernetes/nodes'),
+        ]);
+
+        const validNamespaces = Array.isArray(nsList) ? nsList : [];
+        setNamespaces(validNamespaces);
+        setNodes(Array.isArray(nodeList) ? nodeList : []);
+
+        let nextNs = activeNamespaceRef.current;
+        if (validNamespaces.length > 0 && nextNs !== 'all' && !validNamespaces.includes(nextNs)) {
+          nextNs = validNamespaces.includes('default') ? 'default' : validNamespaces[0];
+          setActiveNamespace(nextNs);
+        }
+
+        await fetchNamespacedResources(nextNs, isSilent);
+      } else {
+        setConnectionState('unavailable');
+        setClusterInfo(summary || null);
+        setNamespaces([]);
+        setNodes([]);
+        setPods([]);
+        setDeployments([]);
+        setStatefulSets([]);
+        setServices([]);
+        setSecrets([]);
+        setIngresses([]);
+        setEvents([]);
+        setConfigMaps([]);
+      }
+    } catch (e: any) {
+      setConnectionState('unavailable');
+      setClusterInfo(null);
+      setNamespaces([]);
+      setNodes([]);
+      setPods([]);
+      setDeployments([]);
+      setStatefulSets([]);
+      setServices([]);
+      setSecrets([]);
+      setIngresses([]);
+      setEvents([]);
+      setConfigMaps([]);
+    } finally {
+      if (!isSilent) {
+        setLoading(false);
+      }
+    }
   }, []);
 
+  // Initial check on mount
   useEffect(() => {
-    if (clusterInfo?.connected && activeNamespace) {
+    fetchClusterInfo(false);
+  }, [fetchClusterInfo]);
+
+  // Namespaces switch
+  useEffect(() => {
+    if (connectionState === 'connected' && activeNamespace) {
       fetchNamespacedResources(activeNamespace);
     }
-  }, [activeNamespace]);
+  }, [activeNamespace, connectionState]);
 
-  // Real-time synchronization polling every 4 seconds
+  // Background auto-detect loop (checks silently every 4 seconds)
+  // If Minikube or Docker Desktop Kubernetes starts up, it immediately connects without user interaction.
   useEffect(() => {
-    if (!clusterInfo?.connected) return;
-    const interval = setInterval(() => {
-      fetchNamespacedResources(activeNamespace);
+    const timer = setInterval(() => {
+      fetchClusterInfo(true);
     }, 4000);
-    return () => clearInterval(interval);
-  }, [clusterInfo?.connected, activeNamespace]);
+
+    return () => clearInterval(timer);
+  }, [fetchClusterInfo]);
 
   useEffect(() => {
     if (initialSubPath && initialSubPath !== activeTab) {
@@ -1093,76 +1128,167 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
       )}
 
       {/* Side Navigation Bar */}
-      <div className="w-1/4 bg-[#0f0f12] border-r border-neutral-850 p-3 space-y-4 flex flex-col justify-between flex-shrink-0">
+      <div className="w-64 bg-[#0f0f12] border-r border-neutral-850 p-3 space-y-4 flex flex-col justify-between flex-shrink-0">
         <div className="space-y-1">
+          {/* Header Brand */}
           <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-neutral-850 mb-3">
-            <Layers className="w-5 h-5 text-indigo-400" />
-            <div>
-              <span className="font-extrabold text-xs text-slate-200 block">K8s Engine</span>
-              <span className={`text-[8px] uppercase font-bold font-mono ${error ? 'text-amber-500 font-extrabold animate-pulse' : 'text-indigo-400'}`}>
-                {error ? (error.includes('Connector') ? '○ Connector Offline' : '○ Cluster Offline') : `● ${clusterInfo?.currentContext || clusterInfo?.status || 'Connected'}`}
-              </span>
+            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div className="truncate">
+              <span className="font-extrabold text-xs text-slate-200 block truncate">Kubernetes</span>
+              <div className="flex items-center space-x-1.5 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  connectionState === 'connected' 
+                    ? 'bg-emerald-500 animate-pulse' 
+                    : connectionState === 'unavailable' 
+                      ? 'bg-amber-400' 
+                      : connectionState === 'checking'
+                        ? 'bg-indigo-400 animate-pulse'
+                        : 'bg-neutral-500'
+                }`} />
+                <span className={`text-[9px] uppercase font-mono font-semibold truncate ${
+                  connectionState === 'connected' 
+                    ? 'text-emerald-400' 
+                    : connectionState === 'unavailable' 
+                      ? 'text-amber-400' 
+                      : connectionState === 'checking'
+                        ? 'text-indigo-400'
+                        : 'text-neutral-400'
+                }`}>
+                  {connectionState === 'connected' 
+                    ? `● Connected (${clusterInfo?.currentContext || clusterInfo?.context || 'Active'})` 
+                    : connectionState === 'unavailable' 
+                      ? '● Not Available' 
+                      : connectionState === 'checking'
+                        ? '○ Connecting...'
+                        : '● Runtime Offline'}
+                </span>
+              </div>
             </div>
           </div>
-          {error && (
-            <button
-              onClick={fetchClusterInfo}
-              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-neutral-850 hover:bg-neutral-800 text-slate-300 border border-neutral-750 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3 text-indigo-400" />
-              <span>Retry Auto-Detect</span>
-            </button>
-          )}
+
           {/* Active Namespace Status in Sidebar */}
-          <div className="px-3 py-1.5 mb-2.5 rounded-xl bg-neutral-900/60 border border-neutral-850 flex items-center justify-between text-[10px] font-mono">
-            <span className="text-slate-500">Namespace:</span>
-            <span className="font-bold text-indigo-400 truncate max-w-[105px]" title={activeNamespace}>
-              {activeNamespace === 'all' ? 'All' : activeNamespace}
-            </span>
-          </div>
+          {connectionState === 'connected' && (
+            <div className="px-3 py-1.5 mb-2.5 rounded-xl bg-neutral-900/60 border border-neutral-850 flex items-center justify-between text-[10px] font-mono">
+              <span className="text-slate-500">Namespace:</span>
+              <span className="font-bold text-indigo-400 truncate max-w-[105px]" title={activeNamespace}>
+                {activeNamespace === 'all' ? 'All' : activeNamespace}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-1">
-            {tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => selectTab(t.id)}
-                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === t.id 
-                    ? 'bg-indigo-500/10 text-indigo-450' 
-                    : 'hover:bg-neutral-900 text-slate-400'
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
+            {tabs.map(t => {
+              const count = t.id === 'nodes' ? nodes.length
+                          : t.id === 'namespaces' ? namespaces.length
+                          : t.id === 'pods' ? pods.length
+                          : t.id === 'deployments' ? deployments.length
+                          : t.id === 'statefulsets' ? statefulSets.length
+                          : t.id === 'services' ? services.length
+                          : t.id === 'configmaps' ? configMaps.length
+                          : t.id === 'secrets' ? secrets.length
+                          : t.id === 'ingress' ? ingresses.length
+                          : null;
+              const isSelected = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => selectTab(t.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isSelected 
+                      ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 shadow-xs' 
+                      : 'hover:bg-neutral-900 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span className="truncate">{t.name}</span>
+                  {connectionState === 'connected' && count !== null && count > 0 && (
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                      isSelected 
+                        ? 'bg-indigo-500/25 text-indigo-300 font-bold' 
+                        : 'bg-neutral-800 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
         <button
-          onClick={fetchClusterInfo}
-          className="w-full py-1.5 border border-neutral-850 hover:bg-neutral-900 transition-colors text-slate-400 hover:text-slate-200 text-[10px] font-bold rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer"
+          onClick={() => fetchClusterInfo(false)}
+          disabled={loading}
+          className="w-full py-2 border border-neutral-850 hover:bg-neutral-900 transition-colors text-slate-300 hover:text-white text-xs font-medium rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Cluster</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
+          <span>{loading ? 'Checking Cluster...' : 'Refresh Cluster'}</span>
         </button>
       </div>
 
       {/* Main Content Pane */}
-      <div className="flex-grow overflow-y-auto p-5 min-h-0 bg-[#08080a]">
-        {error && (
-          <div className="mb-4 p-3 bg-amber-950/20 border border-amber-500/20 rounded-2xl flex items-center justify-between text-xs text-amber-400 shadow-sm font-sans">
-            <div className="flex items-center space-x-2.5">
-              <AlertCircle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-              <span className="font-semibold text-amber-300">{error}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={fetchClusterInfo}
-                className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-amber-500/30"
-              >
-                Retry
-              </button>
+      <div className="flex-grow overflow-y-auto p-5 min-h-0 bg-[#08080a] flex flex-col">
+        {/* CONDITION 1: RUNTIME OFFLINE */}
+        {connectionState === 'runtime_offline' ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none min-h-0 h-full">
+            <div className="max-w-md w-full flex flex-col items-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 shadow-inner">
+                <Server className="w-7 h-7 text-neutral-500" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-slate-200 font-sans">CaelumOS Runtime Offline</h3>
+                <p className="text-xs text-slate-400 font-sans max-w-sm leading-relaxed">
+                  The local system runtime is offline. Start the CaelumOS background service to connect to your local infrastructure.
+                </p>
+              </div>
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                <span>Monitoring local runtime...</span>
+              </div>
             </div>
           </div>
-        )}
+        ) : connectionState === 'unavailable' ? (
+          /* CONDITION 2: KUBERNETES NOT RUNNING */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none min-h-0 h-full">
+            <div className="max-w-md w-full flex flex-col items-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 shadow-inner">
+                <Layers className="w-7 h-7 text-neutral-500" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-slate-200 font-sans">Kubernetes Cluster Not Available</h3>
+                <p className="text-xs text-slate-400 font-sans max-w-sm leading-relaxed">
+                  Kubernetes cluster was not detected on this machine. Start Minikube, Docker Desktop Kubernetes, or Kind to connect automatically.
+                </p>
+              </div>
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 animate-ping" />
+                <span>Waiting for Kubernetes cluster...</span>
+              </div>
+            </div>
+          </div>
+        ) : connectionState === 'checking' && nodes.length === 0 && pods.length === 0 ? (
+          /* CONDITION 3: INITIAL CHECKING */
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-xs font-mono space-x-2 h-full">
+            <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+            <span>Connecting to Kubernetes Cluster...</span>
+          </div>
+        ) : (
+          /* CONDITION 4: CONNECTED TO REAL CLUSTER */
+          <>
+            {error && (
+              <div className="mb-4 p-3 bg-red-950/20 border border-red-500/20 rounded-2xl flex items-center justify-between text-xs text-red-400 shadow-sm font-sans">
+                <div className="flex items-center space-x-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span className="font-semibold text-red-300">{error}</span>
+                </div>
+                <button 
+                  onClick={() => setError(null)}
+                  className="p-1 hover:bg-red-900/40 rounded text-red-400 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
         {/* Pods Tab */}
         {activeTab === 'pods' && (
@@ -2040,7 +2166,7 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Cluster Nodes</h4>
               <button
-                onClick={fetchClusterInfo}
+                onClick={() => fetchClusterInfo(false)}
                 className="p-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
                 title="Refresh Nodes"
               >
@@ -2231,6 +2357,8 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
               </pre>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
 

@@ -1,4 +1,4 @@
-const { execFileSync } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -7,13 +7,13 @@ const path = require('path');
  */
 function getKubectlBinary() {
   const candidates = [
+    'kubectl.exe',
+    'kubectl',
     'C:\\Program Files\\Kubernetes\\Minikube\\kubectl.exe',
     'C:\\Users\\karth\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Kubernetes.kubectl_Microsoft.Winget.Source_8wekyb3d8bbwe\\kubectl.exe',
     'C:\\Program Files\\Docker\\Docker\\resources\\bin\\kubectl.exe',
     '/usr/local/bin/kubectl',
     '/usr/bin/kubectl',
-    'kubectl.exe',
-    'kubectl',
   ];
   for (const c of candidates) {
     if (c.includes('\\') || c.includes('/')) {
@@ -25,7 +25,10 @@ function getKubectlBinary() {
   return 'kubectl';
 }
 
-function runKubectl(args, timeoutMs = 15000) {
+/**
+ * Asynchronous, non-blocking kubectl CLI runner
+ */
+function runKubectl(args, timeoutMs = 8000) {
   const bin = getKubectlBinary();
   const userHome = process.env.USERPROFILE || process.env.HOME || '';
   const kubeConfig = process.env.KUBECONFIG || path.join(userHome, '.kube', 'config');
@@ -34,18 +37,45 @@ function runKubectl(args, timeoutMs = 15000) {
     KUBECONFIG: kubeConfig,
   };
 
-  return execFileSync(bin, args, {
-    encoding: 'utf8',
-    env,
-    timeout: timeoutMs,
-    stdio: ['pipe', 'pipe', 'pipe'],
+  return new Promise((resolve, reject) => {
+    execFile(
+      bin,
+      args,
+      {
+        encoding: 'utf8',
+        env,
+        timeout: timeoutMs,
+        maxBuffer: 10 * 1024 * 1024,
+        windowsHide: true,
+      },
+      (err, stdout, stderr) => {
+        if (err) {
+          err.stdout = stdout;
+          err.stderr = stderr;
+          return reject(err);
+        }
+        resolve(stdout);
+      }
+    );
   });
+}
+
+/**
+ * Fast health check: verifies if cluster control plane responds
+ */
+async function checkClusterConnection() {
+  try {
+    const out = await runKubectl(['cluster-info', '--request-timeout=2s'], 3000);
+    return out.includes('is running at') || out.includes('Kubernetes control plane');
+  } catch {
+    return false;
+  }
 }
 
 async function getContexts() {
   try {
-    const current = runKubectl(['config', 'current-context'], 4000).trim();
-    const out = runKubectl(['config', 'get-contexts', '-o', 'name'], 5000);
+    const current = (await runKubectl(['config', 'current-context'], 3000)).trim();
+    const out = await runKubectl(['config', 'get-contexts', '-o', 'name'], 3000);
     const contexts = out.split(/\r?\n/).map(c => c.trim()).filter(Boolean);
     return {
       current,
@@ -61,23 +91,41 @@ async function switchContext(contextName) {
   if (!contextName || !safeRegex.test(contextName)) {
     throw new Error('Invalid context name format');
   }
-  runKubectl(['config', 'use-context', contextName], 8000);
+  await runKubectl(['config', 'use-context', contextName], 5000);
   return { success: true, currentContext: contextName };
 }
 
 async function getClusterSummary() {
+  let context = 'local';
   try {
-    let context = 'unknown';
-    try {
-      context = runKubectl(['config', 'current-context'], 4000).trim();
-    } catch {}
+    const c = await runKubectl(['config', 'current-context'], 2500);
+    if (c) context = c.trim();
+  } catch {}
 
-    let server = 'unknown';
-    try {
-      const s = runKubectl(['config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}'], 4000).trim();
-      if (s) server = s;
-    } catch {}
+  let server = 'unknown';
+  try {
+    const s = await runKubectl(['config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}'], 2500);
+    if (s) server = s.trim();
+  } catch {}
 
+  const isUp = await checkClusterConnection();
+  if (!isUp) {
+    return {
+      connected: false,
+      context,
+      server,
+      version: '',
+      status: 'unavailable',
+      error: 'Kubernetes cluster is not running. Start Minikube, Docker Desktop Kubernetes, or Kind to connect automatically.',
+      nodeCount: 0,
+      podCount: 0,
+      deploymentCount: 0,
+      serviceCount: 0,
+      namespaceCount: 0,
+    };
+  }
+
+  try {
     const [nodes, namespaces, pods, deployments, services] = await Promise.all([
       listNodes().catch(() => []),
       listNamespaces().catch(() => []),
@@ -87,14 +135,14 @@ async function getClusterSummary() {
     ]);
 
     const isReady = nodes.some(n => n.status === 'Ready');
-    const version = nodes[0]?.version || 'v1.34.0';
+    const version = nodes[0]?.version || 'v1.30.0';
 
     return {
-      connected: nodes.length > 0 || isReady,
+      connected: true,
       context: context || 'local',
       server,
       version,
-      status: isReady ? 'Ready' : (nodes.length > 0 ? 'Connected' : 'Offline'),
+      status: isReady ? 'Ready' : 'Connected',
       nodeCount: nodes.length,
       podCount: pods.length,
       deploymentCount: deployments.length,
@@ -104,15 +152,22 @@ async function getClusterSummary() {
   } catch (err) {
     return {
       connected: false,
+      context,
+      server,
       status: 'unavailable',
-      error: err.message || 'Kubernetes cluster unreachable. Ensure local cluster (Minikube/Kind/Docker Desktop) is running.',
+      error: err.message || 'Kubernetes cluster unreachable.',
+      nodeCount: 0,
+      podCount: 0,
+      deploymentCount: 0,
+      serviceCount: 0,
+      namespaceCount: 0,
     };
   }
 }
 
 async function listNodes() {
   try {
-    const out = runKubectl(['get', 'nodes', '-o', 'json'], 10000);
+    const out = await runKubectl(['get', 'nodes', '-o', 'json', '--request-timeout=4s'], 5000);
     const json = JSON.parse(out);
     return (json.items || []).map(node => {
       const readyCond = node.status?.conditions?.find(c => c.type === 'Ready');
@@ -142,13 +197,9 @@ async function listNodes() {
 
 async function listNamespaces() {
   try {
-    const out = runKubectl(['get', 'namespaces', '-o', 'json'], 10000);
+    const out = await runKubectl(['get', 'namespaces', '-o', 'json', '--request-timeout=4s'], 5000);
     const json = JSON.parse(out);
-    return (json.items || []).map(ns => ({
-      name: ns.metadata?.name || 'unknown',
-      status: ns.status?.phase || 'Active',
-      age: ns.metadata?.creationTimestamp || '',
-    }));
+    return (json.items || []).map(ns => ns.metadata?.name || 'unknown').filter(Boolean);
   } catch {
     return [];
   }
@@ -156,13 +207,13 @@ async function listNamespaces() {
 
 async function listPods(namespace) {
   try {
-    const args = ['get', 'pods', '-o', 'json'];
+    const args = ['get', 'pods', '-o', 'json', '--request-timeout=5s'];
     if (!namespace || namespace === 'all') {
       args.push('-A');
     } else {
       args.push('-n', namespace);
     }
-    const out = runKubectl(args, 12000);
+    const out = await runKubectl(args, 6000);
     const json = JSON.parse(out);
     return (json.items || []).map(pod => {
       const cStatuses = pod.status?.containerStatuses || [];
@@ -188,20 +239,21 @@ async function listPods(namespace) {
   }
 }
 
-async function getPodLogs(namespace, name, container) {
+async function getPodLogs(namespace, name, container, tail = 200) {
   const safeRegex = /^[a-zA-Z0-9_.-]+$/;
   if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
     throw new Error('Invalid pod or namespace identifier');
   }
-  const args = ['logs', name, '-n', namespace, '--tail', '200'];
+  const safeTail = Math.min(Math.max(1, Number(tail) || 200), 1000);
+  const args = ['logs', name, '-n', namespace, `--tail=${safeTail}`, '--request-timeout=5s'];
   if (container && safeRegex.test(container)) {
     args.push('-c', container);
   }
   try {
-    const out = runKubectl(args, 10000);
+    const out = await runKubectl(args, 6000);
     return out || 'No log output found.';
   } catch (err) {
-    return `Error fetching logs: ${err.message}`;
+    return `Error fetching logs: ${err.message || 'Log retrieval failed'}`;
   }
 }
 
@@ -210,7 +262,7 @@ async function restartPod(namespace, name) {
   if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
     throw new Error('Invalid pod or namespace identifier');
   }
-  runKubectl(['delete', 'pod', name, '-n', namespace], 15000);
+  await runKubectl(['delete', 'pod', name, '-n', namespace, '--request-timeout=8s'], 9000);
   return { success: true, message: `Pod ${name} in namespace ${namespace} restarted.` };
 }
 
@@ -219,26 +271,28 @@ async function deletePod(namespace, name) {
   if (!name || !safeRegex.test(name) || !namespace || !safeRegex.test(namespace)) {
     throw new Error('Invalid pod or namespace identifier');
   }
-  runKubectl(['delete', 'pod', name, '-n', namespace], 15000);
+  await runKubectl(['delete', 'pod', name, '-n', namespace, '--request-timeout=8s'], 9000);
   return { success: true, message: `Pod ${name} in namespace ${namespace} deleted.` };
 }
 
 async function listDeployments(namespace) {
   try {
-    const args = ['get', 'deployments', '-o', 'json'];
+    const args = ['get', 'deployments', '-o', 'json', '--request-timeout=5s'];
     if (!namespace || namespace === 'all') {
       args.push('-A');
     } else {
       args.push('-n', namespace);
     }
-    const out = runKubectl(args, 12000);
+    const out = await runKubectl(args, 6000);
     const json = JSON.parse(out);
     return (json.items || []).map(dep => ({
       name: dep.metadata?.name || 'unknown',
       namespace: dep.metadata?.namespace || 'default',
-      ready: `${dep.status?.readyReplicas || 0}/${dep.spec?.replicas || 1}`,
-      upToDate: dep.status?.updatedReplicas || 0,
-      available: dep.status?.availableReplicas || 0,
+      desired: dep.spec?.replicas ?? 1,
+      ready: dep.status?.readyReplicas ?? 0,
+      available: dep.status?.availableReplicas ?? 0,
+      updated: dep.status?.updatedReplicas ?? 0,
+      replicas: `${dep.status?.readyReplicas || 0}/${dep.spec?.replicas || 1}`,
       age: dep.metadata?.creationTimestamp || '',
       images: (dep.spec?.template?.spec?.containers || []).map(c => c.image),
     }));
@@ -254,7 +308,7 @@ async function scaleDeployment(namespace, name, replicas) {
     throw new Error('Invalid scaling parameters.');
   }
   const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
-  runKubectl(['scale', 'deployment', name, `--replicas=${num}`, '-n', ns], 12000);
+  await runKubectl(['scale', 'deployment', name, `--replicas=${num}`, '-n', ns, '--request-timeout=8s'], 9000);
   return { success: true, name, replicas: num, namespace: ns };
 }
 
@@ -262,33 +316,60 @@ async function deleteDeployment(namespace, name) {
   const safeRegex = /^[a-zA-Z0-9_.-]+$/;
   if (!name || !safeRegex.test(name)) throw new Error('Invalid deployment name');
   const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
-  runKubectl(['delete', 'deployment', name, '-n', ns], 15000);
+  await runKubectl(['delete', 'deployment', name, '-n', ns, '--request-timeout=8s'], 9000);
   return { success: true, message: `Deployment ${name} deleted from ${ns}` };
 }
 
 async function createDeployment(body) {
-  const { name, namespace = 'default', image, replicas = 1, port = 80 } = body || {};
+  const { name, namespace = 'default', image, replicas = 1 } = body || {};
   const safeRegex = /^[a-zA-Z0-9_.-]+$/;
   if (!name || !safeRegex.test(name)) throw new Error('Invalid deployment name');
   if (!image) throw new Error('Container image is required');
 
-  const args = ['create', 'deployment', name, `--image=${image}`, '-n', namespace];
-  runKubectl(args, 15000);
+  const args = ['create', 'deployment', name, `--image=${image}`, '-n', namespace, '--request-timeout=10s'];
+  await runKubectl(args, 11000);
   if (replicas > 1) {
-    runKubectl(['scale', 'deployment', name, `--replicas=${replicas}`, '-n', namespace], 10000);
+    await runKubectl(['scale', 'deployment', name, `--replicas=${replicas}`, '-n', namespace, '--request-timeout=8s'], 9000);
   }
   return { success: true, name, namespace, image, replicas };
 }
 
-async function listServices(namespace) {
+async function listStatefulSets(namespace) {
   try {
-    const args = ['get', 'services', '-o', 'json'];
+    const args = ['get', 'statefulsets', '-o', 'json', '--request-timeout=5s'];
     if (!namespace || namespace === 'all') {
       args.push('-A');
     } else {
       args.push('-n', namespace);
     }
-    const out = runKubectl(args, 12000);
+    const out = await runKubectl(args, 6000);
+    const json = JSON.parse(out);
+    return (json.items || []).map(ss => ({
+      name: ss.metadata?.name || 'unknown',
+      namespace: ss.metadata?.namespace || 'default',
+      desired: ss.spec?.replicas ?? 1,
+      ready: ss.status?.readyReplicas ?? 0,
+      current: ss.status?.currentReplicas ?? 0,
+      updated: ss.status?.updatedReplicas ?? 0,
+      replicas: `${ss.status?.readyReplicas || 0}/${ss.spec?.replicas || 1}`,
+      serviceName: ss.spec?.serviceName || 'None',
+      age: ss.metadata?.creationTimestamp || '',
+      images: (ss.spec?.template?.spec?.containers || []).map(c => c.image),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function listServices(namespace) {
+  try {
+    const args = ['get', 'services', '-o', 'json', '--request-timeout=5s'];
+    if (!namespace || namespace === 'all') {
+      args.push('-A');
+    } else {
+      args.push('-n', namespace);
+    }
+    const out = await runKubectl(args, 6000);
     const json = JSON.parse(out);
     return (json.items || []).map(svc => {
       const ports = (svc.spec?.ports || []).map(p => `${p.port}:${p.targetPort || p.port}/${p.protocol || 'TCP'}`).join(', ');
@@ -308,13 +389,12 @@ async function listServices(namespace) {
 }
 
 async function createService(body) {
-  const { name, namespace = 'default', type = 'ClusterIP', port = 80, targetPort = 80, selector = '' } = body || {};
+  const { name, namespace = 'default', type = 'ClusterIP', port = 80, targetPort = 80 } = body || {};
   const safeRegex = /^[a-zA-Z0-9_.-]+$/;
   if (!name || !safeRegex.test(name)) throw new Error('Invalid service name');
 
-  // Use kubectl create service
-  const args = ['create', 'service', type.toLowerCase(), name, `--tcp=${port}:${targetPort}`, '-n', namespace];
-  runKubectl(args, 15000);
+  const args = ['create', 'service', type.toLowerCase(), name, `--tcp=${port}:${targetPort}`, '-n', namespace, '--request-timeout=10s'];
+  await runKubectl(args, 11000);
   return { success: true, name, namespace, type, port };
 }
 
@@ -322,19 +402,46 @@ async function deleteService(namespace, name) {
   const safeRegex = /^[a-zA-Z0-9_.-]+$/;
   if (!name || !safeRegex.test(name)) throw new Error('Invalid service name');
   const ns = (namespace && safeRegex.test(namespace)) ? namespace : 'default';
-  runKubectl(['delete', 'service', name, '-n', ns], 15000);
+  await runKubectl(['delete', 'service', name, '-n', ns, '--request-timeout=8s'], 9000);
   return { success: true, message: `Service ${name} deleted from ${ns}` };
 }
 
-async function listConfigMaps(namespace) {
+async function listIngresses(namespace) {
   try {
-    const args = ['get', 'configmaps', '-o', 'json'];
+    const args = ['get', 'ingress', '-o', 'json', '--request-timeout=5s'];
     if (!namespace || namespace === 'all') {
       args.push('-A');
     } else {
       args.push('-n', namespace);
     }
-    const out = runKubectl(args, 10000);
+    const out = await runKubectl(args, 6000);
+    const json = JSON.parse(out);
+    return (json.items || []).map(ing => {
+      const hosts = (ing.spec?.rules || []).map(r => r.host).filter(Boolean);
+      const loadBalancer = ing.status?.loadBalancer?.ingress?.[0]?.ip || ing.status?.loadBalancer?.ingress?.[0]?.hostname || 'None';
+      return {
+        name: ing.metadata?.name || 'unknown',
+        namespace: ing.metadata?.namespace || 'default',
+        hosts: hosts.join(', ') || '*',
+        address: loadBalancer,
+        ports: '80, 443',
+        age: ing.metadata?.creationTimestamp || '',
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function listConfigMaps(namespace) {
+  try {
+    const args = ['get', 'configmaps', '-o', 'json', '--request-timeout=5s'];
+    if (!namespace || namespace === 'all') {
+      args.push('-A');
+    } else {
+      args.push('-n', namespace);
+    }
+    const out = await runKubectl(args, 6000);
     const json = JSON.parse(out);
     return (json.items || []).map(cm => ({
       name: cm.metadata?.name || 'unknown',
@@ -349,13 +456,13 @@ async function listConfigMaps(namespace) {
 
 async function listSecrets(namespace) {
   try {
-    const args = ['get', 'secrets', '-o', 'json'];
+    const args = ['get', 'secrets', '-o', 'json', '--request-timeout=5s'];
     if (!namespace || namespace === 'all') {
       args.push('-A');
     } else {
       args.push('-n', namespace);
     }
-    const out = runKubectl(args, 10000);
+    const out = await runKubectl(args, 6000);
     const json = JSON.parse(out);
     return (json.items || []).map(sec => ({
       name: sec.metadata?.name || 'unknown',
@@ -371,13 +478,13 @@ async function listSecrets(namespace) {
 
 async function listEvents(namespace) {
   try {
-    const args = ['get', 'events', '--sort-by=.metadata.creationTimestamp', '-o', 'json'];
+    const args = ['get', 'events', '--sort-by=.metadata.creationTimestamp', '-o', 'json', '--request-timeout=5s'];
     if (!namespace || namespace === 'all') {
       args.push('-A');
     } else {
       args.push('-n', namespace);
     }
-    const out = runKubectl(args, 10000);
+    const out = await runKubectl(args, 6000);
     const json = JSON.parse(out);
     return (json.items || []).slice(-50).map(evt => ({
       type: evt.type || 'Normal',
@@ -393,6 +500,7 @@ async function listEvents(namespace) {
 }
 
 module.exports = {
+  checkClusterConnection,
   getClusterSummary,
   getContexts,
   switchContext,
@@ -406,9 +514,11 @@ module.exports = {
   scaleDeployment,
   deleteDeployment,
   createDeployment,
+  listStatefulSets,
   listServices,
   createService,
   deleteService,
+  listIngresses,
   listConfigMaps,
   listSecrets,
   listEvents,
