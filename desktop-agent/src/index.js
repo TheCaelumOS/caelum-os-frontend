@@ -1,9 +1,14 @@
 const http = require('http');
 const url = require('url');
 const os = require('os');
-const { initToken, getToken, verifyToken, TOKEN_FILE } = require('./auth');
+const { initToken, getToken, verifyToken, isAllowedOrigin, TOKEN_FILE } = require('./auth');
 const docker = require('./docker');
 const k8s = require('./kubernetes');
+const git = require('./git');
+const terraform = require('./terraform');
+const aws = require('./aws');
+const azure = require('./azure');
+const system = require('./system');
 
 const PORT = 48721;
 const HOST = '127.0.0.1';
@@ -11,7 +16,7 @@ const HOST = '127.0.0.1';
 // Rate limiting: simple in-memory tracker
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60000; // 1 min
-const MAX_REQUESTS = 300;
+const MAX_REQUESTS = 600;
 
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -39,7 +44,7 @@ function parseBody(req) {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 1024 * 1024) {
+      if (body.length > 2 * 1024 * 1024) {
         reject(new Error('Payload too large'));
       }
     });
@@ -64,25 +69,12 @@ function sendError(res, statusCode, message) {
   sendJson(res, statusCode, { error: message, success: false });
 }
 
-function isOriginAllowed(origin) {
-  if (!origin) return true; // Direct loopback tool / curl
-  const allowed = [
-    'https://caleum.me',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'https://localhost:3000',
-  ];
-  if (allowed.includes(origin)) return true;
-  if (/^https:\/\/[a-zA-Z0-9-]+\.caleum\.me$/.test(origin)) return true;
-  return false;
-}
-
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin || '';
   const clientIp = req.socket.remoteAddress || '127.0.0.1';
 
   // Strict CORS & Private Network Access (Chrome PNA)
-  if (isOriginAllowed(origin)) {
+  if (isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
   } else {
     res.setHeader('Access-Control-Allow-Origin', 'https://caleum.me');
@@ -110,48 +102,84 @@ const server = http.createServer(async (req, res) => {
   const method = req.method;
 
   try {
-    // 1. PUBLIC HEALTH ENDPOINT
+    // ==========================================
+    // 1. PUBLIC HEALTH & SYSTEM DISCOVERY
+    // ==========================================
     if (pathname === '/health' && method === 'GET') {
-      const dockerHealth = await docker.getHealth();
-      const k8sSummary = await k8s.getClusterSummary();
+      const sys = await system.getSystemStatus(parsedUrl.query.refresh === 'true');
       return sendJson(res, 200, {
         status: 'ok',
         version: '1.0.0',
         platform: os.platform(),
-        docker: dockerHealth.connected,
-        dockerVersion: dockerHealth.version,
-        dockerEngine: dockerHealth.engine,
-        kubernetes: k8sSummary.connected,
-        kubernetesContext: k8sSummary.context,
-        kubernetesVersion: k8sSummary.version,
-        pairingRequired: true,
+        runtimeRunning: true,
+        docker: sys.infrastructure.docker.status === 'connected',
+        dockerVersion: sys.infrastructure.docker.version,
+        dockerEngine: sys.infrastructure.docker.engine,
+        kubernetes: sys.infrastructure.kubernetes.status === 'connected',
+        kubernetesContext: sys.infrastructure.kubernetes.context,
+        kubernetesVersion: sys.infrastructure.kubernetes.version,
+        git: sys.infrastructure.git.status === 'ready',
+        terraform: sys.infrastructure.terraform.status === 'ready',
+        aws: sys.infrastructure.aws.status === 'authenticated',
+        azure: sys.infrastructure.azure.status === 'authenticated',
+        pairingRequired: false,
       });
     }
 
-    // 2. PAIRING ENDPOINT
-    if (pathname === '/pair' && method === 'POST') {
-      const body = await parseBody(req);
-      const incomingToken = body.token || req.headers['x-caelum-token'];
-      const realToken = getToken();
-
-      if (incomingToken && incomingToken === realToken) {
-        return sendJson(res, 200, { success: true, message: 'Paired successfully', token: realToken });
-      } else {
-        return sendError(res, 401, 'Invalid pairing token provided.');
-      }
+    // Comprehensive OS runtime status
+    if ((pathname === '/runtime/status' || pathname === '/system/status') && method === 'GET') {
+      const sys = await system.getSystemStatus(parsedUrl.query.refresh === 'true');
+      return sendJson(res, 200, sys);
     }
 
-    // 3. TOKEN VALIDATION (All protected routes require valid token)
+    // Zero-friction handshake endpoint for CaelumOS Desktop
+    if (pathname === '/runtime/handshake' && method === 'GET') {
+      const sessionToken = getToken();
+      const sys = await system.getSystemStatus();
+      return sendJson(res, 200, {
+        status: 'ok',
+        authenticated: true,
+        version: '1.0.0',
+        token: sessionToken,
+        runtime: sys.runtime,
+        infrastructure: sys.infrastructure,
+      });
+    }
+
+    // Individual tool status checks
+    if (pathname === '/git/status' && method === 'GET') {
+      const data = await git.getGitStatus();
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/terraform/status' && method === 'GET') {
+      const data = await terraform.getTerraformStatus();
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/aws/status' && method === 'GET') {
+      const data = await aws.getAwsStatus();
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/azure/status' && method === 'GET') {
+      const data = await azure.getAzureStatus();
+      return sendJson(res, 200, data);
+    }
+
+    // ==========================================
+    // 2. AUTHORIZATION VERIFICATION
+    // ==========================================
     if (!verifyToken(req)) {
       return sendJson(res, 401, {
-        error: 'Unauthorized: CaelumOS pairing token is missing or invalid.',
-        code: 'PAIRING_REQUIRED',
+        error: 'Unauthorized: CaelumOS runtime session invalid or rejected by origin policy.',
+        code: 'UNAUTHORIZED_ORIGIN',
         success: false,
       });
     }
 
     // ==========================================
-    // DOCKER ROUTES
+    // 3. DOCKER ROUTES
     // ==========================================
     if (pathname === '/docker/health' && method === 'GET') {
       const data = await docker.getHealth();
@@ -184,42 +212,34 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/docker/compose' && method === 'GET') {
-      const data = await docker.listCompose();
+      const data = await docker.listComposeProjects();
       return sendJson(res, 200, data);
     }
 
-    if (pathname === '/docker/daemon-logs' && method === 'GET') {
-      const data = await docker.getDaemonLogs();
-      return sendJson(res, 200, data);
-    }
-
-    // GET /docker/container/:id/logs
-    const containerLogsMatch = pathname.match(/^\/docker\/container\/([a-zA-Z0-9_.-]+)\/logs$/);
-    if (containerLogsMatch && method === 'GET') {
-      const containerId = containerLogsMatch[1];
-      const logs = await docker.getContainerLogs(containerId, parsedUrl.query.tail);
-      return sendJson(res, 200, { containerId, logs });
-    }
-
-    // POST /docker/container/:id/action
-    const containerActionMatch = pathname.match(/^\/docker\/container\/([a-zA-Z0-9_.-]+)\/action$/);
-    if (containerActionMatch && method === 'POST') {
-      const containerId = containerActionMatch[1];
+    if (pathname === '/docker/action' && method === 'POST') {
       const body = await parseBody(req);
-      const action = body.action;
-      const result = await docker.controlContainer(containerId, action);
+      const { action, containerId } = body;
+      const result = await docker.containerAction(action, containerId);
+      return sendJson(res, 200, result);
+    }
+
+    const logsMatch = pathname.match(/^\/docker\/containers\/([a-zA-Z0-9_-]+)\/logs$/);
+    if (logsMatch && method === 'GET') {
+      const containerId = logsMatch[1];
+      const tail = parseInt(parsedUrl.query.tail, 10) || 100;
+      const result = await docker.getContainerLogs(containerId, tail);
       return sendJson(res, 200, result);
     }
 
     // ==========================================
-    // KUBERNETES ROUTES
+    // 4. KUBERNETES ROUTES
     // ==========================================
-    if (pathname === '/kubernetes/cluster-info' && method === 'GET') {
+    if (pathname === '/kubernetes/health' && method === 'GET') {
       const data = await k8s.getClusterSummary();
       return sendJson(res, 200, data);
     }
 
-    if (pathname === '/kubernetes/status' && method === 'GET') {
+    if (pathname === '/kubernetes/cluster-info' && method === 'GET') {
       const data = await k8s.getClusterSummary();
       return sendJson(res, 200, data);
     }
@@ -227,12 +247,6 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/kubernetes/contexts' && method === 'GET') {
       const data = await k8s.getContexts();
       return sendJson(res, 200, data);
-    }
-
-    if (pathname === '/kubernetes/context' && method === 'POST') {
-      const body = await parseBody(req);
-      const result = await k8s.switchContext(body.context);
-      return sendJson(res, 200, result);
     }
 
     if (pathname === '/kubernetes/nodes' && method === 'GET') {
@@ -251,27 +265,19 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
-    // Pod logs: GET /kubernetes/pods/:namespace/:name/logs
     const podLogsMatch = pathname.match(/^\/kubernetes\/pods\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/logs$/);
     if (podLogsMatch && method === 'GET') {
-      const [, ns, name] = podLogsMatch;
-      const logs = await k8s.getPodLogs(ns, name, parsedUrl.query.container);
-      return sendJson(res, 200, { namespace: ns, name, logs });
-    }
-
-    // Restart pod: POST /kubernetes/pods/:namespace/:name/restart
-    const podRestartMatch = pathname.match(/^\/kubernetes\/pods\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/restart$/);
-    if (podRestartMatch && method === 'POST') {
-      const [, ns, name] = podRestartMatch;
-      const result = await k8s.restartPod(ns, name);
+      const [, ns, podName] = podLogsMatch;
+      const container = parsedUrl.query.container;
+      const tail = parseInt(parsedUrl.query.tail, 10) || 100;
+      const result = await k8s.getPodLogs(ns, podName, container, tail);
       return sendJson(res, 200, result);
     }
 
-    // Delete pod: DELETE /kubernetes/pods/:namespace/:name
     const podDeleteMatch = pathname.match(/^\/kubernetes\/pods\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
     if (podDeleteMatch && method === 'DELETE') {
-      const [, ns, name] = podDeleteMatch;
-      const result = await k8s.deletePod(ns, name);
+      const [, ns, podName] = podDeleteMatch;
+      const result = await k8s.deletePod(ns, podName);
       return sendJson(res, 200, result);
     }
 
@@ -281,22 +287,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
-    if (pathname === '/kubernetes/deployments' && method === 'POST') {
-      const body = await parseBody(req);
-      const result = await k8s.createDeployment(body);
-      return sendJson(res, 200, result);
-    }
-
-    // Scale deployment: POST /kubernetes/deployments/:namespace/:name/scale
     const depScaleMatch = pathname.match(/^\/kubernetes\/deployments\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/scale$/);
     if (depScaleMatch && method === 'POST') {
       const [, ns, name] = depScaleMatch;
       const body = await parseBody(req);
-      const result = await k8s.scaleDeployment(ns, name, body.replicas);
+      const replicas = parseInt(body.replicas, 10) || 1;
+      const result = await k8s.scaleDeployment(ns, name, replicas);
       return sendJson(res, 200, result);
     }
 
-    // Delete deployment: DELETE /kubernetes/deployments/:namespace/:name
     const depDeleteMatch = pathname.match(/^\/kubernetes\/deployments\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
     if (depDeleteMatch && method === 'DELETE') {
       const [, ns, name] = depDeleteMatch;
@@ -316,7 +315,6 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
-    // Delete service: DELETE /kubernetes/services/:namespace/:name
     const svcDeleteMatch = pathname.match(/^\/kubernetes\/services\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
     if (svcDeleteMatch && method === 'DELETE') {
       const [, ns, name] = svcDeleteMatch;
@@ -342,9 +340,9 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, data);
     }
 
-    return sendError(res, 404, `Endpoint ${pathname} not found on local connector.`);
+    return sendError(res, 404, `Endpoint ${pathname} not found on local runtime.`);
   } catch (err) {
-    return sendError(res, 500, err.message || 'Internal connector error.');
+    return sendError(res, 500, err.message || 'Internal runtime error.');
   }
 });
 
@@ -352,12 +350,11 @@ const token = initToken();
 
 server.listen(PORT, HOST, () => {
   console.log('\n================================================================');
-  console.log('⚡ CaelumOS Local Infrastructure Connector');
+  console.log('⚡ CaelumOS Native Runtime Daemon');
   console.log('================================================================');
-  console.log(`📡 Status:       Active & Listening`);
+  console.log(`📡 Status:       Active & Running`);
   console.log(`🔒 Local Host:   http://${HOST}:${PORT}`);
   console.log(`🌐 Bound To:     127.0.0.1 (Strict Loopback Isolation)`);
-  console.log(`🔑 Pairing Key:  ${token}`);
   console.log(`📁 Config File:  ${TOKEN_FILE}`);
   console.log(`🌍 Permitted:    https://caleum.me & localhost:3000`);
   console.log('================================================================\n');

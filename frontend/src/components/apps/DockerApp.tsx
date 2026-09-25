@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../../lib/api';
 import { getDockerEnvironment } from '../../lib/dockerEnvironment';
-import LocalConnectorModal from '../LocalConnectorModal';
 import { checkLocalConnectorHealth } from '../../lib/localConnector';
 import { 
   Play, 
@@ -78,7 +77,6 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const [error, setError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
-  const [showConnectorModal, setShowConnectorModal] = useState<boolean>(false);
 
   // Connection and Environment State
   const [connectionState, setConnectionState] = useState<DockerConnectionState>('checking');
@@ -459,6 +457,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const selectedContainer = containers.find(item => item.id === selectedId);
 
   // Render the Professional Local Connector Required view
+  // Render the Professional Local Engine Required view
   const renderLocalEngineRequired = () => (
     <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-text min-h-0 overflow-y-auto">
       <div className="max-w-md w-full bg-[#0f0f12] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
@@ -469,47 +468,35 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         <div className="space-y-2">
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <span>○ Local CaelumOS Connector Disconnected</span>
+            <span>○ CaelumOS Runtime Disconnected</span>
           </div>
-          <h3 className="text-base font-extrabold text-slate-100 font-sans">Local CaelumOS Connector is not running.</h3>
+          <h3 className="text-base font-extrabold text-slate-100 font-sans">Local CaelumOS Runtime is not running.</h3>
           <p className="text-xs text-slate-400 leading-relaxed font-sans">
-            Connect CaelumOS directly to your local computer&apos;s Docker Desktop without sending credentials to the cloud.
-          </p>
-        </div>
-
-        <div className="bg-black/40 border border-neutral-850 rounded-xl p-4 text-left space-y-2.5">
-          <span className="text-[11px] font-bold text-slate-300 font-mono block">
-            Start the connector to manage local containers:
-          </span>
-          <div className="p-2.5 bg-neutral-900 rounded-lg border border-neutral-800 font-mono text-[11px] text-purple-300 select-all">
-            .\start-connector.bat
-          </div>
-          <p className="text-[10px] text-slate-400 font-mono">
-            Binds securely to 127.0.0.1:48721 with zero cloud exposure.
+            To view and manage your computer&apos;s local Docker Desktop containers with zero cloud exposure, start the CaelumOS native runtime.
           </p>
         </div>
 
         <div className="pt-1 flex flex-col sm:flex-row gap-2.5 justify-center">
           <button
-            onClick={() => setShowConnectorModal(true)}
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors shadow-xs group cursor-pointer"
-          >
-            <span>Install / Start Local Connector</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-          <button
             onClick={() => checkStatus()}
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-neutral-700 cursor-pointer"
+            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Retry Connection</span>
+            <span>Auto-Detect Runtime</span>
           </button>
+          <a
+            href="/download"
+            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-neutral-700"
+          >
+            <span>Runtime Setup</span>
+            <ExternalLink className="w-3.5 h-3.5 ml-1" />
+          </a>
         </div>
       </div>
     </div>
   );
 
-  // Render Disconnected State when local connector is running but Docker Desktop is stopped
+  // Render Disconnected State when local runtime is active but Docker Desktop is stopped
   const renderDisconnectedState = () => (
     <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-text min-h-0 overflow-y-auto">
       <div className="max-w-md w-full bg-[#0f0f12] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-5 shadow-xl">
@@ -519,11 +506,11 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         
         <div className="space-y-1.5">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-            ● Local Connector Active &bull; Docker Desktop Offline
+            ● Native Runtime Active &bull; Docker Desktop Offline
           </span>
           <h3 className="text-base font-bold text-slate-100 font-sans mt-2">Docker Desktop is not running.</h3>
           <p className="text-xs text-slate-400 font-sans leading-relaxed">
-            The CaelumOS local connector is running on 127.0.0.1:48721, but Docker Desktop is stopped.
+            The CaelumOS native runtime is running, but Docker Desktop is stopped on this computer.
           </p>
         </div>
 
@@ -534,19 +521,13 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
           <p>3. Click the Refresh button below.</p>
         </div>
 
-        <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+        <div className="pt-2 flex justify-center">
           <button
             onClick={() => checkStatus()}
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh Docker Status</span>
-          </button>
-          <button
-            onClick={() => setShowConnectorModal(true)}
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-neutral-700 cursor-pointer"
-          >
-            <span>Connector Key</span>
           </button>
         </div>
       </div>
@@ -592,10 +573,11 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
 
           {connectionState !== 'connected' && (
             <button
-              onClick={() => setShowConnectorModal(true)}
-              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
+              onClick={() => checkStatus()}
+              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-neutral-850 hover:bg-neutral-800 text-slate-300 border border-neutral-750 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
             >
-              <span>Connect Local Docker</span>
+              <RefreshCw className="w-3 h-3 text-sky-400" />
+              <span>Retry Auto-Detect</span>
             </button>
           )}
 
@@ -1161,12 +1143,6 @@ volumes:
         )}
 
       </div>
-
-      <LocalConnectorModal
-        isOpen={showConnectorModal}
-        onClose={() => setShowConnectorModal(false)}
-        onConnected={() => checkStatus()}
-      />
     </div>
   );
 }

@@ -177,34 +177,34 @@ export default function DownloadPage() {
           </div>
         </div>
 
-        {/* Local Infrastructure Connector Card */}
+        {/* CaelumOS Native Runtime Card */}
         <div className="rounded-2xl border border-purple-200 bg-gradient-to-b from-purple-50/40 via-white to-white p-8 sm:p-10 shadow-sm relative overflow-hidden">
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-purple-100">
               <div>
-                <span className="text-xs font-mono text-purple-700 uppercase tracking-wider font-semibold">Web & Desktop Bridge</span>
+                <span className="text-xs font-mono text-purple-700 uppercase tracking-wider font-semibold">Native Desktop Architecture</span>
                 <h2 className="text-2xl font-bold text-slate-900 font-mono mt-1 flex items-center gap-3">
                   <Terminal className="w-6 h-6 text-purple-600" />
-                  <span>CaelumOS Local Infrastructure Connector</span>
+                  <span>CaelumOS Native Runtime Daemon</span>
                 </h2>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs font-mono text-purple-600 font-semibold">v1.0.0 Native Agent</span>
+                  <span className="text-xs font-mono text-purple-600 font-semibold">v1.0.0 Real OS Runtime</span>
                   <span className="text-slate-400">&bull;</span>
-                  <span className="text-xs font-mono text-emerald-600 font-semibold">Available Now</span>
+                  <span className="text-xs font-mono text-emerald-600 font-semibold">Zero-Friction Local Discovery</span>
                 </div>
               </div>
 
               <div className="flex flex-col items-start sm:items-end gap-1.5">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-mono font-semibold text-emerald-800 uppercase tracking-wider">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ACTIVE ARCHITECTURE</span>
+                  <span>NATIVE RUNTIME ACTIVE</span>
                 </span>
                 <span className="text-[11px] font-mono text-slate-500">Strictly 127.0.0.1:48721</span>
               </div>
             </div>
 
             <p className="text-sm text-slate-600 leading-relaxed">
-              Connect <a href="/os" className="text-purple-600 font-semibold underline hover:text-purple-700">https://caleum.me/os</a> directly to your computer&apos;s local Docker Desktop and local Kubernetes/Minikube cluster. Zero cloud proxies, zero credential sharing, and complete isolation between users.
+              Auto-discovers and integrates with your computer&apos;s local <strong>Docker Desktop, Kubernetes/Minikube, Git, Terraform, AWS CLI, and Azure CLI</strong> directly from CaelumOS. Zero cloud proxying, zero credential sharing, and zero manual pairing keys.
             </p>
 
             {/* Quick Start Platforms */}
@@ -212,30 +212,30 @@ export default function DownloadPage() {
               <div className="p-4 rounded-xl bg-slate-900 text-slate-200 space-y-3 font-mono">
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span className="font-bold text-white flex items-center gap-2">
-                    <span>Windows Quick Start</span>
+                    <span>Windows One-Click Start</span>
                   </span>
                   <span className="text-[10px] text-purple-400">Command Prompt / PowerShell</span>
                 </div>
                 <div className="p-2.5 bg-black/60 rounded-lg border border-slate-800 text-purple-300 text-xs select-all">
-                  .\start-connector.bat
+                  .\start-caelum.bat
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Automatically initializes token in <code className="text-slate-300">~/.caelum/connector-token.json</code> and starts listener.
+                  Automatically launches the native runtime daemon in background and opens CaelumOS desktop.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900 text-slate-200 space-y-3 font-mono">
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span className="font-bold text-white flex items-center gap-2">
-                    <span>macOS & Linux Quick Start</span>
+                    <span>Linux & macOS One-Click Start</span>
                   </span>
                   <span className="text-[10px] text-purple-400">Bash / Zsh</span>
                 </div>
                 <div className="p-2.5 bg-black/60 rounded-lg border border-slate-800 text-purple-300 text-xs select-all">
-                  chmod +x desktop-agent/start-connector.sh &amp;&amp; ./desktop-agent/start-connector.sh
+                  chmod +x start-caelum.sh &amp;&amp; ./start-caelum.sh
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Compatible with standard Docker sockets and default kubectl contexts.
+                  Starts CaelumOS daemon with automatic discovery of local Docker, kubectl, and CLI tools.
                 </p>
               </div>
             </div>

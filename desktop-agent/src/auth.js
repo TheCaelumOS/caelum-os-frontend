@@ -9,7 +9,7 @@ const TOKEN_FILE = path.join(CAELUM_DIR, 'connector-token.json');
 let activeToken = '';
 
 /**
- * Initializes or loads the pairing token from ~/.caelum/connector-token.json
+ * Initializes or loads the session token from ~/.caelum/connector-token.json
  */
 function initToken() {
   try {
@@ -29,7 +29,7 @@ function initToken() {
     console.warn('[Auth] Could not read existing token file, generating new token:', err.message);
   }
 
-  // Generate high-entropy 32-character pairing token
+  // Generate high-entropy 32-character local session token
   activeToken = 'caelum_' + crypto.randomBytes(16).toString('hex');
   try {
     fs.writeFileSync(
@@ -38,7 +38,7 @@ function initToken() {
         {
           token: activeToken,
           created: new Date().toISOString(),
-          description: 'CaelumOS Local Infrastructure Connector Pairing Secret',
+          description: 'CaelumOS Local Infrastructure Runtime Session Secret',
         },
         null,
         2
@@ -53,7 +53,7 @@ function initToken() {
 }
 
 /**
- * Returns current pairing token
+ * Returns current session token
  */
 function getToken() {
   if (!activeToken) {
@@ -63,12 +63,33 @@ function getToken() {
 }
 
 /**
- * Verifies request pairing token from headers or query
+ * Checks whether an origin is an authorized CaelumOS client origin
+ */
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // Direct loopback tool, curl, or native desktop shell
+  const allowed = [
+    'https://caleum.me',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://localhost:3000',
+  ];
+  if (allowed.includes(origin)) return true;
+  if (/^https:\/\/[a-zA-Z0-9-]+\.caleum\.me$/.test(origin)) return true;
+  if (/^http:\/\/localhost:\d+$/.test(origin)) return true;
+  if (/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) return true;
+  return false;
+}
+
+/**
+ * Verifies request authorization.
+ * Seamless OS Model:
+ * 1. Checks X-Caelum-Token or Authorization Bearer header.
+ * 2. If token is missing, automatically verifies trusted loopback origin from allowed CaelumOS apps.
  */
 function verifyToken(req) {
   const expected = getToken();
-  if (!expected) return false;
 
+  // 1. Explicit token check
   const headerToken = req.headers['x-caelum-token'] || req.headers['x-pairing-token'];
   if (headerToken && headerToken === expected) {
     return true;
@@ -84,6 +105,15 @@ function verifyToken(req) {
     }
   }
 
+  // 2. Seamless local handshake: Loopback request from verified CaelumOS origins
+  const origin = req.headers.origin || '';
+  const clientIp = req.socket.remoteAddress || '127.0.0.1';
+  const isLoopbackIp = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1';
+
+  if (isLoopbackIp && isAllowedOrigin(origin)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -91,5 +121,6 @@ module.exports = {
   initToken,
   getToken,
   verifyToken,
+  isAllowedOrigin,
   TOKEN_FILE,
 };

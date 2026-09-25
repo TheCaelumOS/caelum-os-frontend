@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
-import LocalConnectorModal from '../LocalConnectorModal';
 import { checkLocalConnectorHealth } from '../../lib/localConnector';
 import { 
   Network, 
@@ -329,7 +328,6 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [showConnectorModal, setShowConnectorModal] = useState<boolean>(false);
 
   // Tabs mapping
   const [activeTab, setActiveTab] = useState<string>(initialSubPath || 'pods');
@@ -1108,10 +1106,11 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
           </div>
           {error && (
             <button
-              onClick={() => setShowConnectorModal(true)}
-              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
+              onClick={fetchClusterInfo}
+              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-neutral-850 hover:bg-neutral-800 text-slate-300 border border-neutral-750 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
             >
-              <span>Connect Local K8s</span>
+              <RefreshCw className="w-3 h-3 text-indigo-400" />
+              <span>Retry Auto-Detect</span>
             </button>
           )}
           {/* Active Namespace Status in Sidebar */}
@@ -1155,12 +1154,6 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
               <span className="font-semibold text-amber-300">{error}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => setShowConnectorModal(true)}
-                className="px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-indigo-500/30"
-              >
-                Install / Start Connector
-              </button>
               <button 
                 onClick={fetchClusterInfo}
                 className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-amber-500/30"
@@ -3141,15 +3134,6 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
           </div>
         </div>
       )}
-
-      {/* Local Connector Pairing Modal */}
-      <LocalConnectorModal
-        isOpen={showConnectorModal}
-        onClose={() => setShowConnectorModal(false)}
-        onConnected={() => {
-          fetchClusterInfo();
-        }}
-      />
     </div>
   );
 }

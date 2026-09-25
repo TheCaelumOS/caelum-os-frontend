@@ -1,0 +1,23 @@
+[Unit]
+Description=CaelumOS Native Infrastructure Runtime Daemon
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/caelum-os/desktop-agent
+ExecStart=/usr/bin/node /opt/caelum-os/desktop-agent/src/index.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+Environment=PORT=48721
+Environment=HOST=127.0.0.1
+
+# Security Hardening
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target
