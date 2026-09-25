@@ -9,6 +9,7 @@ const terraform = require('./terraform');
 const aws = require('./aws');
 const azure = require('./azure');
 const system = require('./system');
+const browser = require('./browser');
 
 const PORT = 48721;
 const HOST = '127.0.0.1';
@@ -164,6 +165,25 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/azure/status' && method === 'GET') {
       const data = await azure.getAzureStatus();
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/browser/status' && method === 'GET') {
+      const data = browser.getBrowserRuntimeStatus();
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/browser/inspect' && method === 'GET') {
+      const targetUrl = parsedUrl.query.url;
+      if (!targetUrl) return sendError(res, 400, 'Missing url query parameter');
+      const data = await browser.inspectUrl(targetUrl);
+      return sendJson(res, 200, data);
+    }
+
+    if (pathname === '/browser/reader' && method === 'GET') {
+      const targetUrl = parsedUrl.query.url;
+      if (!targetUrl) return sendError(res, 400, 'Missing url query parameter');
+      const data = await browser.fetchReader(targetUrl);
       return sendJson(res, 200, data);
     }
 

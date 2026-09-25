@@ -384,3 +384,41 @@ export const CloudflareLogo = ({ className = "w-6 h-6" }: { className?: string }
     />
   </svg>
 );
+
+/**
+ * YouTube - Official YouTube Red Screen Play Mark
+ */
+export const YoutubeLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg viewBox="0 0 32 32" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path
+      fill="#FF0000"
+      d="M31.3 8.3a4 4 0 0 0-2.8-2.8C26 5 16 5 16 5s-10 0-12.5.5A4 4 0 0 0 .7 8.3C0 10.8 0 16 0 16s0 5.2.7 7.7a4 4 0 0 0 2.8 2.8C6 27 16 27 16 27s10 0 12.5-.5a4 4 0 0 0 2.8-2.8c.7-2.5.7-7.7.7-7.7s0-5.2-.7-7.7z"
+    />
+    <path fill="#FFFFFF" d="M12.7 20.7l8.3-4.7-8.3-4.7v9.4z" />
+  </svg>
+);
+
+/**
+ * Google - Official 4-Color 'G' Logo
+ */
+export const GoogleLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg viewBox="0 0 32 32" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path
+      fill="#4285F4"
+      d="M31.6 16.3c0-1.1-.1-2.2-.3-3.2H16v6.1h8.8c-.4 2-1.5 3.7-3.2 4.9v4h5.2c3-2.8 4.8-6.9 4.8-11.8z"
+    />
+    <path
+      fill="#34A853"
+      d="M16 32c4.3 0 8-1.4 10.7-3.9l-5.2-4c-1.5 1-3.3 1.6-5.5 1.6-4.2 0-7.8-2.8-9.1-6.7H1.5v4.2C4.2 28.5 9.7 32 16 32z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M6.9 19c-.3-1-.5-2.1-.5-3s.2-2 .5-3V8.8H1.5C.5 10.8 0 13.3 0 16s.5 5.2 1.5 7.2L6.9 19z"
+    />
+    <path
+      fill="#EA4335"
+      d="M16 6.3c2.4 0 4.5.8 6.1 2.4l4.6-4.6C23.9 1.6 20.3 0 16 0 9.7 0 4.2 3.5 1.5 8.8L6.9 13C8.2 9.1 11.8 6.3 16 6.3z"
+    />
+  </svg>
+);
+

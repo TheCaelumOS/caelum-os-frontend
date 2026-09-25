@@ -972,7 +972,7 @@ export default function Desktop() {
               defaultWidth={850}
               defaultHeight={520}
             >
-              <BrowserApp />
+              <BrowserApp onOpenApp={openApp} />
             </WindowFrame>
           )}
 
