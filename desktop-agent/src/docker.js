@@ -1,4 +1,4 @@
-const { execFileSync } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 
 /**
@@ -6,12 +6,12 @@ const fs = require('fs');
  */
 function getDockerBinary() {
   const candidates = [
+    'docker',
+    'docker.exe',
     'C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe',
     'C:\\Users\\karth\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\docker.exe',
     '/usr/local/bin/docker',
     '/usr/bin/docker',
-    'docker.exe',
-    'docker',
   ];
   for (const c of candidates) {
     if (c.includes('\\') || c.includes('/')) {
@@ -24,20 +24,35 @@ function getDockerBinary() {
 }
 
 /**
- * Run safe docker CLI commands with argument array
+ * Run safe non-blocking docker CLI commands with argument array
  */
-function runDocker(args, timeoutMs = 15000) {
+function runDocker(args, timeoutMs = 12000) {
   const bin = getDockerBinary();
-  return execFileSync(bin, args, {
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    stdio: ['pipe', 'pipe', 'pipe'],
+  return new Promise((resolve, reject) => {
+    execFile(
+      bin,
+      args,
+      {
+        encoding: 'utf8',
+        timeout: timeoutMs,
+        maxBuffer: 10 * 1024 * 1024,
+        windowsHide: true,
+      },
+      (err, stdout, stderr) => {
+        if (err) {
+          err.stdout = stdout;
+          err.stderr = stderr;
+          return reject(err);
+        }
+        resolve(stdout);
+      }
+    );
   });
 }
 
-function checkConnection() {
+async function checkConnection() {
   try {
-    const output = runDocker(['version'], 6000);
+    const output = await runDocker(['version'], 5000);
     return output.includes('Server:');
   } catch {
     return false;
@@ -57,7 +72,7 @@ function extractClientVersion(rawOutput) {
 
 async function getHealth() {
   try {
-    const output = runDocker(['version'], 8000);
+    const output = await runDocker(['version'], 6000);
     const connected = output.includes('Server:');
 
     let version = '29.8.0';
@@ -73,7 +88,7 @@ async function getHealth() {
 
     let context = 'desktop-linux';
     try {
-      const ctxOut = runDocker(['context', 'show'], 4000).trim();
+      const ctxOut = (await runDocker(['context', 'show'], 3000)).trim();
       if (ctxOut) context = ctxOut;
     } catch {}
 
@@ -123,6 +138,7 @@ async function getStatus() {
       containers: [],
       images: [],
       volumes: [],
+      networks: [],
       error: health.error,
     };
   }
@@ -130,32 +146,36 @@ async function getStatus() {
   let containers = [];
   let images = [];
   let volumes = [];
+  let networks = [];
 
   try {
-    [containers, images, volumes] = await Promise.all([
+    [containers, images, volumes, networks] = await Promise.all([
       listContainers().catch(() => []),
       listImages().catch(() => []),
       listVolumes().catch(() => []),
+      listNetworks().catch(() => []),
     ]);
   } catch {}
 
   return {
     connected: true,
-    version: health.version || 'Unknown',
+    version: health.version,
     status: health.status,
     context: health.context,
     engine: health.engine,
     containers,
     images,
     volumes,
+    networks,
   };
 }
 
 async function listContainers() {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
-  const output = runDocker(['ps', '-a', '--format', '{{json .}}'], 15000);
+  const output = await runDocker(['ps', '-a', '--format', '{{json .}}'], 10000);
   if (!output || !output.trim()) return [];
 
   return output
@@ -182,10 +202,11 @@ async function listContainers() {
 }
 
 async function listImages() {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
-  const output = runDocker(['images', '--format', '{{json .}}'], 15000);
+  const output = await runDocker(['images', '--format', '{{json .}}'], 10000);
   if (!output || !output.trim()) return [];
 
   return output
@@ -210,10 +231,11 @@ async function listImages() {
 }
 
 async function listNetworks() {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
-  const output = runDocker(['network', 'ls', '--format', '{{json .}}'], 15000);
+  const output = await runDocker(['network', 'ls', '--format', '{{json .}}'], 10000);
   if (!output || !output.trim()) return [];
 
   return output
@@ -237,10 +259,11 @@ async function listNetworks() {
 }
 
 async function listVolumes() {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
-  const output = runDocker(['volume', 'ls', '--format', '{{json .}}'], 15000);
+  const output = await runDocker(['volume', 'ls', '--format', '{{json .}}'], 10000);
   if (!output || !output.trim()) return [];
 
   return output
@@ -263,9 +286,10 @@ async function listVolumes() {
 }
 
 async function listCompose() {
-  if (!checkConnection()) return [];
+  const isUp = await checkConnection();
+  if (!isUp) return [];
   try {
-    const output = runDocker(['compose', 'ls', '--format', 'json'], 15000);
+    const output = await runDocker(['compose', 'ls', '--format', 'json'], 10000);
     if (!output || !output.trim()) return [];
     const parsed = JSON.parse(output.trim());
     return Array.isArray(parsed) ? parsed : [parsed];
@@ -275,11 +299,12 @@ async function listCompose() {
 }
 
 async function getDaemonLogs() {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
   try {
-    const output = runDocker(['events', '--since', '1h', '--until', '0s'], 8000);
+    const output = await runDocker(['events', '--since', '1h', '--until', '0s'], 6000);
     return output.trim() || 'No recent Docker events recorded in the last 60 minutes.';
   } catch {
     return 'No recent Docker events recorded in the last 60 minutes.';
@@ -287,7 +312,8 @@ async function getDaemonLogs() {
 }
 
 async function controlContainer(containerId, action) {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
 
@@ -303,9 +329,9 @@ async function controlContainer(containerId, action) {
 
   try {
     if (action === 'remove') {
-      runDocker(['rm', '-f', containerId], 15000);
+      await runDocker(['rm', '-f', containerId], 12000);
     } else {
-      runDocker([action, containerId], 15000);
+      await runDocker([action, containerId], 12000);
     }
     return { containerId, action, success: true };
   } catch (err) {
@@ -315,7 +341,8 @@ async function controlContainer(containerId, action) {
 }
 
 async function getContainerLogs(containerId, tail = 200) {
-  if (!checkConnection()) {
+  const isUp = await checkConnection();
+  if (!isUp) {
     throw new Error('Cannot connect to Docker daemon. Please verify Docker Desktop is running.');
   }
 
@@ -326,7 +353,7 @@ async function getContainerLogs(containerId, tail = 200) {
 
   const safeTail = Math.min(Math.max(1, Number(tail) || 200), 1000);
   try {
-    const output = runDocker(['logs', '--tail', String(safeTail), containerId], 10000);
+    const output = await runDocker(['logs', '--tail', String(safeTail), containerId], 8000);
     return output || `No log output found for container '${containerId}'.`;
   } catch (err) {
     const errMsg = (err.stderr ? err.stderr.toString() : err.message) || 'Failed to retrieve logs.';

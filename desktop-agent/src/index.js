@@ -212,23 +212,30 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/docker/compose' && method === 'GET') {
-      const data = await docker.listComposeProjects();
+      const data = await docker.listCompose();
       return sendJson(res, 200, data);
     }
 
-    if (pathname === '/docker/action' && method === 'POST') {
+    if (pathname === '/docker/daemon-logs' && method === 'GET') {
+      const data = await docker.getDaemonLogs();
+      return sendJson(res, 200, data);
+    }
+
+    const actionMatch = pathname.match(/^\/docker\/container(?:s)?\/([a-zA-Z0-9_-]+)\/action$/);
+    if ((actionMatch || pathname === '/docker/action') && method === 'POST') {
       const body = await parseBody(req);
-      const { action, containerId } = body;
-      const result = await docker.containerAction(action, containerId);
+      const containerId = actionMatch ? actionMatch[1] : body.containerId;
+      const action = body.action;
+      const result = await docker.controlContainer(containerId, action);
       return sendJson(res, 200, result);
     }
 
-    const logsMatch = pathname.match(/^\/docker\/containers\/([a-zA-Z0-9_-]+)\/logs$/);
+    const logsMatch = pathname.match(/^\/docker\/container(?:s)?\/([a-zA-Z0-9_-]+)\/logs$/);
     if (logsMatch && method === 'GET') {
       const containerId = logsMatch[1];
-      const tail = parseInt(parsedUrl.query.tail, 10) || 100;
+      const tail = parseInt(parsedUrl.query.tail, 10) || 200;
       const result = await docker.getContainerLogs(containerId, tail);
-      return sendJson(res, 200, result);
+      return sendJson(res, 200, { logs: result, containerId });
     }
 
     // ==========================================

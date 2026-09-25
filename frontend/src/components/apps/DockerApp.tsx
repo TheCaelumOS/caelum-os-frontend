@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../../lib/api';
-import { getDockerEnvironment } from '../../lib/dockerEnvironment';
 import { checkLocalConnectorHealth } from '../../lib/localConnector';
 import { 
   Play, 
@@ -18,11 +17,7 @@ import {
   HardDrive, 
   Network, 
   FileText, 
-  X,
-  ShieldAlert,
-  ArrowRight,
-  ExternalLink,
-  Laptop
+  X
 } from 'lucide-react';
 
 interface Container {
@@ -64,8 +59,8 @@ interface DockerAppProps {
 export type DockerConnectionState = 
   | 'checking' 
   | 'connected' 
-  | 'disconnected' 
-  | 'local_engine_required';
+  | 'unavailable' 
+  | 'runtime_offline';
 
 export default function DockerApp({ initialSubPath = '', onPathChange }: DockerAppProps) {
   const [containers, setContainers] = useState<Container[]>([]);
@@ -78,9 +73,9 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
-  // Connection and Environment State
+  // Native Connection State
   const [connectionState, setConnectionState] = useState<DockerConnectionState>('checking');
-  const [engineStatus, setEngineStatus] = useState<{ connected: boolean; version?: string; error?: string } | null>(null);
+  const [engineStatus, setEngineStatus] = useState<{ connected: boolean; version?: string; engine?: string; error?: string } | null>(null);
 
   // References to track active requests and prevent stale async overwrites
   const selectedIdRef = useRef<string>('');
@@ -89,6 +84,11 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   
   // Tabs mapping
   const [activeTab, setActiveTab] = useState<string>(initialSubPath || 'containers');
+  const activeTabRef = useRef<string>(activeTab);
+  activeTabRef.current = activeTab;
+
+  const connectionStateRef = useRef<DockerConnectionState>(connectionState);
+  connectionStateRef.current = connectionState;
 
   const [images, setImages] = useState<DockerImage[]>([]);
   const [networks, setNetworks] = useState<DockerNetwork[]>([]);
@@ -114,91 +114,6 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     { id: 'logs', name: 'Daemon Logs', icon: FileText },
   ];
 
-  /**
-   * Local Infrastructure Connector status check.
-   * Probes http://127.0.0.1:48721/health directly on user's machine.
-   * If running, retrieves the user's real local Docker containers and status.
-   * If stopped, provides clear instructions and modal to launch the local connector.
-   */
-  const checkStatus = async () => {
-    setLoading(true);
-    setError(null);
-    setDiagResult(null);
-
-    // 1. Probe the Local Infrastructure Connector on 127.0.0.1:48721
-    const health = await checkLocalConnectorHealth();
-    if (!health) {
-      setConnectionState('local_engine_required');
-      setEngineStatus({
-        connected: false,
-        error: 'Local CaelumOS Connector is not running.'
-      });
-      setContainers([]);
-      setImages([]);
-      setNetworks([]);
-      setVolumes([]);
-      setComposeProjects([]);
-      setDaemonLogs('');
-      setLogs('');
-      setSelectedId('');
-      selectedIdRef.current = '';
-      setLoading(false);
-      return;
-    }
-
-    // 2. Connector is active! Query local Docker daemon
-    try {
-      setConnectionState('checking');
-      const data = await apiRequest('/docker/health');
-      if (data && (data.connected || data.status === 'healthy' || data.status === 'running')) {
-        setConnectionState('connected');
-        setEngineStatus(data);
-        setError(null);
-        await fetchLiveTabContent(activeTab);
-      } else {
-        setConnectionState('disconnected');
-        setEngineStatus({
-          connected: false,
-          version: data?.version || health.dockerVersion || '',
-          error: data?.error || 'Docker Desktop is not running.'
-        });
-        setContainers([]);
-        setImages([]);
-        setNetworks([]);
-        setVolumes([]);
-        setComposeProjects([]);
-        setDaemonLogs('');
-        setLogs('');
-      }
-    } catch (err: any) {
-      setConnectionState('disconnected');
-      setEngineStatus({ 
-        connected: false, 
-        error: err?.message || 'Docker Desktop is not running. Please start Docker Desktop.' 
-      });
-      setContainers([]);
-      setImages([]);
-      setNetworks([]);
-      setVolumes([]);
-      setComposeProjects([]);
-      setDaemonLogs('');
-      setLogs('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchLiveTabContent = async (tab: string) => {
-    if (connectionState === 'local_engine_required') return;
-
-    if (tab === 'containers') await fetchContainers();
-    else if (tab === 'images') await fetchImages();
-    else if (tab === 'networks') await fetchNetworks();
-    else if (tab === 'volumes') await fetchVolumes();
-    else if (tab === 'compose') await fetchComposeProjects();
-    else if (tab === 'logs') await fetchDaemonLogs();
-  };
-
   const fetchComposeProjects = async () => {
     try {
       const data = await apiRequest('/docker/compose');
@@ -208,8 +123,8 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     }
   };
 
-  const fetchContainers = async () => {
-    setLoading(true);
+  const fetchContainers = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await apiRequest('/docker/containers');
       const containerList: Container[] = Array.isArray(data) ? data : [];
@@ -233,9 +148,9 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     } catch (e: any) {
       console.warn('Failed to fetch containers from live daemon:', e);
       setContainers([]);
-      setError(e.message || 'Failed to list containers.');
+      if (!silent) setError(e.message || 'Failed to list containers.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -293,6 +208,143 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
       setLoading(false);
     }
   };
+
+  const fetchLiveTabContent = async (tab: string) => {
+    if (connectionStateRef.current !== 'connected') return;
+
+    if (tab === 'containers') await fetchContainers();
+    else if (tab === 'images') await fetchImages();
+    else if (tab === 'networks') await fetchNetworks();
+    else if (tab === 'volumes') await fetchVolumes();
+    else if (tab === 'compose') await fetchComposeProjects();
+    else if (tab === 'logs') await fetchDaemonLogs();
+  };
+
+  const fetchAllOverviewData = async () => {
+    try {
+      const [cRes, iRes, nRes, vRes, compRes] = await Promise.allSettled([
+        apiRequest('/docker/containers'),
+        apiRequest('/docker/images'),
+        apiRequest('/docker/networks'),
+        apiRequest('/docker/volumes'),
+        apiRequest('/docker/compose'),
+      ]);
+
+      if (cRes.status === 'fulfilled' && Array.isArray(cRes.value)) {
+        const list: Container[] = cRes.value;
+        setContainers(list);
+        if (list.length > 0) {
+          const currentSelected = selectedIdRef.current;
+          const exists = list.some(c => c.id === currentSelected);
+          if (!currentSelected || !exists) {
+            const firstId = list[0].id;
+            setSelectedId(firstId);
+            selectedIdRef.current = firstId;
+            fetchLogsForContainer(firstId);
+          }
+        }
+      }
+      if (iRes.status === 'fulfilled' && Array.isArray(iRes.value)) {
+        setImages(iRes.value);
+      }
+      if (nRes.status === 'fulfilled' && Array.isArray(nRes.value)) {
+        setNetworks(nRes.value);
+      }
+      if (vRes.status === 'fulfilled' && Array.isArray(vRes.value)) {
+        setVolumes(vRes.value);
+      }
+      if (compRes.status === 'fulfilled' && Array.isArray(compRes.value)) {
+        setComposeProjects(compRes.value);
+      }
+    } catch (e) {
+      console.warn('Failed to load Docker overview data:', e);
+    }
+  };
+
+  /**
+   * Native Docker Engine status check & background detection.
+   * Probes http://127.0.0.1:48721/health directly on user's machine.
+   * If running, retrieves the user's real local Docker containers and status.
+   * If stopped, remains in a calm native state and auto-detects when Docker Desktop opens.
+   */
+  const checkStatus = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
+
+    // 1. Probe the Local Runtime on 127.0.0.1:48721
+    const health = await checkLocalConnectorHealth();
+    if (!health) {
+      setConnectionState('runtime_offline');
+      setEngineStatus({
+        connected: false,
+        error: 'Local CaelumOS Runtime is offline.'
+      });
+      setContainers([]);
+      setImages([]);
+      setNetworks([]);
+      setVolumes([]);
+      setComposeProjects([]);
+      setDaemonLogs('');
+      setLogs('');
+      setSelectedId('');
+      selectedIdRef.current = '';
+      if (!silent) setLoading(false);
+      return;
+    }
+
+    // 2. Runtime is active! Query local Docker daemon health
+    try {
+      const data = await apiRequest('/docker/health');
+      if (data && (data.connected || data.status === 'healthy' || data.status === 'running')) {
+        const wasConnected = connectionStateRef.current === 'connected';
+        setConnectionState('connected');
+        setEngineStatus(data);
+        setError(null);
+
+        if (!wasConnected) {
+          await fetchAllOverviewData();
+        } else {
+          // If on containers tab, update containers silently
+          if (activeTabRef.current === 'containers') {
+            await fetchContainers(true);
+          }
+        }
+      } else {
+        setConnectionState('unavailable');
+        setEngineStatus({
+          connected: false,
+          version: data?.version || health.dockerVersion || '',
+          error: data?.error || 'Docker Engine is not running.'
+        });
+        setContainers([]);
+        setImages([]);
+        setNetworks([]);
+        setVolumes([]);
+        setComposeProjects([]);
+        setDaemonLogs('');
+        setLogs('');
+      }
+    } catch (err: any) {
+      setConnectionState('unavailable');
+      setEngineStatus({ 
+        connected: false, 
+        error: err?.message || 'Docker Engine is not running.' 
+      });
+      setContainers([]);
+      setImages([]);
+      setNetworks([]);
+      setVolumes([]);
+      setComposeProjects([]);
+      setDaemonLogs('');
+      setLogs('');
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
 
   // Immediate selection change with log update
   const handleSelectContainer = (id: string) => {
@@ -391,44 +443,80 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
     setDiagRunning(true);
     setDiagResult(null);
 
-    if (connectionState === 'local_engine_required') {
+    if (connectionState === 'runtime_offline') {
       setDiagResult([
         'CAELUMOS DOCKER DIAGNOSTICS',
         '---------------------------',
-        'Environment:       Production Hosted (caleum.me)',
-        'Local Engine:      UNAVAILABLE (Cloudflare Pages frontend)',
-        'Remote Agent:      NOT CONFIGURED',
+        'Local Runtime:     OFFLINE (127.0.0.1:48721)',
+        'Docker Daemon:     UNAVAILABLE',
         '',
-        'Status: LOCAL ENGINE REQUIRED',
-        'To run live Docker diagnostics, launch CaelumOS in your local environment.'
+        'Status: RUNTIME SERVICE NOT DETECTED',
+        'Start the local CaelumOS background service to enable native infrastructure integration.'
+      ].join('\n'));
+      setDiagRunning(false);
+      return;
+    }
+
+    if (connectionState === 'unavailable') {
+      setDiagResult([
+        'CAELUMOS DOCKER DIAGNOSTICS',
+        '---------------------------',
+        'Local Runtime:     ONLINE (127.0.0.1:48721)',
+        'Docker Engine:     OFFLINE / NOT RUNNING',
+        `Error:             ${engineStatus?.error || 'Docker daemon is stopped.'}`,
+        '',
+        'Status: DOCKER NOT RUNNING',
+        'Start Docker Desktop to connect automatically.'
       ].join('\n'));
       setDiagRunning(false);
       return;
     }
 
     try {
-      const res = await apiRequest('/terminal/diagnostics/docker');
-      if (res?.details) {
-        setDiagResult(res.details);
-      } else {
-        throw new Error('No diagnostic data returned.');
-      }
+      const res = await apiRequest('/docker/health');
+      setDiagResult([
+        'CAELUMOS DOCKER DIAGNOSTICS',
+        '---------------------------',
+        'Local Runtime:     ONLINE (127.0.0.1:48721)',
+        `Docker Engine:     ${res?.connected ? 'CONNECTED (HEALTHY)' : 'UNAVAILABLE'}`,
+        `Engine Version:    ${res?.version || 'Unknown'}`,
+        `Engine Type:       ${res?.engine || 'Docker Desktop'}`,
+        `Context:           ${res?.context || 'default'}`,
+        `Containers:        ${containers.length} total (${containers.filter(c => c.state === 'running').length} running)`,
+        `Images:            ${images.length}`,
+        `Networks:          ${networks.length}`,
+        `Volumes:           ${volumes.length}`,
+        '',
+        'Status: OPERATIONAL',
+        'Real-time communication with local Docker daemon active.'
+      ].join('\n'));
     } catch (e: any) {
       setDiagResult([
         'CAELUMOS DOCKER DIAGNOSTICS',
         '---------------------------',
-        `Error: ${e.message || 'Backend connection failed.'}`,
-        'Verify that CaelumOS backend service is running on port 4000.'
+        `Error: ${e.message || 'Diagnostic query failed.'}`
       ].join('\n'));
     } finally {
       setDiagRunning(false);
     }
   };
 
+  // Initial check on mount
   useEffect(() => {
-    checkStatus();
-  }, []);
+    checkStatus(false);
+  }, [checkStatus]);
 
+  // Background auto-detect loop (checks silently every 4 seconds)
+  // If Docker Desktop starts up, it immediately connects without user interaction.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      checkStatus(true);
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [checkStatus]);
+
+  // Switch tabs
   useEffect(() => {
     if (connectionState === 'connected') {
       fetchLiveTabContent(activeTab);
@@ -456,91 +544,13 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
 
   const selectedContainer = containers.find(item => item.id === selectedId);
 
-  // Render the Professional Local Connector Required view
-  // Render the Professional Local Engine Required view
-  const renderLocalEngineRequired = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-text min-h-0 overflow-y-auto">
-      <div className="max-w-md w-full bg-[#0f0f12] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-          <Database className="w-7 h-7" />
-        </div>
-        
-        <div className="space-y-2">
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <span>○ CaelumOS Runtime Disconnected</span>
-          </div>
-          <h3 className="text-base font-extrabold text-slate-100 font-sans">Local CaelumOS Runtime is not running.</h3>
-          <p className="text-xs text-slate-400 leading-relaxed font-sans">
-            To view and manage your computer&apos;s local Docker Desktop containers with zero cloud exposure, start the CaelumOS native runtime.
-          </p>
-        </div>
-
-        <div className="pt-1 flex flex-col sm:flex-row gap-2.5 justify-center">
-          <button
-            onClick={() => checkStatus()}
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Auto-Detect Runtime</span>
-          </button>
-          <a
-            href="/download"
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-neutral-700"
-          >
-            <span>Runtime Setup</span>
-            <ExternalLink className="w-3.5 h-3.5 ml-1" />
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Render Disconnected State when local runtime is active but Docker Desktop is stopped
-  const renderDisconnectedState = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-text min-h-0 overflow-y-auto">
-      <div className="max-w-md w-full bg-[#0f0f12] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-5 shadow-xl">
-        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-          <AlertCircle className="w-6 h-6" />
-        </div>
-        
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-            ● Native Runtime Active &bull; Docker Desktop Offline
-          </span>
-          <h3 className="text-base font-bold text-slate-100 font-sans mt-2">Docker Desktop is not running.</h3>
-          <p className="text-xs text-slate-400 font-sans leading-relaxed">
-            The CaelumOS native runtime is running, but Docker Desktop is stopped on this computer.
-          </p>
-        </div>
-
-        <div className="p-3.5 bg-black/40 rounded-xl border border-neutral-850 text-left text-[11px] font-mono text-slate-400 space-y-1.5">
-          <p className="text-slate-300 font-semibold">To connect:</p>
-          <p>1. Open and start Docker Desktop on your computer.</p>
-          <p>2. Wait until Docker Desktop shows "Engine Running".</p>
-          <p>3. Click the Refresh button below.</p>
-        </div>
-
-        <div className="pt-2 flex justify-center">
-          <button
-            onClick={() => checkStatus()}
-            className="inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh Docker Status</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex-grow flex bg-[#0c0c0e] text-slate-100 min-h-0 select-text font-sans h-full">
       {/* Side Navigation Bar */}
       <div className="w-64 bg-[#0f0f12] border-r border-neutral-850 p-3 space-y-4 flex flex-col justify-between flex-shrink-0">
         <div className="space-y-2">
           {/* Header Brand */}
-          <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-neutral-850 mb-2">
+          <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-neutral-850 mb-1">
             <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
               <Database className="w-4 h-4" />
             </div>
@@ -550,53 +560,67 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                 <span className={`w-1.5 h-1.5 rounded-full ${
                   connectionState === 'connected' 
                     ? 'bg-emerald-500 animate-pulse' 
-                    : connectionState === 'local_engine_required' 
+                    : connectionState === 'unavailable' 
                       ? 'bg-amber-400' 
-                      : 'bg-rose-500'
+                      : connectionState === 'checking'
+                        ? 'bg-sky-400 animate-pulse'
+                        : 'bg-neutral-500'
                 }`} />
                 <span className={`text-[9px] uppercase font-mono font-semibold truncate ${
                   connectionState === 'connected' 
                     ? 'text-emerald-400' 
-                    : connectionState === 'local_engine_required' 
+                    : connectionState === 'unavailable' 
                       ? 'text-amber-400' 
-                      : 'text-rose-400'
+                      : connectionState === 'checking'
+                        ? 'text-sky-400'
+                        : 'text-neutral-400'
                 }`}>
                   {connectionState === 'connected' 
-                    ? `● Connected (${engineStatus?.version || 'Live'})` 
-                    : connectionState === 'local_engine_required' 
-                      ? '○ Connector Required' 
-                      : '○ Docker Offline'}
+                    ? `● Connected (${engineStatus?.version ? `v${engineStatus.version}` : 'Live'})` 
+                    : connectionState === 'unavailable' 
+                      ? '● Not Available' 
+                      : connectionState === 'checking'
+                        ? '○ Connecting...'
+                        : '● Runtime Offline'}
                 </span>
               </div>
             </div>
           </div>
 
-          {connectionState !== 'connected' && (
-            <button
-              onClick={() => checkStatus()}
-              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-neutral-850 hover:bg-neutral-800 text-slate-300 border border-neutral-750 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3 text-sky-400" />
-              <span>Retry Auto-Detect</span>
-            </button>
-          )}
-
           {/* Navigation Tabs */}
           <div className="space-y-1">
             {tabs.map(t => {
               const Icon = t.icon;
+              const count = t.id === 'containers' ? containers.length
+                          : t.id === 'images' ? images.length
+                          : t.id === 'networks' ? networks.length
+                          : t.id === 'volumes' ? volumes.length
+                          : t.id === 'compose' ? composeProjects.length
+                          : null;
+              const isSelected = activeTab === t.id;
               return (
                 <button
                   key={t.id}
                   onClick={() => selectTab(t.id)}
-                  className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    activeTab === t.id 
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isSelected 
                       ? 'bg-sky-500/15 text-sky-400 border border-sky-500/20 shadow-xs' 
                       : 'hover:bg-neutral-900 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{t.name}</span>
+                  <div className="flex items-center space-x-2.5">
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{t.name}</span>
+                  </div>
+                  {connectionState === 'connected' && count !== null && count > 0 && (
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                      isSelected 
+                        ? 'bg-sky-500/25 text-sky-300 font-bold' 
+                        : 'bg-neutral-800 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -613,7 +637,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
             <span>{diagRunning ? 'Running Checks...' : 'Diagnostics'}</span>
           </button>
           <button
-            onClick={() => checkStatus()}
+            onClick={() => checkStatus(false)}
             disabled={loading}
             className="w-full py-2 px-3 border border-neutral-800 hover:border-neutral-700 bg-neutral-900/50 hover:bg-neutral-850 transition-colors text-slate-300 hover:text-white text-xs font-medium rounded-xl flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
           >
@@ -673,17 +697,49 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
           </div>
         )}
 
-        {/* CONDITION 1: LOCAL ENGINE REQUIRED (Hosted Production Domain) */}
-        {connectionState === 'local_engine_required' ? (
-          renderLocalEngineRequired()
-        ) : connectionState === 'disconnected' ? (
-          /* CONDITION 2: DISCONNECTED (Local Development with Stopped Daemon) */
-          renderDisconnectedState()
+        {/* CONDITION 1: RUNTIME OFFLINE */}
+        {connectionState === 'runtime_offline' ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none min-h-0">
+            <div className="max-w-md w-full flex flex-col items-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 shadow-inner">
+                <Server className="w-7 h-7 text-neutral-500" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-slate-200 font-sans">CaelumOS Runtime Offline</h3>
+                <p className="text-xs text-slate-400 font-sans max-w-sm leading-relaxed">
+                  The local system runtime is offline. Start the CaelumOS background service to connect to your local infrastructure.
+                </p>
+              </div>
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                <span>Monitoring local runtime...</span>
+              </div>
+            </div>
+          </div>
+        ) : connectionState === 'unavailable' ? (
+          /* CONDITION 2: DOCKER NOT RUNNING */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none min-h-0">
+            <div className="max-w-md w-full flex flex-col items-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 shadow-inner">
+                <Database className="w-7 h-7 text-neutral-500" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-slate-200 font-sans">Docker Engine Not Available</h3>
+                <p className="text-xs text-slate-400 font-sans max-w-sm leading-relaxed">
+                  Docker Engine was not detected on this machine. Start Docker Desktop to connect automatically.
+                </p>
+              </div>
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 animate-ping" />
+                <span>Waiting for Docker daemon...</span>
+              </div>
+            </div>
+          </div>
         ) : connectionState === 'checking' && containers.length === 0 ? (
-          /* CONDITION 3: CHECKING STATE */
+          /* CONDITION 3: INITIAL CHECKING */
           <div className="flex-1 flex items-center justify-center text-slate-400 text-xs font-mono space-x-2">
             <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
-            <span>Connecting to CaelumOS Docker Engine...</span>
+            <span>Connecting to Docker Engine...</span>
           </div>
         ) : (
           /* CONDITION 4: CONNECTED TO REAL ENGINE */
