@@ -397,6 +397,7 @@ export default function Desktop() {
     { id: 'kubernetes', name: 'Kubernetes', icon: () => <div className="w-9 h-9 bg-[#326ce5]/10 border border-[#326ce5]/20 rounded-xl flex items-center justify-center"><KubernetesLogo className="w-5.5 h-5.5" /></div> },
     { id: 'terraform', name: 'Terraform', icon: () => <div className="w-9 h-9 bg-[#844fba]/10 border border-[#844fba]/20 rounded-xl flex items-center justify-center"><TerraformLogo className="w-5.5 h-5.5" /></div> },
     { id: 'github', name: 'GitHub', icon: () => <div className="w-9 h-9 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center"><GithubLogo className="w-5.5 h-5.5" /></div> },
+    { id: 'vscode', name: 'VS Code', icon: () => <div className="w-9 h-9 bg-[#007acc]/15 border border-[#007acc]/30 rounded-xl flex items-center justify-center"><VscodeLogo className="w-6 h-6" /></div> },
     { id: 'monitoring', name: 'Grafana', icon: () => <div className="w-9 h-9 bg-[#f26522]/10 border border-[#f26522]/20 rounded-xl flex items-center justify-center text-orange-500"><GrafanaLogo className="w-5.5 h-5.5" /></div> },
     { id: 'aiassistant', name: 'AI Copilot', icon: () => <div className="w-9 h-9 bg-purple-600/10 border border-purple-500/20 rounded-xl flex items-center justify-center text-purple-400"><Sparkles className="w-5 h-5" /></div> },
     { id: 'browser', name: 'Browser', icon: () => <div className="w-9 h-9 bg-[#005af0]/10 border border-[#005af0]/20 rounded-xl flex items-center justify-center text-blue-400"><Globe className="w-5 h-5" /></div> },
@@ -564,7 +565,7 @@ export default function Desktop() {
           : 'left-2 top-9 bottom-2 w-16 bg-[#111111]/80 flex flex-col items-center py-4 justify-between'
       } ${osSettings.dockAutoHide ? 'opacity-30 hover:opacity-100 transition-opacity' : ''}`}>
         <div className={`flex items-center space-x-2 ${osSettings.dockPosition === 'bottom' ? 'flex-row' : 'flex-col space-y-2.5 space-x-0 w-full'}`}>
-          {dockItems.slice(0, 13).map(item => {
+          {dockItems.slice(0, dockItems.findIndex(i => i.id === 'settings')).map(item => {
             const win = windows.find(w => w.id === item.id);
             return (
               <div key={item.id} className="relative group flex justify-center">
@@ -588,7 +589,7 @@ export default function Desktop() {
 
         {/* Bottom / End Dock segment */}
         <div className={`flex items-center space-x-2 ${osSettings.dockPosition === 'bottom' ? 'flex-row' : 'flex-col space-y-2.5 space-x-0 w-full'}`}>
-          {dockItems.slice(13).map(item => {
+          {dockItems.slice(dockItems.findIndex(i => i.id === 'settings')).map(item => {
             const win = windows.find(w => w.id === item.id);
             return (
               <div key={item.id} className="relative group flex justify-center">
@@ -1016,6 +1017,17 @@ export default function Desktop() {
           >
             <TermIcon className="w-3.5 h-3.5 text-emerald-400" />
             <span>Open in Terminal</span>
+          </div>
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('vscode');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
+          >
+            <VscodeLogo className="w-3.5 h-3.5" />
+            <span>Open in VS Code</span>
           </div>
 
           <div className="h-px bg-neutral-800 my-1 mx-2" />
