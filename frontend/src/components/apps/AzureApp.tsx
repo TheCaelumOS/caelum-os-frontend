@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
+import { AzureLogo } from '../icons/RealBrandLogos';
 import { Cloud, RefreshCw, LayoutGrid, Server, HardDrive, AlertCircle, Key, Network, AppWindow, Database, CheckCircle, XCircle, LogOut } from 'lucide-react';
 
 interface Subscription {
@@ -277,7 +278,9 @@ export default function AzureApp({ initialSubPath = '', onPathChange }: AzureApp
       <div className="w-1/4 bg-white border-r border-slate-200 p-3 space-y-4 flex flex-col justify-between flex-shrink-0">
         <div className="space-y-1">
           <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-slate-100 mb-3">
-            <Cloud className="w-5 h-5 text-blue-600 animate-pulse" />
+            <div className="p-1 rounded-lg bg-[#0078d4]/10 border border-[#0078d4]/20 flex items-center justify-center">
+              <AzureLogo className="w-5 h-5" />
+            </div>
             <div>
               <span className="font-extrabold text-xs text-slate-800 block">Azure Console</span>
               <div className="flex items-center space-x-1 mt-0.5">

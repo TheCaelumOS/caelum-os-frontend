@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest, getSocket } from '../../lib/api';
 import { Terminal, Code2, AlertTriangle, Play, RefreshCw, CheckCircle } from 'lucide-react';
+import { TerraformLogo } from '../icons/RealBrandLogos';
 
 const DEFAULT_TF_CODE = `terraform {
   required_providers {
@@ -90,7 +91,7 @@ export default function TerraformApp() {
       <div className="w-1/2 border-r border-neutral-850 flex flex-col min-h-0 bg-[#0f0f12]">
         <div className="p-3 border-b border-neutral-850 flex items-center justify-between flex-shrink-0 bg-[#121215]">
           <div className="flex items-center space-x-1.5 text-slate-400">
-            <Code2 className="w-4 h-4 text-purple-400" />
+            <TerraformLogo className="w-4 h-4" />
             <span className="text-[10px] uppercase font-bold tracking-wider">main.tf</span>
           </div>
           <span id="tf-cli-version" className="text-[10px] text-slate-500 font-bold">

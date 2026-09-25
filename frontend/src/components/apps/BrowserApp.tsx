@@ -22,6 +22,7 @@ import {
   HardDrive,
   Network
 } from 'lucide-react';
+import { FirefoxLogo, AwsLogo, DockerLogo, KubernetesLogo, GithubLogo } from '../icons/RealBrandLogos';
 
 export interface BrowserTab {
   id: string;
@@ -332,16 +333,7 @@ export default function BrowserApp() {
               >
                 {/* Tab Icon */}
                 {tab.type === 'aws' ? (
-                  <svg viewBox="0 0 32 32" className="w-3.5 h-3.5 flex-shrink-0">
-                    <path
-                      fill="#FF9900"
-                      d="M25 21.2c-3.1 2.2-7.5 3.3-11.8 3.3-6 0-11-2.2-13.8-5.6-.4-.5 0-1.1.5-.8 4.3 2.3 9.6 3.6 15 3.6 4.4 0 9.2-.9 12.6-2.8.7-.4 1.1.3.4.8z"
-                    />
-                    <path
-                      fill="#FF9900"
-                      d="M26 19.4c-.3-.4-1.1-.1-1.5.1-.4.3-.3 1.1.1 1.4.7.4 1.5 1 1.6.4.3-.4-.9-1.5-.9-1.9z"
-                    />
-                  </svg>
+                  <AwsLogo className="w-3.5 h-3.5 flex-shrink-0" />
                 ) : tab.type === 'docs' ? (
                   <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-3.5 h-3.5 rounded object-contain flex-shrink-0" />
                 ) : tab.type === 'home' ? (
@@ -640,9 +632,10 @@ export default function BrowserApp() {
           <div className="flex-1 overflow-y-auto p-6 md:p-12 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 text-slate-800">
             <div className="max-w-xl w-full flex flex-col items-center text-center space-y-6">
               {/* Firefox / CaelumOS Logo */}
+              {/* Firefox / CaelumOS Logo */}
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-400 flex items-center justify-center shadow-lg text-white font-black text-xl">
-                  🦊
+                <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-700/60 flex items-center justify-center shadow-lg">
+                  <FirefoxLogo className="w-8 h-8" />
                 </div>
                 <div className="text-left">
                   <h1 className="text-xl font-bold text-slate-900 tracking-tight">Firefox Web Browser</h1>
@@ -678,21 +671,23 @@ export default function BrowserApp() {
                 </span>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                   {[
-                    { name: 'GitHub', url: 'https://github.com', icon: '🐙' },
+                    { name: 'GitHub', url: 'https://github.com', logo: <GithubLogo className="w-6 h-6" /> },
                     { name: 'Google', url: 'https://www.google.com', icon: '🔍' },
-                    { name: 'Kubernetes', url: 'https://kubernetes.io', icon: '☸️' },
-                    { name: 'Docker Docs', url: 'https://docs.docker.com', icon: '🐳' },
-                    { name: 'AWS Console', url: 'https://console.aws.amazon.com', icon: '☁️' },
+                    { name: 'Kubernetes', url: 'https://kubernetes.io', logo: <KubernetesLogo className="w-6 h-6" /> },
+                    { name: 'Docker Docs', url: 'https://docs.docker.com', logo: <DockerLogo className="w-6 h-6" /> },
+                    { name: 'AWS Console', url: 'https://console.aws.amazon.com', logo: <AwsLogo className="w-6 h-6" /> },
                     { name: 'Stack Overflow', url: 'https://stackoverflow.com', icon: '🥞' },
-                    { name: 'CaelumOS Docs', url: 'https://docs.caelum-os.internal/architecture/overview', icon: 'caelumos' },
+                    { name: 'CaelumOS Docs', url: 'https://docs.caelum-os.internal/architecture/overview', logo: <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6 h-6 rounded-md object-contain" /> },
                   ].map((site) => (
                     <button
                       key={site.name}
                       onClick={() => navigateCurrentTab(site.url, true)}
                       className="bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center space-y-1.5 transition shadow-xs hover:shadow-sm cursor-pointer group"
                     >
-                      {site.icon === 'caelumos' ? (
-                        <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6 h-6 rounded-md object-contain group-hover:scale-110 transition-transform" />
+                      {site.logo ? (
+                        <div className="w-6 h-6 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          {site.logo}
+                        </div>
                       ) : (
                         <span className="text-xl group-hover:scale-110 transition-transform">{site.icon}</span>
                       )}

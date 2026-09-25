@@ -36,6 +36,7 @@ import {
   Code2,
   Globe
 } from 'lucide-react';
+import { VscodeLogo, TerminalLogo, FirefoxLogo } from '../icons/RealBrandLogos';
 
 export interface FileItem {
   name: string;
@@ -803,21 +804,21 @@ export default function NautilusApp({ onOpenApp }: NautilusAppProps) {
                         onClick={() => handleOpenWithApp(contextMenu.item!, 'vscode')}
                         className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
                       >
-                        <Code2 className="w-3.5 h-3.5 text-sky-400" />
+                        <VscodeLogo className="w-3.5 h-3.5" />
                         <span>VS Code</span>
                       </div>
                       <div 
                         onClick={() => handleOpenWithApp(contextMenu.item!, 'terminal')}
                         className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
                       >
-                        <TerminalIcon className="w-3.5 h-3.5 text-emerald-400" />
+                        <TerminalLogo className="w-3.5 h-3.5" />
                         <span>Terminal</span>
                       </div>
                       <div 
                         onClick={() => handleOpenWithApp(contextMenu.item!, 'browser')}
                         className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
                       >
-                        <Globe className="w-3.5 h-3.5 text-blue-400" />
+                        <FirefoxLogo className="w-3.5 h-3.5" />
                         <span>Firefox</span>
                       </div>
                     </div>
@@ -831,7 +832,7 @@ export default function NautilusApp({ onOpenApp }: NautilusAppProps) {
                   onClick={() => handleOpenInTerminal(contextMenu.item!.path)}
                   className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
                 >
-                  <TerminalIcon className="w-3.5 h-3.5 text-emerald-400" />
+                  <TerminalLogo className="w-3.5 h-3.5" />
                   <span>Open in Terminal</span>
                 </div>
               )}
@@ -1036,7 +1037,7 @@ export default function NautilusApp({ onOpenApp }: NautilusAppProps) {
                 onClick={() => handleOpenInTerminal(currentPath)}
                 className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
               >
-                <TerminalIcon className="w-3.5 h-3.5 text-emerald-400" />
+                <TerminalLogo className="w-3.5 h-3.5" />
                 <span>Open in Terminal</span>
               </div>
 
@@ -1257,9 +1258,9 @@ export default function NautilusApp({ onOpenApp }: NautilusAppProps) {
                   </span>
                   <div className="space-y-1.5">
                     {[
-                      { id: 'vscode', name: 'Visual Studio Code', icon: Code2, desc: 'Advanced Source Code Editor' },
-                      { id: 'terminal', name: 'Caelum Terminal', icon: TerminalIcon, desc: 'System Command Line Emulator' },
-                      { id: 'browser', name: 'Firefox Web Browser', icon: Globe, desc: 'HTML & Web Inspector' }
+                      { id: 'vscode', name: 'Visual Studio Code', icon: VscodeLogo, desc: 'Advanced Source Code Editor' },
+                      { id: 'terminal', name: 'Caelum Terminal', icon: TerminalLogo, desc: 'System Command Line Emulator' },
+                      { id: 'browser', name: 'Firefox Web Browser', icon: FirefoxLogo, desc: 'HTML & Web Inspector' }
                     ].map(app => (
                       <div 
                         key={app.id}
@@ -1279,7 +1280,7 @@ export default function NautilusApp({ onOpenApp }: NautilusAppProps) {
                         }`}
                       >
                         <div className="flex items-center space-x-3">
-                          <app.icon className="w-4 h-4 text-sky-400" />
+                          <app.icon className="w-4.5 h-4.5" />
                           <div>
                             <span className="font-bold text-xs block">{app.name}</span>
                             <span className="text-[10px] text-slate-500 font-mono">{app.desc}</span>

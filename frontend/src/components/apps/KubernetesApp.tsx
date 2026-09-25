@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
+import { KubernetesLogo } from '../icons/RealBrandLogos';
 import { 
   Network, 
   RefreshCw, 
@@ -1075,7 +1076,7 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
       <div className="w-1/4 bg-[#0f0f12] border-r border-neutral-850 p-3 space-y-4 flex flex-col justify-between flex-shrink-0">
         <div className="space-y-1">
           <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-neutral-850 mb-3">
-            <Layers className="w-5 h-5 text-indigo-400" />
+            <KubernetesLogo className="w-5 h-5 flex-shrink-0" />
             <div>
               <span className="font-extrabold text-xs text-slate-200 block">K8s Engine</span>
               <span className={`text-[8px] uppercase font-bold font-mono ${error ? 'text-amber-500 font-extrabold animate-pulse' : 'text-indigo-400'}`}>

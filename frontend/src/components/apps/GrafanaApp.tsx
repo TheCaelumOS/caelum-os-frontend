@@ -50,16 +50,7 @@ import {
   CaelumObservabilityOverview,
   ConnectGrafanaPayload,
 } from '../../lib/grafanaApi';
-
-// Grafana Flame Brand Logo
-const GrafanaLogo = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg viewBox="0 0 50 50" className={className}>
-    <path
-      fill="#F26522"
-      d="M25 5C14 5 5 14 5 25s9 20 20 20 20-9 20-20S36 5 25 5zm5.5 30.5c-3 .5-6-1.5-6.5-4.5s1.5-6 4.5-6.5 6 1.5 6.5 4.5-1.5 6-4.5 6.5zm3.8-13.8c-2 2-5 1-7-1s-3-5-1-7 5-1 7 1 3 5 1 7z"
-    />
-  </svg>
-);
+import { GrafanaLogo } from '../icons/RealBrandLogos';
 
 const TIME_RANGES = [
   { label: 'Last 5m', value: 'now-5m' },

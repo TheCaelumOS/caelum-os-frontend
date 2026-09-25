@@ -42,76 +42,22 @@ import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
 import GrafanaApp from './apps/GrafanaApp';
 
-// SVGs and Brand Logos
-const TerraformLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <path fill="#844FBA" d="M1.5 0h7v7h-7zM15.5 0h7v7h-7zM8.5 7h7v7h-7zM1.5 14h7v7h-7zM15.5 14h7v7h-7z" />
-  </svg>
-);
-
-const DockerLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <path fill="#0db7ed" d="M22.3 10.05c-.34-.73-.91-1.3-1.61-1.67-.18-.1-.38-.17-.58-.23a4.23 4.23 0 0 0-.28-1.57c-.24-.55-.65-1.02-1.18-1.32-.47-.27-1.02-.38-1.55-.32-.23-.83-.73-1.54-1.42-2-.68-.45-1.5-.64-2.3-.53h-.03v1.89h.03c.53-.06 1.08.06 1.53.36.42.28.71.72.82 1.22l.06.28.28.03c.66.08 1.25.46 1.58 1.04.18.32.28.69.29 1.06v.06h1.92v-.03c0-.12.02-.24.03-.36l.01-.22zM8.99 7.62h1.61v-1.6H8.99v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm-7.02 2.34h1.61v-1.6H6.65v1.6zm2.34 0h1.61v-1.6H8.99v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm-11.7 2.34h1.61v-1.6H4.31v1.6zm2.34 0h1.61v-1.6H6.65v1.6zm2.34 0h1.61v-1.6H8.99v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm2.34 0h1.61v-1.6h-1.61v1.6zm-14.04 2.34c0 1.9 1.53 3.44 3.44 3.44h11.23c3.1 0 5.66-2.4 5.86-5.46.02-.3.17-.57.43-.73.66-.43 1.25-1.04 1.52-1.76.27-.72.11-1.5-.18-1.89-.46-.52-1.14-.82-1.81-.82-.09 0-.17.01-.26.02-.45.04-.84-.13-1.12-.48l-.51-.38-.51.38c-.28.35-.67.52-1.12.48a1.64 1.64 0 0 0-1.12.48l-.51.38v-4.3c0-.1-.08-.18-.18-.18H8.38c-.1 0-.18.08-.18.18v5.43c0 .1-.08.18-.18.18H6.41c-.1 0-.18-.08-.18-.18v-5.43c0-.1-.08-.18-.18-.18H4.44c-.1 0-.18.08-.18.18v5.43c0 .1-.08.18-.18.18H2.47c-.1 0-.18-.08-.18-.18v-3.25c0-.1-.08-.18-.18-.18H.3c-.1 0-.18.08-.18.18v1.36c0 1.9 1.53 3.44 3.44 3.44h1.76v-.06z" />
-  </svg>
-);
-
-const KubernetesLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <path fill="#326CE5" d="M12.44 2.1a1.23 1.23 0 00-.88 0L3.18 5.5a1.24 1.24 0 00-.73 1.05v9.9a1.24 1.24 0 00.73 1.05l8.38 3.4a1.23 1.23 0 00.88 0l8.38-3.4a1.24 1.24 0 00.73-1.05v-9.9a1.24 1.24 0 00-.73-1.05z" />
-    <path fill="#FFFFFF" d="M12 4.45l6.53 2.65v2.96L12 7.42zm-6.53 2.65L12 4.45v2.97L5.47 10.06zM4.65 8.9v6.2l3.4-1.38V7.52zm4.24 4.9L12 12.46l3.11 1.26v2.96L12 15.42zm4.23-1.34L19.35 8.9V13.8l-3.4 1.38zm7.34 2.74l-6.53 2.65v-2.96l6.53-2.65zm-16.92 0L12 18.06V20.7l-6.53-2.65zm6.53-5.26v2.96L5.47 12.8v-2.96z" />
-  </svg>
-);
-
-const VscodeLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <path fill="#007acc" d="M23.98 6.55L21.3 3.86c-.19-.19-.51-.19-.7 0L14.72 9.5 8.04 3.52c-.19-.19-.51-.19-.7 0L.1 10.64c-.19.19-.19.51 0 .7l2.69 2.69c.19.19.51.19.7 0l5.73-5.73 6.7 6c.19.19.51.19.7 0l7.1-7.1c.19-.2.19-.52-.04-.65z" />
-  </svg>
-);
-
-const AwsLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 32 32" className={className}>
-    <path fill="#FF9900" d="M25 21.2c-3.1 2.2-7.5 3.3-11.8 3.3-6 0-11-2.2-13.8-5.6-.4-.5 0-1.1.5-.8 4.3 2.3 9.6 3.6 15 3.6 4.4 0 9.2-.9 12.6-2.8.7-.4 1.1.3.4.8z" />
-    <path fill="#FF9900" d="M26 19.4c-.3-.4-1.1-.1-1.5.1-.4.3-.3 1.1.1 1.4.7.4 1.5 1 1.6.4.3-.4-.9-1.5-.9-1.9z" />
-  </svg>
-);
-
-const AzureLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 128 128" className={className}>
-    <path fill="#0078d4" d="M10.8 108.8L63.3 22l43.5 28.5L63.3 83.3z" />
-    <path fill="#50e6ff" d="M117.2 108.8H10.8l52.5-25.5z" />
-  </svg>
-);
-
-const GithubLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={`${className} fill-white`}>
-    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.193 22 16.44 22 12.017 22 6.484 17.522 2 12 2z" />
-  </svg>
-);
-
-const GrafanaLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 50 50" className={className}>
-    <path fill="#F26522" d="M25 5C14 5 5 14 5 25s9 20 20 20 20-9 20-20S36 5 25 5zm5.5 30.5c-3 .5-6-1.5-6.5-4.5s1.5-6 4.5-6.5 6 1.5 6.5 4.5-1.5 6-4.5 6.5zm3.8-13.8c-2 2-5 1-7-1s-3-5-1-7 5-1 7 1 3 5 1 7z" />
-  </svg>
-);
-
-const FirefoxLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <circle cx="12" cy="12" r="10" fill="#2563eb" />
-    <path fill="#ea580c" d="M12 2a10 10 0 0110 10c0 4.1-2.5 7.6-6.1 9.1-.5.2-1-.2-.8-.7a6 6 0 00.9-3.2c0-3.3-2.7-6-6-6s-6 2.7-6 6c0 1.2.3 2.3.9 3.2.2.5-.3.9-.8.7A10 10 0 012 12c0-5.5 4.5-10 10-10z" />
-  </svg>
-);
-
-const NautilusLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className}>
-    <defs>
-      <linearGradient id="folderGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#f97316" />
-        <stop offset="100%" stopColor="#c2410c" />
-      </linearGradient>
-    </defs>
-    <path fill="url(#folderGrad)" d="M2 4a2 2 0 012-2h4l2 3h10a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" />
-  </svg>
-);
+import {
+  DockerLogo,
+  KubernetesLogo,
+  GrafanaLogo,
+  VscodeLogo,
+  AwsLogo,
+  AzureLogo,
+  TerraformLogo,
+  GithubLogo,
+  FirefoxLogo,
+  NautilusLogo,
+  TerminalLogo,
+  DashboardLogo,
+  AiAssistantLogo,
+  SettingsLogo,
+} from './icons/RealBrandLogos';
 
 interface AppWindow {
   id: string;
@@ -387,23 +333,159 @@ export default function Desktop() {
 
   // Left Ubuntu-style Dock Order
   const dockItems = [
-    { id: 'launcher', name: 'Dashboard', icon: () => <div className="w-9 h-9 bg-[#321768]/80 border border-purple-500/30 rounded-xl flex items-center justify-center overflow-hidden shadow-xs hover:scale-105 transition-transform"><img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6.5 h-6.5 object-contain" /></div> },
-    { id: 'terminal', name: 'Terminal', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-emerald-400"><TermIcon className="w-5 h-5" /></div> },
-    { id: 'nautilus', name: 'Files', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-orange-400"><FolderIcon className="w-5 h-5" /></div> },
-    { id: 'dashboard', name: 'Deploy', icon: () => <div className="w-9 h-9 bg-purple-950/60 border border-purple-500/35 rounded-xl flex items-center justify-center text-purple-300"><ShieldCheck className="w-5 h-5" /></div> },
-    { id: 'aws', name: 'AWS', icon: () => <div className="w-9 h-9 bg-[#232f3e] border border-white/5 rounded-xl flex items-center justify-center"><AwsLogo className="w-6.5 h-6.5" /></div> },
-    { id: 'azure', name: 'Azure', icon: () => <div className="w-9 h-9 bg-[#0078d4]/10 border border-[#0078d4]/20 rounded-xl flex items-center justify-center"><AzureLogo className="w-5.5 h-5.5" /></div> },
-    { id: 'docker', name: 'Docker', icon: () => <div className="w-9 h-9 bg-[#0db7ed]/10 border border-[#0db7ed]/20 rounded-xl flex items-center justify-center"><DockerLogo className="w-6 h-6" /></div> },
-    { id: 'kubernetes', name: 'Kubernetes', icon: () => <div className="w-9 h-9 bg-[#326ce5]/10 border border-[#326ce5]/20 rounded-xl flex items-center justify-center"><KubernetesLogo className="w-5.5 h-5.5" /></div> },
-    { id: 'terraform', name: 'Terraform', icon: () => <div className="w-9 h-9 bg-[#844fba]/10 border border-[#844fba]/20 rounded-xl flex items-center justify-center"><TerraformLogo className="w-5.5 h-5.5" /></div> },
-    { id: 'github', name: 'GitHub', icon: () => <div className="w-9 h-9 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center"><GithubLogo className="w-5.5 h-5.5" /></div> },
-    { id: 'vscode', name: 'VS Code', icon: () => <div className="w-9 h-9 bg-[#007acc]/15 border border-[#007acc]/30 rounded-xl flex items-center justify-center"><VscodeLogo className="w-6 h-6" /></div> },
-    { id: 'monitoring', name: 'Grafana', icon: () => <div className="w-9 h-9 bg-[#f26522]/10 border border-[#f26522]/20 rounded-xl flex items-center justify-center text-orange-500"><GrafanaLogo className="w-5.5 h-5.5" /></div> },
-    { id: 'aiassistant', name: 'AI Copilot', icon: () => <div className="w-9 h-9 bg-purple-600/10 border border-purple-500/20 rounded-xl flex items-center justify-center text-purple-400"><Sparkles className="w-5 h-5" /></div> },
-    { id: 'browser', name: 'Browser', icon: () => <div className="w-9 h-9 bg-[#005af0]/10 border border-[#005af0]/20 rounded-xl flex items-center justify-center text-blue-400"><Globe className="w-5 h-5" /></div> },
-    { id: 'settings', name: 'Settings', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-slate-400"><SettingsIcon className="w-5 h-5" /></div> },
-    { id: 'profile', name: 'Profile', icon: () => <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-slate-450"><User className="w-5 h-5" /></div> },
-    { id: 'logout', name: 'Power / Logout', icon: () => <div className="w-9 h-9 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center text-red-500"><Power className="w-4.5 h-4.5" /></div> }
+    { 
+      id: 'launcher', 
+      name: 'Dashboard', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#321768]/80 border border-purple-500/30 rounded-xl flex items-center justify-center overflow-hidden shadow-xs hover:scale-105 transition-transform">
+          <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6.5 h-6.5 object-contain" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'terminal', 
+      name: 'Terminal', 
+      icon: () => (
+        <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <TerminalLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'nautilus', 
+      name: 'Files', 
+      icon: () => (
+        <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <NautilusLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'dashboard', 
+      name: 'Deploy', 
+      icon: () => (
+        <div className="w-9 h-9 bg-purple-950/60 border border-purple-500/35 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <DashboardLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'aws', 
+      name: 'AWS', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#232f3e] border border-white/10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <AwsLogo className="w-6.5 h-6.5" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'azure', 
+      name: 'Azure', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#0078d4]/15 border border-[#0078d4]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <AzureLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'docker', 
+      name: 'Docker', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#0db7ed]/15 border border-[#0db7ed]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <DockerLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'kubernetes', 
+      name: 'Kubernetes', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#326ce5]/15 border border-[#326ce5]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <KubernetesLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'terraform', 
+      name: 'Terraform', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#844fba]/15 border border-[#844fba]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <TerraformLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'github', 
+      name: 'GitHub', 
+      icon: () => (
+        <div className="w-9 h-9 bg-white/10 border border-white/15 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <GithubLogo className="w-5.5 h-5.5" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'vscode', 
+      name: 'VS Code', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#007acc]/15 border border-[#007acc]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <VscodeLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'monitoring', 
+      name: 'Grafana', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#f26522]/15 border border-[#f26522]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <GrafanaLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'aiassistant', 
+      name: 'AI Copilot', 
+      icon: () => (
+        <div className="w-9 h-9 bg-purple-600/15 border border-purple-500/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <AiAssistantLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'browser', 
+      name: 'Browser', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#005af0]/15 border border-[#005af0]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <FirefoxLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'settings', 
+      name: 'Settings', 
+      icon: () => (
+        <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <SettingsLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'profile', 
+      name: 'Profile', 
+      icon: () => (
+        <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center text-slate-350 hover:scale-105 transition-transform shadow-xs">
+          <User className="w-5 h-5" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'logout', 
+      name: 'Power / Logout', 
+      icon: () => (
+        <div className="w-9 h-9 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center text-red-500 hover:scale-105 transition-transform shadow-xs">
+          <Power className="w-4.5 h-4.5" />
+        </div>
+      ) 
+    }
   ];
 
   const handleDockItemClick = (id: string) => {
@@ -623,6 +705,7 @@ export default function Desktop() {
             <WindowFrame
               id="terminal"
               title="linux@caelum-os:~ (Terminal)"
+              icon={<TerminalLogo className="w-4 h-4" />}
               isOpen={windows.find(w => w.id === 'terminal')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'terminal')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'terminal')?.isMaximized || false}
@@ -644,6 +727,7 @@ export default function Desktop() {
             <WindowFrame
               id="nautilus"
               title="Files (Nautilus Manager)"
+              icon={<NautilusLogo className="w-4 h-4" />}
               isOpen={windows.find(w => w.id === 'nautilus')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'nautilus')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'nautilus')?.isMaximized || false}
@@ -665,6 +749,7 @@ export default function Desktop() {
             <WindowFrame
               id="dashboard"
               title="Deploy Summary Dashboard"
+              icon={<DashboardLogo className="w-4 h-4" />}
               isOpen={windows.find(w => w.id === 'dashboard')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'dashboard')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'dashboard')?.isMaximized || false}
@@ -686,6 +771,7 @@ export default function Desktop() {
             <WindowFrame
               id="aws"
               title="AWS Cloud Console"
+              icon={<AwsLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'aws')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'aws')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'aws')?.isMaximized || false}
@@ -710,6 +796,7 @@ export default function Desktop() {
             <WindowFrame
               id="azure"
               title="Azure Cloud Console"
+              icon={<AzureLogo className="w-4 h-4" />}
               isOpen={windows.find(w => w.id === 'azure')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'azure')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'azure')?.isMaximized || false}
@@ -734,6 +821,7 @@ export default function Desktop() {
             <WindowFrame
               id="docker"
               title="Docker Containerizer"
+              icon={<DockerLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'docker')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'docker')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'docker')?.isMaximized || false}
@@ -758,6 +846,7 @@ export default function Desktop() {
             <WindowFrame
               id="kubernetes"
               title="Kubernetes Orchestrator"
+              icon={<KubernetesLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'kubernetes')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'kubernetes')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'kubernetes')?.isMaximized || false}
@@ -782,6 +871,7 @@ export default function Desktop() {
             <WindowFrame
               id="monitoring"
               title="Grafana Observability"
+              icon={<GrafanaLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'monitoring')?.isOpen || windows.find(w => w.id === 'grafana')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'monitoring')?.isMinimized || windows.find(w => w.id === 'grafana')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'monitoring')?.isMaximized || windows.find(w => w.id === 'grafana')?.isMaximized || false}
@@ -803,6 +893,7 @@ export default function Desktop() {
             <WindowFrame
               id="aiassistant"
               title="AI Assistant Co-Pilot"
+              icon={<AiAssistantLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'aiassistant')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'aiassistant')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'aiassistant')?.isMaximized || false}
@@ -824,6 +915,7 @@ export default function Desktop() {
             <WindowFrame
               id="github"
               title="GitHub Workspace"
+              icon={<GithubLogo className="w-4 h-4" />}
               isOpen={windows.find(w => w.id === 'github')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'github')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'github')?.isMaximized || false}
@@ -845,6 +937,7 @@ export default function Desktop() {
             <WindowFrame
               id="vscode"
               title="VS Code Editor"
+              icon={<VscodeLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'vscode')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'vscode')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'vscode')?.isMaximized || false}
@@ -866,6 +959,7 @@ export default function Desktop() {
             <WindowFrame
               id="browser"
               title="Firefox Web Browser"
+              icon={<FirefoxLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'browser')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'browser')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'browser')?.isMaximized || false}
@@ -887,6 +981,7 @@ export default function Desktop() {
             <WindowFrame
               id="terraform"
               title="Terraform Provisioner"
+              icon={<TerraformLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'terraform')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'terraform')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'terraform')?.isMaximized || false}
@@ -908,6 +1003,7 @@ export default function Desktop() {
             <WindowFrame
               id="settings"
               title="Settings"
+              icon={<SettingsLogo className="w-4.5 h-4.5" />}
               isOpen={windows.find(w => w.id === 'settings')?.isOpen || false}
               isMinimized={windows.find(w => w.id === 'settings')?.isMinimized || false}
               isMaximized={windows.find(w => w.id === 'settings')?.isMaximized || false}
@@ -1004,7 +1100,7 @@ export default function Desktop() {
             }}
             className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
           >
-            <FolderIcon className="w-3.5 h-3.5 text-sky-400" />
+            <NautilusLogo className="w-3.5 h-3.5" />
             <span>Open in Files</span>
           </div>
 
@@ -1015,7 +1111,7 @@ export default function Desktop() {
             }}
             className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
           >
-            <TermIcon className="w-3.5 h-3.5 text-emerald-400" />
+            <TerminalLogo className="w-3.5 h-3.5" />
             <span>Open in Terminal</span>
           </div>
 
@@ -1063,7 +1159,7 @@ export default function Desktop() {
             }}
             className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer"
           >
-            <SettingsIcon className="w-3.5 h-3.5 text-slate-400" />
+            <SettingsLogo className="w-3.5 h-3.5" />
             <span>Settings</span>
           </div>
         </div>

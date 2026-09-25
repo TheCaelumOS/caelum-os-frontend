@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../../lib/api';
 import { getDockerEnvironment } from '../../lib/dockerEnvironment';
+import { DockerLogo } from '../icons/RealBrandLogos';
 import { 
   Play, 
   Square, 
@@ -581,8 +582,8 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         <div className="space-y-2">
           {/* Header Brand */}
           <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-neutral-850 mb-2">
-            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              <Database className="w-4 h-4" />
+            <div className="p-1 rounded-lg bg-sky-500/10 border border-sky-500/20">
+              <DockerLogo className="w-5 h-5" />
             </div>
             <div className="truncate">
               <span className="font-extrabold text-xs text-slate-200 block truncate">Docker Engine</span>

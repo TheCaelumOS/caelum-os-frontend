@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
+import { AwsLogo } from '../icons/RealBrandLogos';
 import { Cloud, RefreshCw, Folder, Server, Database, Play, AlertCircle, ShieldAlert, Cpu, HardDrive, Network, Key, Landmark, Activity, CreditCard, LogOut, CheckCircle } from 'lucide-react';
 
 interface Bucket {
@@ -274,7 +275,9 @@ export default function AwsApp({ initialSubPath = '', onPathChange }: AwsAppProp
       <div className="w-1/4 bg-white border-r border-slate-200 p-3 space-y-4 flex flex-col justify-between flex-shrink-0">
         <div className="space-y-1">
           <div className="flex items-center space-x-2.5 px-3 py-2 border-b border-slate-100 mb-3">
-            <Cloud className="w-5 h-5 text-amber-500 animate-pulse" />
+            <div className="p-1 rounded-lg bg-[#232f3e] flex items-center justify-center">
+              <AwsLogo className="w-5 h-5" />
+            </div>
             <div>
               <span className="font-extrabold text-xs text-slate-800 block">AWS Console</span>
               <div className="flex items-center space-x-1 mt-0.5">

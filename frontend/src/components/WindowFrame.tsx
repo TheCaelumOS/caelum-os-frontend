@@ -7,6 +7,7 @@ import { X, Minus, Square, Shrink } from 'lucide-react';
 interface WindowFrameProps {
   id: string;
   title: string;
+  icon?: React.ReactNode;
   isOpen: boolean;
   isMinimized: boolean;
   isMaximized: boolean;
@@ -24,6 +25,7 @@ interface WindowFrameProps {
 export default function WindowFrame({
   id,
   title,
+  icon,
   isOpen,
   isMinimized,
   isMaximized,
@@ -171,14 +173,13 @@ export default function WindowFrame({
         }}
         className={`h-9 px-4 flex items-center justify-between select-none cursor-move ${headerBg}`}
       >
-        <div className="w-16 flex items-center space-x-1.5 opacity-60">
-          {/* Decorative items */}
+        {/* Window Icon & Title */}
+        <div className="flex items-center space-x-2 truncate flex-1 mr-4">
+          {icon && <div className="flex-shrink-0 flex items-center justify-center">{icon}</div>}
+          <span className={`text-xs font-bold font-sans tracking-wide truncate ${headerText}`}>
+            {title}
+          </span>
         </div>
-
-        {/* Center: Window Title */}
-        <span className={`text-xs font-bold font-sans tracking-wide ${headerText}`}>
-          {title}
-        </span>
 
         {/* Right: Window Controls */}
         <div className="flex items-center space-x-2">
