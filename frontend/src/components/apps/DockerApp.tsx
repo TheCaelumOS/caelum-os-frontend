@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../../lib/api';
 import { getDockerEnvironment } from '../../lib/dockerEnvironment';
+import LocalConnectorModal from '../LocalConnectorModal';
+import { checkLocalConnectorHealth } from '../../lib/localConnector';
 import { 
   Play, 
   Square, 
@@ -76,6 +78,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   const [error, setError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [showConnectorModal, setShowConnectorModal] = useState<boolean>(false);
 
   // Connection and Environment State
   const [connectionState, setConnectionState] = useState<DockerConnectionState>('checking');
@@ -114,27 +117,24 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
   ];
 
   /**
-   * Environment-aware engine status check.
-   * If running in production (hosted domain e.g. caleum.me) without a remote agent:
-   * Transitions immediately to 'local_engine_required' with zero network attempts to localhost.
-   * If running in local development:
-   * Connects to the local backend on port 4000 to query the real host Docker Engine.
+   * Local Infrastructure Connector status check.
+   * Probes http://127.0.0.1:48721/health directly on user's machine.
+   * If running, retrieves the user's real local Docker containers and status.
+   * If stopped, provides clear instructions and modal to launch the local connector.
    */
   const checkStatus = async () => {
     setLoading(true);
     setError(null);
     setDiagResult(null);
 
-    const env = getDockerEnvironment();
-
-    // 1. Production hosted environment check
-    if (!env.isLocalAccessAllowed && !env.isRemoteBackendConfigured) {
+    // 1. Probe the Local Infrastructure Connector on 127.0.0.1:48721
+    const health = await checkLocalConnectorHealth();
+    if (!health) {
       setConnectionState('local_engine_required');
       setEngineStatus({
         connected: false,
-        error: 'Local Docker access is unavailable from the hosted website.'
+        error: 'Local CaelumOS Connector is not running.'
       });
-      // Ensure zero local or mock data is populated
       setContainers([]);
       setImages([]);
       setNetworks([]);
@@ -148,7 +148,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
       return;
     }
 
-    // 2. Local development: connect to real host Docker Engine
+    // 2. Connector is active! Query local Docker daemon
     try {
       setConnectionState('checking');
       const data = await apiRequest('/docker/health');
@@ -161,8 +161,8 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         setConnectionState('disconnected');
         setEngineStatus({
           connected: false,
-          version: data?.version || '',
-          error: data?.error || 'Docker daemon is stopped or unreachable.'
+          version: data?.version || health.dockerVersion || '',
+          error: data?.error || 'Docker Desktop is not running.'
         });
         setContainers([]);
         setImages([]);
@@ -176,7 +176,7 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
       setConnectionState('disconnected');
       setEngineStatus({ 
         connected: false, 
-        error: err?.message || 'Local CaelumOS runtime is not connected or Docker Desktop is stopped.' 
+        error: err?.message || 'Docker Desktop is not running. Please start Docker Desktop.' 
       });
       setContainers([]);
       setImages([]);
@@ -458,86 +458,58 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
 
   const selectedContainer = containers.find(item => item.id === selectedId);
 
-  // Render the Professional "LOCAL ENGINE REQUIRED" view for hosted production
+  // Render the Professional Local Connector Required view
   const renderLocalEngineRequired = () => (
     <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-text min-h-0 overflow-y-auto">
       <div className="max-w-md w-full bg-[#0f0f12] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
           <Database className="w-7 h-7" />
         </div>
         
         <div className="space-y-2">
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            <span>LOCAL ENGINE REQUIRED</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span>○ Local CaelumOS Connector Disconnected</span>
           </div>
-          <h3 className="text-base font-extrabold text-slate-100 font-sans">Docker Engine</h3>
+          <h3 className="text-base font-extrabold text-slate-100 font-sans">Local CaelumOS Connector is not running.</h3>
           <p className="text-xs text-slate-400 leading-relaxed font-sans">
-            CaelumOS Docker integration is available when running the local CaelumOS environment.
+            Connect CaelumOS directly to your local computer&apos;s Docker Desktop without sending credentials to the cloud.
           </p>
         </div>
 
         <div className="bg-black/40 border border-neutral-850 rounded-xl p-4 text-left space-y-2.5">
           <span className="text-[11px] font-bold text-slate-300 font-mono block">
-            Connect the local CaelumOS runtime to access:
+            Start the connector to manage local containers:
           </span>
-          <ul className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-400">
-            <li className="flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Containers</span>
-            </li>
-            <li className="flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Images</span>
-            </li>
-            <li className="flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Networks</span>
-            </li>
-            <li className="flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Volumes</span>
-            </li>
-            <li className="flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Compose</span>
-            </li>
-            <li className="flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Container logs</span>
-            </li>
-            <li className="col-span-2 flex items-center space-x-2">
-              <span className="text-sky-400 font-bold">•</span>
-              <span>Docker diagnostics</span>
-            </li>
-          </ul>
+          <div className="p-2.5 bg-neutral-900 rounded-lg border border-neutral-800 font-mono text-[11px] text-purple-300 select-all">
+            .\start-connector.bat
+          </div>
+          <p className="text-[10px] text-slate-400 font-mono">
+            Binds securely to 127.0.0.1:48721 with zero cloud exposure.
+          </p>
         </div>
 
         <div className="pt-1 flex flex-col sm:flex-row gap-2.5 justify-center">
-          <a
-            href="/download"
-            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors shadow-xs group"
+          <button
+            onClick={() => setShowConnectorModal(true)}
+            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors shadow-xs group cursor-pointer"
           >
-            <span>Get CaelumOS Runtime</span>
+            <span>Install / Start Local Connector</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </a>
+          </button>
           <button
             onClick={() => checkStatus()}
             className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-neutral-700 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Check Host</span>
+            <span>Retry Connection</span>
           </button>
         </div>
-
-        <p className="text-[10px] text-slate-500 font-mono">
-          Hosted website on caleum.me does not have direct access to local host daemons.
-        </p>
       </div>
     </div>
   );
 
-  // Render Disconnected State when in local development but daemon is stopped
+  // Render Disconnected State when local connector is running but Docker Desktop is stopped
   const renderDisconnectedState = () => (
     <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center select-text min-h-0 overflow-y-auto">
       <div className="max-w-md w-full bg-[#0f0f12] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-5 shadow-xl">
@@ -547,29 +519,36 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
         
         <div className="space-y-1.5">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-            Connection Unavailable
+            ● Local Connector Active &bull; Docker Desktop Offline
           </span>
-          <h3 className="text-base font-bold text-slate-100 font-sans mt-2">Docker Engine Offline</h3>
+          <h3 className="text-base font-bold text-slate-100 font-sans mt-2">Docker Desktop is not running.</h3>
           <p className="text-xs text-slate-400 font-sans leading-relaxed">
-            Local CaelumOS runtime is connected, but the Docker Engine daemon is stopped or unreachable.
+            The CaelumOS local connector is running on 127.0.0.1:48721, but Docker Desktop is stopped.
           </p>
         </div>
 
         <div className="p-3.5 bg-black/40 rounded-xl border border-neutral-850 text-left text-[11px] font-mono text-slate-400 space-y-1.5">
-          <p className="text-slate-300 font-semibold">Troubleshooting Steps:</p>
-          <p>1. Start Docker Desktop on Windows/Linux host.</p>
-          <p>2. Verify daemon responds with <code className="text-sky-400">docker ps</code> in terminal.</p>
-          <p>3. Click "Refresh Engine" below to reconnect.</p>
+          <p className="text-slate-300 font-semibold">To connect:</p>
+          <p>1. Open and start Docker Desktop on your computer.</p>
+          <p>2. Wait until Docker Desktop shows "Engine Running".</p>
+          <p>3. Click the Refresh button below.</p>
         </div>
 
-        <button
-          onClick={() => checkStatus()}
-          disabled={loading}
-          className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>{loading ? 'Reconnecting...' : 'Refresh Engine'}</span>
-        </button>
+        <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
+          <button
+            onClick={() => checkStatus()}
+            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh Docker Status</span>
+          </button>
+          <button
+            onClick={() => setShowConnectorModal(true)}
+            className="inline-flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors border border-neutral-700 cursor-pointer"
+          >
+            <span>Connector Key</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -602,14 +581,23 @@ export default function DockerApp({ initialSubPath = '', onPathChange }: DockerA
                       : 'text-rose-400'
                 }`}>
                   {connectionState === 'connected' 
-                    ? `Live (${engineStatus?.version || 'v29.6+'})` 
+                    ? `● Connected (${engineStatus?.version || 'Live'})` 
                     : connectionState === 'local_engine_required' 
-                      ? 'Local Engine Required' 
-                      : 'Disconnected'}
+                      ? '○ Connector Required' 
+                      : '○ Docker Offline'}
                 </span>
               </div>
             </div>
           </div>
+
+          {connectionState !== 'connected' && (
+            <button
+              onClick={() => setShowConnectorModal(true)}
+              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
+            >
+              <span>Connect Local Docker</span>
+            </button>
+          )}
 
           {/* Navigation Tabs */}
           <div className="space-y-1">
@@ -1173,6 +1161,12 @@ volumes:
         )}
 
       </div>
+
+      <LocalConnectorModal
+        isOpen={showConnectorModal}
+        onClose={() => setShowConnectorModal(false)}
+        onConnected={() => checkStatus()}
+      />
     </div>
   );
 }

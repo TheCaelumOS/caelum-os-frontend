@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../lib/api';
+import LocalConnectorModal from '../LocalConnectorModal';
+import { checkLocalConnectorHealth } from '../../lib/localConnector';
 import { 
   Network, 
   RefreshCw, 
@@ -140,6 +142,7 @@ interface StatefulSetDetails {
 interface ClusterSummary {
   connected: boolean;
   context?: string;
+  currentContext?: string;
   server?: string;
   version?: string;
   status?: string;
@@ -326,6 +329,7 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showConnectorModal, setShowConnectorModal] = useState<boolean>(false);
 
   // Tabs mapping
   const [activeTab, setActiveTab] = useState<string>(initialSubPath || 'pods');
@@ -413,9 +417,28 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
     setLoading(true);
     setError(null);
     try {
+      // 1. Probe the Local Infrastructure Connector on 127.0.0.1:48721
+      const health = await checkLocalConnectorHealth();
+      if (!health) {
+        setError('Local CaelumOS Connector is not running. Please start the connector on your machine to manage your local cluster.');
+        setClusterInfo(null);
+        setNamespaces([]);
+        setNodes([]);
+        setPods([]);
+        setDeployments([]);
+        setStatefulSets([]);
+        setServices([]);
+        setSecrets([]);
+        setIngresses([]);
+        setEvents([]);
+        setConfigMaps([]);
+        return;
+      }
+
+      // 2. Connector is active! Query local Kubernetes cluster
       const summary: ClusterSummary = await apiRequest('/kubernetes/cluster-info');
       if (!summary || !summary.connected) {
-        setError(summary?.error || 'Kubernetes cluster connection unavailable. Ensure minikube or local cluster is running.');
+        setError(summary?.error || 'Kubernetes cluster is offline. Ensure Minikube / Kind / Docker Desktop K8s is running with a valid context.');
         setClusterInfo(summary || null);
         setNamespaces([]);
         setNodes([]);
@@ -450,7 +473,7 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
       await fetchNamespacedResources(nextNs);
     } catch (e: any) {
       console.warn('Kubernetes cluster unreachable:', e);
-      setError('Kubernetes cluster connection unavailable. Ensure minikube or local cluster is running.');
+      setError(e?.message?.includes('Connector') ? e.message : 'Kubernetes cluster connection unavailable. Ensure Minikube or local cluster is running.');
       setClusterInfo(null);
       setNamespaces([]);
       setNodes([]);
@@ -1079,10 +1102,18 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
             <div>
               <span className="font-extrabold text-xs text-slate-200 block">K8s Engine</span>
               <span className={`text-[8px] uppercase font-bold font-mono ${error ? 'text-amber-500 font-extrabold animate-pulse' : 'text-indigo-400'}`}>
-                {error ? 'Cluster Offline' : `Status: ${clusterInfo?.status || 'Ready'}`}
+                {error ? (error.includes('Connector') ? '○ Connector Offline' : '○ Cluster Offline') : `● ${clusterInfo?.currentContext || clusterInfo?.status || 'Connected'}`}
               </span>
             </div>
           </div>
+          {error && (
+            <button
+              onClick={() => setShowConnectorModal(true)}
+              className="w-full mb-2 py-1.5 px-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
+            >
+              <span>Connect Local K8s</span>
+            </button>
+          )}
           {/* Active Namespace Status in Sidebar */}
           <div className="px-3 py-1.5 mb-2.5 rounded-xl bg-neutral-900/60 border border-neutral-850 flex items-center justify-between text-[10px] font-mono">
             <span className="text-slate-500">Namespace:</span>
@@ -1121,14 +1152,22 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
           <div className="mb-4 p-3 bg-amber-950/20 border border-amber-500/20 rounded-2xl flex items-center justify-between text-xs text-amber-400 shadow-sm font-sans">
             <div className="flex items-center space-x-2.5">
               <AlertCircle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-              <span className="font-semibold text-amber-300">Kubernetes cluster unreachable. Ensure minikube or your local Kubernetes cluster is running with a valid kubectl context.</span>
+              <span className="font-semibold text-amber-300">{error}</span>
             </div>
-            <button 
-              onClick={fetchClusterInfo}
-              className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-amber-500/30"
-            >
-              Retry
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setShowConnectorModal(true)}
+                className="px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-indigo-500/30"
+              >
+                Install / Start Connector
+              </button>
+              <button 
+                onClick={fetchClusterInfo}
+                className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-bold rounded-lg cursor-pointer transition-all border border-amber-500/30"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
 
@@ -3102,6 +3141,15 @@ export default function KubernetesApp({ initialSubPath = '', onPathChange }: Kub
           </div>
         </div>
       )}
+
+      {/* Local Connector Pairing Modal */}
+      <LocalConnectorModal
+        isOpen={showConnectorModal}
+        onClose={() => setShowConnectorModal(false)}
+        onConnected={() => {
+          fetchClusterInfo();
+        }}
+      />
     </div>
   );
 }

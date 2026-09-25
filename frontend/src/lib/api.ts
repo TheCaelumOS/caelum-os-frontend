@@ -1,4 +1,5 @@
 import { isDockerLocalAccessAllowed, isRemoteDockerBackendConfigured } from './dockerEnvironment';
+import { localConnectorRequest } from './localConnector';
 
 export const API_BASE = (() => {
   if (process.env.NEXT_PUBLIC_REMOTE_DOCKER_AGENT_URL) {
@@ -94,6 +95,13 @@ export async function ensureAuthenticated(force = false) {
 
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   if (typeof window === 'undefined') return null;
+
+  // Direct Local Infrastructure Routing:
+  // All Docker and Kubernetes operations execute against the user's own local connector on loopback.
+  // Never routes local infrastructure operations through the cloud backend.
+  if (endpoint.startsWith('/docker') || endpoint.startsWith('/kubernetes')) {
+    return await localConnectorRequest(endpoint, options);
+  }
 
   let token = typeof window !== 'undefined' ? (localStorage.getItem('caelum_token') || '') : '';
   if (!token && !endpoint.startsWith('/github/')) {

@@ -1,0 +1,24 @@
+{
+  "name": "caelum-local-connector",
+  "version": "1.0.0",
+  "description": "CaelumOS Local Infrastructure Connector - Bridges https://caleum.me/os to local Docker and Kubernetes",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "bin": {
+    "caelum-connector": "bin/connector.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "caelum",
+    "caelum-os",
+    "docker",
+    "kubernetes",
+    "connector",
+    "infrastructure"
+  ],
+  "author": "TheCaelumOS Team",
+  "license": "Apache-2.0"
+}
