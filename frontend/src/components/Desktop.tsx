@@ -42,6 +42,7 @@ import AiAssistantApp from './apps/AiAssistantApp';
 import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
 import GrafanaApp from './apps/GrafanaApp';
+import TaskManagerApp from './apps/TaskManagerApp';
 import LockScreen from './LockScreen';
 import { AuthUser, getStoredUser, clearStoredAuth, ensureAuthenticated } from '../lib/api';
 
@@ -74,7 +75,11 @@ interface AppWindow {
   height: number;
 }
 
-export default function Desktop() {
+interface DesktopProps {
+  initialApp?: string;
+}
+
+export default function Desktop({ initialApp }: DesktopProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -210,6 +215,7 @@ export default function Desktop() {
     { id: 'browser', title: 'Firefox Web Browser', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'light', width: 850, height: 520 },
     { id: 'terraform', title: 'Terraform Provisioner', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 840, height: 520 },
     { id: 'settings', title: 'Settings', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 920, height: 580 },
+    { id: 'taskmanager', title: 'Task Manager (CaelumOS)', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 840, height: 540 },
   ]);
 
   const [topZIndex, setTopZIndex] = useState(11);
@@ -240,18 +246,20 @@ export default function Desktop() {
     });
   };
 
-  // Sync route path to Window opening state on mount
+  // Sync route path or initialApp to Window opening state on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const path = window.location.pathname;
-    if (!path || path === '/' || path === '/os') return;
-    const parts = path.split('/').filter(p => p && p !== 'os');
-    const mainApp = parts[0];
+    const parts = (path && path !== '/' && path !== '/os') 
+      ? path.split('/').filter(p => p && p !== 'os') 
+      : [];
+    const mainApp = parts[0] || '';
     const subpath = parts[1] || '';
+    const targetApp = initialApp || mainApp;
 
-    if (windows.some(w => w.id === mainApp)) {
+    if (targetApp && windows.some(w => w.id === targetApp)) {
       setWindows(prev => prev.map(w => {
-        if (w.id === mainApp) {
+        if (w.id === targetApp) {
           const nextZ = topZIndex + 1;
           setTopZIndex(nextZ);
           return { ...w, isOpen: true, isMinimized: false, zIndex: nextZ };
@@ -262,11 +270,11 @@ export default function Desktop() {
       if (subpath) {
         setActiveSubPaths(prev => ({
           ...prev,
-          [mainApp]: subpath
+          [targetApp]: subpath
         }));
       }
     }
-  }, []);
+  }, [initialApp]);
 
   // Sync browser popstate (back/forward) events
   useEffect(() => {
@@ -545,6 +553,15 @@ export default function Desktop() {
       icon: () => (
         <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
           <SettingsLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'taskmanager', 
+      name: 'Task Manager', 
+      icon: () => (
+        <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <Activity className="w-5.5 h-5.5 text-emerald-400" />
         </div>
       ) 
     },
@@ -1124,6 +1141,40 @@ export default function Desktop() {
               />
             </WindowFrame>
           )}
+
+          {/* Task Manager Application */}
+          {windows.find(w => w.id === 'taskmanager')?.isOpen && (
+            <WindowFrame
+              id="taskmanager"
+              title="Task Manager (CaelumOS)"
+              icon={<Activity className="w-4.5 h-4.5 text-emerald-400" />}
+              isOpen={windows.find(w => w.id === 'taskmanager')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'taskmanager')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'taskmanager')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'taskmanager')?.zIndex || 10}
+              onClose={() => closeWindow('taskmanager')}
+              onMinimize={() => toggleWindowMinimize('taskmanager')}
+              onMaximize={() => toggleWindowMaximize('taskmanager')}
+              onFocus={() => focusWindow('taskmanager')}
+              theme="dark"
+              defaultWidth={840}
+              defaultHeight={540}
+            >
+              <TaskManagerApp 
+                windows={windows}
+                topZIndex={topZIndex}
+                onFocusWindow={focusWindow}
+                onMinimizeWindow={toggleWindowMinimize}
+                onRestoreWindow={(id) => {
+                  const win = windows.find(w => w.id === id);
+                  if (win?.isMinimized) toggleWindowMinimize(id);
+                  focusWindow(id);
+                }}
+                onCloseWindow={closeWindow}
+                onOpenApp={openApp}
+              />
+            </WindowFrame>
+          )}
         </div>
       </div>
 
@@ -1253,6 +1304,17 @@ export default function Desktop() {
           </div>
 
           <div className="h-px bg-neutral-800 my-1 mx-2" />
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('taskmanager');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer text-emerald-400 font-semibold"
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Task Manager</span>
+          </div>
 
           <div 
             onClick={() => {

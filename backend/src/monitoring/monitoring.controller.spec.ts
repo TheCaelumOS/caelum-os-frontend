@@ -19,6 +19,7 @@ describe('MonitoringController', () => {
             getNetworkStats: jest.fn().mockResolvedValue({ interfaces: [] }),
             getStorageStats: jest.fn().mockResolvedValue({ volumes: [] }),
             getProcessesStats: jest.fn().mockResolvedValue({ running: 5, list: [] }),
+            getMetrics: jest.fn().mockResolvedValue({ cpu: { load: 20 }, memory: { percentage: 50 } }),
           },
         },
       ],

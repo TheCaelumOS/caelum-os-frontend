@@ -51,4 +51,11 @@ export class MonitoringController {
   getProcessesStats() {
     return this.monitoringService.getProcessesStats();
   }
+
+  @Get('metrics')
+  @ApiOperation({ summary: 'Get unified host system telemetry metrics (CPU, Memory, Disk, Network, Uptime)' })
+  @ApiResponse({ status: 200, description: 'Unified system metrics fetched successfully.' })
+  getMetrics() {
+    return this.monitoringService.getMetrics();
+  }
 }
