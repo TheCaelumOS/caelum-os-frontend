@@ -45,13 +45,13 @@ export function clearStoredAuth(): void {
 
 export function getStoredUser(): AuthUser {
   if (typeof window === 'undefined') {
-    return { id: 'dev-user-uuid-1234', email: 'dev@caelum-os.io', name: 'Caelum Engineer', role: 'Administrator', avatarColor: '#e95420' };
+    return { id: 'dev-user-uuid-1234', email: 'dev@caelum-os.io', name: 'CaelumOS', role: 'Administrator', avatarColor: '#e95420' };
   }
   try {
     const raw = localStorage.getItem('caelum_user');
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { id: 'dev-user-uuid-1234', email: 'dev@caelum-os.io', name: 'Caelum Engineer', role: 'Administrator', avatarColor: '#e95420' };
+  return { id: 'dev-user-uuid-1234', email: 'dev@caelum-os.io', name: 'CaelumOS', role: 'Administrator', avatarColor: '#e95420' };
 }
 
 export function setStoredUser(user: AuthUser): void {
@@ -91,7 +91,7 @@ export async function loginWithCredentials(email: string, password: string): Pro
       const user: AuthUser = {
         id: data.user?.id || 'dev-user-uuid-1234',
         email,
-        name: email === 'dev@caelum-os.io' ? 'Caelum Engineer' : email.split('@')[0],
+        name: 'CaelumOS',
         role: 'Administrator',
         avatarColor: '#e95420',
       };
@@ -108,7 +108,7 @@ export async function loginWithCredentials(email: string, password: string): Pro
       const user: AuthUser = {
         id: 'dev-user-uuid-1234',
         email: 'dev@caelum-os.io',
-        name: 'Caelum Engineer',
+        name: 'CaelumOS',
         role: 'Administrator',
         avatarColor: '#e95420',
       };
@@ -129,7 +129,7 @@ export async function ensureAuthenticated(force = false) {
       setStoredUser({
         id: 'dev-user-uuid-1234',
         email: 'dev@caelum-os.io',
-        name: 'Caelum Engineer',
+        name: 'CaelumOS',
         role: 'Administrator',
         avatarColor: '#e95420',
       });
@@ -188,7 +188,7 @@ export async function ensureAuthenticated(force = false) {
       setStoredUser({
         id: data.user?.id || 'dev-user-uuid-1234',
         email: 'dev@caelum-os.io',
-        name: 'Caelum Engineer',
+        name: 'CaelumOS',
         role: 'Administrator',
         avatarColor: '#e95420',
       });
@@ -207,7 +207,7 @@ export async function ensureAuthenticated(force = false) {
         setStoredUser({
           id: data.user?.id || 'dev-user-uuid-1234',
           email: 'dev@caelum-os.io',
-          name: 'Caelum Engineer',
+          name: 'CaelumOS',
           role: 'Administrator',
           avatarColor: '#e95420',
         });
@@ -223,7 +223,7 @@ export async function ensureAuthenticated(force = false) {
     setStoredUser({
       id: 'dev-user-uuid-1234',
       email: 'dev@caelum-os.io',
-      name: 'Caelum Engineer',
+      name: 'CaelumOS',
       role: 'Administrator',
       avatarColor: '#e95420',
     });

@@ -173,7 +173,7 @@ export const DEFAULT_OS_SETTINGS: OsSettings = {
   inputSource: 'English (US, intl., altgr dead keys)',
   regionalFormats: 'United States (en_US.UTF-8)',
   users: [
-    { id: 'u1', name: 'Caelum Engineer', username: 'linux@caelum-os', role: 'Administrator', avatarColor: '#e95420' }
+    { id: 'u1', name: 'CaelumOS', username: 'linux@caelum-os', role: 'Administrator', avatarColor: '#e95420' }
   ],
   autoLogin: true,
   mouseSpeed: 6,

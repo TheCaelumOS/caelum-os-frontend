@@ -284,35 +284,34 @@ export default function LockScreen({
           transition={{ duration: 0.5, delay: 0.2 }}
           className="w-full flex flex-col items-center"
         >
-          {/* User Avatar Card */}
+          {/* CaelumOS Brand Logo & Identity Card */}
           <div className="flex flex-col items-center space-y-3 mb-6">
             <div className="relative group">
               <div 
-                className="w-20 h-20 sm:w-22 sm:h-22 rounded-full border-2 border-white/20 p-1 bg-neutral-900/80 shadow-2xl flex items-center justify-center transition-transform group-hover:scale-105"
+                className="w-22 h-22 sm:w-24 sm:h-24 rounded-3xl border border-white/20 p-2 bg-neutral-900/90 shadow-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-105 backdrop-blur-xl"
                 style={{
-                  boxShadow: `0 0 30px ${user?.avatarColor || '#e95420'}40`
+                  boxShadow: '0 0 35px rgba(168, 85, 247, 0.4), 0 0 15px rgba(56, 189, 248, 0.25)'
                 }}
               >
-                <div 
-                  className="w-full h-full rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-inner"
-                  style={{ backgroundColor: user?.avatarColor || '#e95420' }}
-                >
-                  {(user?.name || 'Caelum Engineer').charAt(0).toUpperCase()}
-                </div>
+                <img
+                  src="/branding/caelumos-icon.png"
+                  alt="CaelumOS Logo"
+                  className="w-full h-full object-contain rounded-2xl drop-shadow-[0_0_16px_rgba(168,85,247,0.5)]"
+                />
               </div>
 
               {/* Online / Active Session Badge */}
-              <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-neutral-950 flex items-center justify-center shadow">
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-neutral-950 flex items-center justify-center shadow">
                 <Check className="w-3 h-3 text-white stroke-[3]" />
               </div>
             </div>
 
             <div className="text-center">
-              <h3 className="text-lg font-bold text-white tracking-wide">
-                {user?.name || 'Caelum Engineer'}
+              <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-wide">
+                CaelumOS
               </h3>
-              <p className="text-xs text-slate-400 font-mono">
-                {user?.email || 'dev@caelum-os.io'} &bull; {user?.role || 'Administrator'}
+              <p className="text-xs text-slate-400 font-mono tracking-wider mt-0.5">
+                {user?.email || 'dev@caelum-os.io'} &bull; Administrator
               </p>
             </div>
           </div>
