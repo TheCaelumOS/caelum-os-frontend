@@ -40,6 +40,7 @@ export function clearStoredAuth(): void {
   jwtToken = '';
   localStorage.removeItem('caelum_token');
   localStorage.removeItem('caelum_user');
+  localStorage.removeItem('caelum_os_locked');
   sessionStorage.removeItem('caelum_os_unlocked');
 }
 
@@ -59,7 +60,7 @@ export function setStoredUser(user: AuthUser): void {
   localStorage.setItem('caelum_user', JSON.stringify(user));
 }
 
-export async function loginWithCredentials(email: string, password: string): Promise<{ success: boolean; error?: string; user?: AuthUser }> {
+export async function loginWithCredentials(email: string, password: string): Promise<{ success: boolean; error?: string; statusCode?: number; retryAfter?: number; user?: AuthUser }> {
   const credentials = { email, password };
 
   const attemptLogin = async (baseUrl: string) => {
@@ -91,31 +92,113 @@ export async function loginWithCredentials(email: string, password: string): Pro
       const user: AuthUser = {
         id: data.user?.id || 'dev-user-uuid-1234',
         email,
-        name: 'CaelumOS',
-        role: 'Administrator',
+        name: email === 'dev@caelum-os.io' ? 'CaelumOS' : email.split('@')[0],
+        role: data.user?.role || 'Administrator',
         avatarColor: '#e95420',
       };
       setStoredUser(user);
       return { success: true, user };
     } else {
       const err = await res.json().catch(() => ({}));
-      return { success: false, error: err.message || 'Invalid credentials provided' };
+      return { 
+        success: false, 
+        error: err.message || (res.status === 401 ? 'Incorrect password' : 'Authentication failed'),
+        statusCode: res.status,
+        retryAfter: err.retryAfter
+      };
     }
   } catch (err: any) {
-    if (email === 'dev@caelum-os.io' && password === 'CaelumDeveloper123!') {
-      const mockToken = 'caelum_dev_session_token_' + Date.now();
-      setStoredToken(mockToken);
+    return { success: false, error: 'Could not connect to authentication daemon on port 4000' };
+  }
+}
+
+export async function unlockWithPassword(email: string, password: string): Promise<{ success: boolean; error?: string; statusCode?: number; retryAfter?: number; user?: AuthUser }> {
+  const credentials = { email, password };
+
+  const attemptUnlock = async (baseUrl: string) => {
+    return await fetch(`${baseUrl}/auth/unlock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+      signal: AbortSignal.timeout(5000),
+    });
+  };
+
+  try {
+    let activeBase = API_BASE;
+    let res: Response;
+    try {
+      res = await attemptUnlock(activeBase);
+    } catch (e: any) {
+      if (activeBase.includes('localhost')) {
+        activeBase = activeBase.replace('localhost', '127.0.0.1');
+        res = await attemptUnlock(activeBase);
+      } else {
+        throw e;
+      }
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      setStoredToken(data.accessToken);
       const user: AuthUser = {
-        id: 'dev-user-uuid-1234',
-        email: 'dev@caelum-os.io',
-        name: 'CaelumOS',
-        role: 'Administrator',
+        id: data.user?.id || 'dev-user-uuid-1234',
+        email,
+        name: email === 'dev@caelum-os.io' ? 'CaelumOS' : email.split('@')[0],
+        role: data.user?.role || 'Administrator',
         avatarColor: '#e95420',
       };
       setStoredUser(user);
       return { success: true, user };
+    } else {
+      const err = await res.json().catch(() => ({}));
+      return { 
+        success: false, 
+        error: err.message || (res.status === 401 ? 'Incorrect password' : 'Authentication failed'),
+        statusCode: res.status,
+        retryAfter: err.retryAfter
+      };
     }
-    return { success: false, error: 'Could not connect to authentication daemon' };
+  } catch (err: any) {
+    return { success: false, error: 'Could not connect to authentication daemon on port 4000' };
+  }
+}
+
+export async function registerWithCredentials(email: string, password: string): Promise<{ success: boolean; error?: string; statusCode?: number; retryAfter?: number; user?: AuthUser }> {
+  const credentials = { email, password };
+
+  const attemptRegister = async (baseUrl: string) => {
+    return await fetch(`${baseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+      signal: AbortSignal.timeout(5000),
+    });
+  };
+
+  try {
+    let activeBase = API_BASE;
+    let res: Response;
+    try {
+      res = await attemptRegister(activeBase);
+    } catch (e: any) {
+      if (activeBase.includes('localhost')) {
+        activeBase = activeBase.replace('localhost', '127.0.0.1');
+        res = await attemptRegister(activeBase);
+      } else {
+        throw e;
+      }
+    }
+
+    if (res.ok) {
+      // After registration, auto-login to obtain tokens
+      return await loginWithCredentials(email, password);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message || 'Registration failed', statusCode: res.status };
+    }
+  } catch (err: any) {
+    return { success: false, error: 'Could not connect to authentication daemon on port 4000' };
   }
 }
 

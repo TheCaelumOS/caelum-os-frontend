@@ -1,8 +1,9 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, UnlockDto, ChangePasswordDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GetUser } from './decorators/get-user.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -22,8 +23,30 @@ export class AuthController {
   @ApiOperation({ summary: 'Login and fetch access/refresh tokens' })
   @ApiResponse({ status: 200, description: 'Login successful. Tokens returned.' })
   @ApiResponse({ status: 401, description: 'Invalid user credentials.' })
+  @ApiResponse({ status: 429, description: 'Too many attempts. Account locked.' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('unlock')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Unlock CaelumOS lock screen via password verification' })
+  @ApiResponse({ status: 200, description: 'Password verified. Desktop unlocked.' })
+  @ApiResponse({ status: 401, description: 'Incorrect password.' })
+  @ApiResponse({ status: 429, description: 'Too many attempts. Account locked.' })
+  unlock(@Body() dto: UnlockDto) {
+    return this.authService.unlock(dto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change user account password' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully.' })
+  @ApiResponse({ status: 401, description: 'Current password does not match.' })
+  changePassword(@GetUser() user: any, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.sub || user.id, user.email, dto);
   }
 
   @Post('refresh')
@@ -63,3 +86,4 @@ export class AuthController {
     return { message: 'Session closed successfully. Tokens invalidated.' };
   }
 }
+

@@ -88,33 +88,51 @@ export default function Desktop() {
   // CaelumOS Boot & Lock State: 'booting' | 'locked' | 'unlocked'
   const [bootState, setBootState] = useState<'booting' | 'locked' | 'unlocked'>('booting');
   const [currentUser, setCurrentUser] = useState<AuthUser | undefined>(undefined);
+  const [isFullLoginRequired, setIsFullLoginRequired] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check if session already unlocked in this browser tab
-    const isUnlocked = sessionStorage.getItem('caelum_os_unlocked') === 'true';
-    if (isUnlocked) {
-      setBootState('unlocked');
-    } else {
-      setBootState('booting');
-    }
+    const token = localStorage.getItem('caelum_token');
+    const isExplicitlyLocked = localStorage.getItem('caelum_os_locked') === 'true';
+    const isSessionUnlocked = sessionStorage.getItem('caelum_os_unlocked') === 'true';
+    const hasBooted = sessionStorage.getItem('caelum_os_booted') === 'true';
 
-    // Load active user and ensure token authentication
     const user = getStoredUser();
     setCurrentUser(user);
-    ensureAuthenticated();
+
+    if (isExplicitlyLocked) {
+      // Explicitly locked: desktop remains inaccessible until password is authenticated
+      setBootState('locked');
+    } else if (token && isSessionUnlocked) {
+      // User refreshed page while authenticated & unlocked: restore session immediately
+      setBootState('unlocked');
+    } else if (!hasBooted) {
+      // Fresh cold boot: show lightweight entry boot splash (~1.2s), then lock screen
+      sessionStorage.setItem('caelum_os_booted', 'true');
+      setBootState('booting');
+      ensureAuthenticated();
+    } else {
+      // Authenticated session exists but needs unlock
+      setBootState('locked');
+    }
   }, []);
 
-  const handleUnlockDesktop = () => {
+  const handleUnlockSuccess = (updatedUser?: AuthUser) => {
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('caelum_os_locked');
       sessionStorage.setItem('caelum_os_unlocked', 'true');
     }
+    if (updatedUser) {
+      setCurrentUser(updatedUser);
+    }
+    setIsFullLoginRequired(false);
     setBootState('unlocked');
   };
 
   const handleLockScreen = () => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem('caelum_os_locked', 'true');
       sessionStorage.removeItem('caelum_os_unlocked');
     }
     setBootState('locked');
@@ -123,8 +141,12 @@ export default function Desktop() {
   const handleFullLogout = () => {
     clearStoredAuth();
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('caelum_os_locked');
       sessionStorage.removeItem('caelum_os_unlocked');
     }
+    // Close open windows on logout
+    setWindows(prev => prev.map(w => ({ ...w, isOpen: false, isMinimized: false })));
+    setIsFullLoginRequired(true);
     setBootState('locked');
   };
 
@@ -1263,9 +1285,10 @@ export default function Desktop() {
             wallpaperClass={currentBgClass}
             isBooting={bootState === 'booting'}
             onBootComplete={() => setBootState('locked')}
-            onUnlock={handleUnlockDesktop}
+            onUnlockSuccess={handleUnlockSuccess}
             user={currentUser}
             onRestart={() => setBootState('booting')}
+            isFullLoginRequired={isFullLoginRequired}
           />
         )}
       </AnimatePresence>

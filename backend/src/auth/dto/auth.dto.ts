@@ -60,3 +60,28 @@ export class ResetPasswordDto {
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   password: string;
 }
+
+export class UnlockDto {
+  @ApiProperty({ example: 'dev@caelum-os.io', description: 'User account email address' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: 'SecurePassword123!', description: 'User password to unlock CaelumOS' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'OldPassword123!', description: 'Current password' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({ example: 'NewSecurePassword123!', description: 'New password' })
+  @IsString()
+  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  newPassword: string;
+}
+

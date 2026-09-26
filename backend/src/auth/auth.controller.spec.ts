@@ -44,4 +44,12 @@ describe('AuthController', () => {
     const result = await controller.login(dto);
     expect(result).toHaveProperty('accessToken');
   });
+
+  it('should unlock session with password verification', async () => {
+    service.unlock = jest.fn().mockResolvedValue({ accessToken: 'access_tok', refreshToken: 'ref_tok' });
+    const dto = { email: 'test@caelum-os.io', password: 'password123' };
+    const result = await controller.unlock(dto);
+    expect(result).toHaveProperty('accessToken');
+  });
 });
+
