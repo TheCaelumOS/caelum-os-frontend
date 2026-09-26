@@ -17,6 +17,8 @@ Thumbs.db
 .DS_Store
 backend/sandbox/
 backend/data/
+backend/storage/
+storage/
 sandbox/
 etc/
 **/.caelum_data/
