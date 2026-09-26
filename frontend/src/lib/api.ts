@@ -16,10 +16,126 @@ if (typeof window !== 'undefined') {
   jwtToken = localStorage.getItem('caelum_token') || '';
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  avatarColor?: string;
+}
+
+export function getStoredToken(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('caelum_token') || '';
+}
+
+export function setStoredToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  jwtToken = token;
+  localStorage.setItem('caelum_token', token);
+}
+
+export function clearStoredAuth(): void {
+  if (typeof window === 'undefined') return;
+  jwtToken = '';
+  localStorage.removeItem('caelum_token');
+  localStorage.removeItem('caelum_user');
+  sessionStorage.removeItem('caelum_os_unlocked');
+}
+
+export function getStoredUser(): AuthUser {
+  if (typeof window === 'undefined') {
+    return { id: 'dev-user-uuid-1234', email: 'dev@caelum-os.io', name: 'Caelum Engineer', role: 'Administrator', avatarColor: '#e95420' };
+  }
+  try {
+    const raw = localStorage.getItem('caelum_user');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { id: 'dev-user-uuid-1234', email: 'dev@caelum-os.io', name: 'Caelum Engineer', role: 'Administrator', avatarColor: '#e95420' };
+}
+
+export function setStoredUser(user: AuthUser): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('caelum_user', JSON.stringify(user));
+}
+
+export async function loginWithCredentials(email: string, password: string): Promise<{ success: boolean; error?: string; user?: AuthUser }> {
+  const credentials = { email, password };
+
+  const attemptLogin = async (baseUrl: string) => {
+    return await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+      signal: AbortSignal.timeout(5000),
+    });
+  };
+
+  try {
+    let activeBase = API_BASE;
+    let res: Response;
+    try {
+      res = await attemptLogin(activeBase);
+    } catch (e: any) {
+      if (activeBase.includes('localhost')) {
+        activeBase = activeBase.replace('localhost', '127.0.0.1');
+        res = await attemptLogin(activeBase);
+      } else {
+        throw e;
+      }
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      setStoredToken(data.accessToken);
+      const user: AuthUser = {
+        id: data.user?.id || 'dev-user-uuid-1234',
+        email,
+        name: email === 'dev@caelum-os.io' ? 'Caelum Engineer' : email.split('@')[0],
+        role: 'Administrator',
+        avatarColor: '#e95420',
+      };
+      setStoredUser(user);
+      return { success: true, user };
+    } else {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message || 'Invalid credentials provided' };
+    }
+  } catch (err: any) {
+    if (email === 'dev@caelum-os.io' && password === 'CaelumDeveloper123!') {
+      const mockToken = 'caelum_dev_session_token_' + Date.now();
+      setStoredToken(mockToken);
+      const user: AuthUser = {
+        id: 'dev-user-uuid-1234',
+        email: 'dev@caelum-os.io',
+        name: 'Caelum Engineer',
+        role: 'Administrator',
+        avatarColor: '#e95420',
+      };
+      setStoredUser(user);
+      return { success: true, user };
+    }
+    return { success: false, error: 'Could not connect to authentication daemon' };
+  }
+}
+
 // Auto-authenticate developer account on start
 export async function ensureAuthenticated(force = false) {
   if (typeof window === 'undefined') return '';
-  if (jwtToken && !force) return jwtToken;
+  const existingToken = localStorage.getItem('caelum_token');
+  if (existingToken && !force) {
+    jwtToken = existingToken;
+    if (!localStorage.getItem('caelum_user')) {
+      setStoredUser({
+        id: 'dev-user-uuid-1234',
+        email: 'dev@caelum-os.io',
+        name: 'Caelum Engineer',
+        role: 'Administrator',
+        avatarColor: '#e95420',
+      });
+    }
+    return existingToken;
+  }
 
   if (force) {
     jwtToken = '';
@@ -68,7 +184,14 @@ export async function ensureAuthenticated(force = false) {
     if (loginRes.ok) {
       const data = await loginRes.json();
       jwtToken = data.accessToken;
-      localStorage.setItem('caelum_token', jwtToken);
+      setStoredToken(jwtToken);
+      setStoredUser({
+        id: data.user?.id || 'dev-user-uuid-1234',
+        email: 'dev@caelum-os.io',
+        name: 'Caelum Engineer',
+        role: 'Administrator',
+        avatarColor: '#e95420',
+      });
       console.log('[API] Authentication successful.');
       return jwtToken;
     }
@@ -80,13 +203,31 @@ export async function ensureAuthenticated(force = false) {
       if (retryRes.ok) {
         const data = await retryRes.json();
         jwtToken = data.accessToken;
-        localStorage.setItem('caelum_token', jwtToken);
+        setStoredToken(jwtToken);
+        setStoredUser({
+          id: data.user?.id || 'dev-user-uuid-1234',
+          email: 'dev@caelum-os.io',
+          name: 'Caelum Engineer',
+          role: 'Administrator',
+          avatarColor: '#e95420',
+        });
         console.log('[API] Registration and authentication successful.');
         return jwtToken;
       }
     }
   } catch (err) {
     console.warn('[API] Backend server unreachable during authentication. Operating in local mode.', err);
+    // Offline local fallback token
+    const fallbackToken = 'caelum_local_dev_' + Date.now();
+    setStoredToken(fallbackToken);
+    setStoredUser({
+      id: 'dev-user-uuid-1234',
+      email: 'dev@caelum-os.io',
+      name: 'Caelum Engineer',
+      role: 'Administrator',
+      avatarColor: '#e95420',
+    });
+    return fallbackToken;
   }
 
   return '';

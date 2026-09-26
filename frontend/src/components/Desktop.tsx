@@ -23,7 +23,8 @@ import {
   Globe,
   Settings as SettingsIcon,
   FolderIcon,
-  HardDrive
+  HardDrive,
+  Lock
 } from 'lucide-react';
 import WindowFrame from './WindowFrame';
 import TerminalApp from './apps/TerminalApp';
@@ -41,6 +42,8 @@ import AiAssistantApp from './apps/AiAssistantApp';
 import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
 import GrafanaApp from './apps/GrafanaApp';
+import LockScreen from './LockScreen';
+import { AuthUser, getStoredUser, clearStoredAuth, ensureAuthenticated } from '../lib/api';
 
 import {
   DockerLogo,
@@ -81,6 +84,61 @@ export default function Desktop() {
   const [searchQuery, setSearchQuery] = useState('');
   const [volume, setVolume] = useState(80);
   const [brightness, setBrightness] = useState(90);
+
+  // CaelumOS Boot & Lock State: 'booting' | 'locked' | 'unlocked'
+  const [bootState, setBootState] = useState<'booting' | 'locked' | 'unlocked'>('booting');
+  const [currentUser, setCurrentUser] = useState<AuthUser | undefined>(undefined);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Check if session already unlocked in this browser tab
+    const isUnlocked = sessionStorage.getItem('caelum_os_unlocked') === 'true';
+    if (isUnlocked) {
+      setBootState('unlocked');
+    } else {
+      setBootState('booting');
+    }
+
+    // Load active user and ensure token authentication
+    const user = getStoredUser();
+    setCurrentUser(user);
+    ensureAuthenticated();
+  }, []);
+
+  const handleUnlockDesktop = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('caelum_os_unlocked', 'true');
+    }
+    setBootState('unlocked');
+  };
+
+  const handleLockScreen = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('caelum_os_unlocked');
+    }
+    setBootState('locked');
+  };
+
+  const handleFullLogout = () => {
+    clearStoredAuth();
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('caelum_os_unlocked');
+    }
+    setBootState('locked');
+  };
+
+  // Keyboard shortcut: Ctrl+Alt+L or Super+L locks the desktop
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if ((e.ctrlKey && e.altKey && e.key.toLowerCase() === 'l') || (e.metaKey && e.key.toLowerCase() === 'l')) {
+        e.preventDefault();
+        handleLockScreen();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, []);
 
   // Active Sub-Paths for Cloud modules
   const [activeSubPaths, setActiveSubPaths] = useState<Record<string, string>>({
@@ -479,7 +537,7 @@ export default function Desktop() {
     },
     { 
       id: 'logout', 
-      name: 'Power / Logout', 
+      name: 'Lock Screen / Power', 
       icon: () => (
         <div className="w-9 h-9 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center text-red-500 hover:scale-105 transition-transform shadow-xs">
           <Power className="w-4.5 h-4.5" />
@@ -498,10 +556,7 @@ export default function Desktop() {
       return;
     }
     if (id === 'logout') {
-      alert('Logging out of CaelumOS...');
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      }
+      handleLockScreen();
       return;
     }
     const win = windows.find(w => w.id === id);
@@ -622,7 +677,7 @@ export default function Desktop() {
                 className="w-full accent-orange-500 bg-neutral-800 h-1 rounded"
               />
             </div>
-            <div className="pt-2 border-t border-neutral-800">
+            <div className="pt-2 border-t border-neutral-800 space-y-2">
               <button
                 onClick={() => {
                   setShowSettingsDropdown(false);
@@ -633,6 +688,31 @@ export default function Desktop() {
                 <SettingsIcon className="w-3.5 h-3.5 text-sky-400" />
                 <span>Open Settings</span>
               </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setShowSettingsDropdown(false);
+                    handleLockScreen();
+                  }}
+                  className="py-1.5 px-2 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-slate-300 hover:text-white transition-colors flex items-center justify-center space-x-1.5 text-xs font-medium cursor-pointer"
+                  title="Lock Desktop (Ctrl+Alt+L)"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Lock Screen</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSettingsDropdown(false);
+                    handleFullLogout();
+                  }}
+                  className="py-1.5 px-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 transition-colors flex items-center justify-center space-x-1.5 text-xs font-medium cursor-pointer"
+                  title="Sign out of CaelumOS"
+                >
+                  <Power className="w-3.5 h-3.5 text-red-400" />
+                  <span>Log Out</span>
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -1162,8 +1242,33 @@ export default function Desktop() {
             <SettingsLogo className="w-3.5 h-3.5" />
             <span>Settings</span>
           </div>
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              handleLockScreen();
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer text-amber-300"
+          >
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Lock Screen</span>
+          </div>
         </div>
       )}
+
+      {/* 7. CaelumOS Boot Splash & Lock Screen Overlay */}
+      <AnimatePresence>
+        {bootState !== 'unlocked' && (
+          <LockScreen
+            wallpaperClass={currentBgClass}
+            isBooting={bootState === 'booting'}
+            onBootComplete={() => setBootState('locked')}
+            onUnlock={handleUnlockDesktop}
+            user={currentUser}
+            onRestart={() => setBootState('booting')}
+          />
+        )}
+      </AnimatePresence>
 
     </div>
   );
