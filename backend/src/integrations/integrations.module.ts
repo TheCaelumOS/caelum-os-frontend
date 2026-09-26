@@ -11,9 +11,10 @@ import { TerraformController } from './terraform/terraform.controller';
 import { TerraformService } from './terraform/terraform.service';
 import { GithubModule } from './github/github.module';
 import { GrafanaModule } from './grafana/grafana.module';
+import { TerminalModule } from '../terminal/terminal.module';
 
 @Module({
-  imports: [GithubModule, GrafanaModule],
+  imports: [TerminalModule, GithubModule, GrafanaModule],
   controllers: [
     DockerController,
     KubernetesController,
