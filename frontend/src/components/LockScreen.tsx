@@ -165,8 +165,8 @@ export default function LockScreen({
           setLockoutSeconds(waitTime);
           triggerShake(res.error || `Too many failed attempts. Account locked for ${waitTime} seconds.`);
         } else {
-          // Wrong password (401)
-          triggerShake('Incorrect password');
+          // Wrong password or authentication issue
+          triggerShake(res.error || 'Incorrect password (try: caelum or CaelumDeveloper123!)');
         }
       }
     } catch {
@@ -383,7 +383,7 @@ export default function LockScreen({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Enter password...'}
+                placeholder={lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Enter password (try: caelum)...'}
                 disabled={lockoutSeconds > 0 || isSubmitting}
                 autoFocus={viewMode === 'lock'}
                 className="w-full pl-4 pr-20 py-3 rounded-2xl bg-neutral-900/85 border border-white/20 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-white text-sm placeholder-slate-400 focus:outline-none backdrop-blur-xl shadow-xl transition-all disabled:opacity-50"
@@ -449,6 +449,13 @@ export default function LockScreen({
                 </>
               )}
             </button>
+
+            {/* Password Hint */}
+            {viewMode === 'lock' && (
+              <p className="text-[11px] text-center text-slate-400/80 pt-1">
+                Default password: <span className="text-orange-400 font-mono font-medium">caelum</span> or <span className="text-orange-400 font-mono font-medium">CaelumDeveloper123!</span>
+              </p>
+            )}
           </form>
 
           {/* Account Switching & Options */}
