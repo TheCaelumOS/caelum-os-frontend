@@ -197,16 +197,18 @@ export default function InfrastructureIntelligenceApp({ onOpenApp }: Infrastruct
   const panStartRef = useRef({ x: 0, y: 0 });
 
   // 1. Initial Load & Fetch
-  const loadAllData = async (force = false) => {
+  // 1. Initial Load & Fetch with Silent Auto-Polling
+  const loadAllData = async (force = false, silent = false) => {
     try {
       if (force) setRefreshing(true);
-      else setLoading(true);
+      else if (!silent) setLoading(true);
 
+      const queryParam = force ? '?force=true' : '';
       const [ovRes, topRes, issRes, timRes] = await Promise.allSettled([
-        apiRequest('/infrastructure/overview'),
-        apiRequest('/infrastructure/topology'),
-        apiRequest('/infrastructure/issues'),
-        apiRequest('/infrastructure/timeline'),
+        apiRequest(`/infrastructure/overview${queryParam}`),
+        apiRequest(`/infrastructure/topology${queryParam}`),
+        apiRequest(`/infrastructure/issues${queryParam}`),
+        apiRequest(`/infrastructure/timeline${queryParam}`),
       ]);
 
       if (ovRes.status === 'fulfilled' && ovRes.value) {
@@ -234,6 +236,11 @@ export default function InfrastructureIntelligenceApp({ onOpenApp }: Infrastruct
 
   useEffect(() => {
     loadAllData();
+    // 4-second real-time auto-polling interval to reflect container state changes
+    const pollTimer = setInterval(() => {
+      loadAllData(false, true);
+    }, 4000);
+    return () => clearInterval(pollTimer);
   }, []);
 
   // 2. Fetch Diagnostics for a Resource
@@ -319,7 +326,12 @@ export default function InfrastructureIntelligenceApp({ onOpenApp }: Infrastruct
         r.displayName.toLowerCase().includes(q) ||
         r.type.toLowerCase().includes(q) ||
         r.provider.toLowerCase().includes(q) ||
-        (r.namespace && r.namespace.toLowerCase().includes(q));
+        (r.namespace && r.namespace.toLowerCase().includes(q)) ||
+        (r.sourceId && r.sourceId.toLowerCase().includes(q)) ||
+        (r.metadata?.containerId && String(r.metadata.containerId).toLowerCase().includes(q)) ||
+        (r.metadata?.image && String(r.metadata.image).toLowerCase().includes(q)) ||
+        (r.metadata?.internalIP && String(r.metadata.internalIP).toLowerCase().includes(q)) ||
+        (r.metadata?.ports && (Array.isArray(r.metadata.ports) ? r.metadata.ports.some((p: any) => String(p).toLowerCase().includes(q)) : String(r.metadata.ports).toLowerCase().includes(q)));
       return matchProvider && matchStatus && matchSearch;
     });
   }, [resources, selectedProviderFilter, selectedStatusFilter, searchQuery]);

@@ -296,4 +296,64 @@ export class DockerService {
 
     return { containerId, logs: combined || 'No logs recorded for this container.' };
   }
+
+  /**
+   * Fetch real container resource metrics and CPU/memory stats
+   */
+  async getContainerStats(): Promise<Record<string, any>> {
+    try {
+      const res = await this.terminalService.executeCommand('docker stats --no-stream --format "{{json .}}"');
+      if (res.exitCode !== 0 || !res.stdout.trim()) return {};
+
+      const statsMap: Record<string, any> = {};
+      const lines = res.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        try {
+          const item = JSON.parse(line);
+          const cpuNum = parseFloat((item.CPUPerc || '').replace('%', '')) || 0;
+          const memNum = parseFloat((item.MemPerc || '').replace('%', '')) || 0;
+          const id = (item.ID || item.Container || '').substring(0, 12);
+          const name = item.Name || '';
+          const statData = {
+            cpuPerc: cpuNum,
+            memPerc: memNum,
+            memUsage: item.MemUsage,
+            netIO: item.NetIO,
+            blockIO: item.BlockIO,
+            pids: parseInt(item.PIDs, 10) || 0,
+          };
+          if (id) statsMap[id] = statData;
+          if (name) statsMap[name] = statData;
+        } catch {}
+      }
+      return statsMap;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Fetch chronological structured Docker daemon events
+   */
+  async getRealEvents(since = '24h'): Promise<any[]> {
+    try {
+      const res = await this.terminalService.executeCommand(`docker events --since ${since} --until 0s --format "{{json .}}"`);
+      if (res.exitCode !== 0 || !res.stdout.trim()) return [];
+
+      return res.stdout
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
 }

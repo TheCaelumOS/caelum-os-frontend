@@ -22,6 +22,8 @@ import {
 export class InfrastructureService {
   private readonly logger = new Logger(InfrastructureService.name);
   private resourceCache = new Map<string, { timestamp: number; data: InfrastructureResource[] }>();
+  private azureResourceCache: { timestamp: number; resources: InfrastructureResource[] } | null = null;
+  private awsResourceCache: { timestamp: number; resources: InfrastructureResource[] } | null = null;
 
   constructor(
     private readonly dockerService: DockerService,
@@ -36,7 +38,7 @@ export class InfrastructureService {
   /**
    * Health and connectivity check for all providers
    */
-  async getOverview(userId: string): Promise<InfrastructureOverview> {
+  async getOverview(userId: string, forceRefresh = false): Promise<InfrastructureOverview> {
     const timestamp = new Date().toISOString();
 
     const [
@@ -66,7 +68,7 @@ export class InfrastructureService {
     const memVal = memStats.status === 'fulfilled' ? memStats.value : { total: 0, used: 0, percentage: 0 };
 
     // Discover all resources to get honest counts (reusing already fetched provider health probes)
-    const resources = await this.discoverAllResources(userId, false, {
+    const resources = await this.discoverAllResources(userId, forceRefresh, {
       docker: dockerHealth.status === 'fulfilled' ? dockerHealth.value : null,
       k8s: k8sSummary.status === 'fulfilled' ? k8sSummary.value : null,
       github: githubStatus.status === 'fulfilled' ? githubStatus.value : null,
@@ -212,9 +214,11 @@ export class InfrastructureService {
    * Discover and normalize all real resources from all connected systems
    */
   async discoverAllResources(userId: string, forceRefresh = false, preloadedHealth?: any): Promise<InfrastructureResource[]> {
-    if (!forceRefresh) {
+    if (forceRefresh) {
+      this.resourceCache.delete(userId);
+    } else {
       const cached = this.resourceCache.get(userId);
-      if (cached && Date.now() - cached.timestamp < 10000) {
+      if (cached && Date.now() - cached.timestamp < 2500) {
         return cached.data;
       }
     }
@@ -264,15 +268,37 @@ export class InfrastructureService {
     try {
       const dockerHealth = preloadedHealth?.docker ?? await this.dockerService.getHealth().catch(() => ({ connected: false }));
       if (dockerHealth.connected) {
-        const [containers, images, volumes] = await Promise.all([
+        // Register Docker Engine Core resource
+        resources.push({
+          id: 'docker:engine',
+          provider: 'docker',
+          type: 'docker_engine',
+          name: 'Docker Engine',
+          displayName: `Docker Engine (${dockerHealth.version || '29.8.0'})`,
+          status: 'healthy',
+          rawStatus: dockerHealth.status || 'Running',
+          parentId: 'host:machine',
+          sourceApp: 'docker',
+          sourceId: 'docker-engine',
+          metadata: {
+            version: dockerHealth.version,
+            context: dockerHealth.context,
+            engine: dockerHealth.engine,
+          },
+          lastUpdated: timestamp,
+        });
+
+        const [containers, images, volumes, networks, statsMap] = await Promise.all([
           this.dockerService.listContainers().catch(() => []),
           this.dockerService.listImages().catch(() => []),
           this.dockerService.listVolumes().catch(() => []),
+          this.dockerService.listNetworks().catch(() => []),
+          this.dockerService.getContainerStats().catch(() => ({})),
         ]);
 
         for (const c of containers) {
           const isUp = c.state === 'running' || (c.status && c.status.toLowerCase().startsWith('up'));
-          const isExited = c.state === 'exited';
+          const isExited = c.state === 'exited' || (c.status && c.status.toLowerCase().startsWith('exited'));
           const isPaused = c.state === 'paused';
 
           let status: ResourceHealthStatus = 'stopped';
@@ -281,15 +307,18 @@ export class InfrastructureService {
           else if (isExited && c.status && c.status.includes('Exited (0)')) status = 'stopped';
           else if (isExited) status = 'error';
 
+          const shortId = c.id.substring(0, 12);
+          const cStats = statsMap[shortId] || statsMap[c.name] || {};
+
           resources.push({
             id: `docker:container:${c.id}`,
             provider: 'docker',
             type: 'docker_container',
             name: c.name || c.id,
-            displayName: c.name || `Container ${c.id.substring(0, 12)}`,
+            displayName: c.name || `Container ${shortId}`,
             status,
             rawStatus: c.status || c.state,
-            parentId: 'host:machine',
+            parentId: 'docker:engine',
             sourceApp: 'docker',
             sourceId: c.id,
             metadata: {
@@ -298,6 +327,12 @@ export class InfrastructureService {
               ports: c.ports,
               created: c.created,
               state: c.state,
+              memUsage: cStats.memUsage,
+              netIO: cStats.netIO,
+            },
+            metrics: {
+              cpu: cStats.cpuPerc !== undefined ? Math.round(cStats.cpuPerc) : undefined,
+              memory: cStats.memPerc !== undefined ? Math.round(cStats.memPerc) : undefined,
             },
             lastUpdated: timestamp,
           });
@@ -339,7 +374,27 @@ export class InfrastructureService {
             sourceId: vol.name,
             metadata: {
               driver: vol.driver,
-              mountpoint: vol.mountpoint,
+              scope: vol.scope,
+            },
+            lastUpdated: timestamp,
+          });
+        }
+
+        for (const net of networks) {
+          resources.push({
+            id: `docker:network:${net.id || net.name}`,
+            provider: 'docker',
+            type: 'docker_network',
+            name: net.name,
+            displayName: `Network: ${net.name}`,
+            status: 'healthy',
+            rawStatus: net.driver || 'active',
+            sourceApp: 'docker',
+            sourceId: net.id,
+            metadata: {
+              networkId: net.id,
+              driver: net.driver,
+              scope: net.scope,
             },
             lastUpdated: timestamp,
           });
@@ -793,8 +848,8 @@ export class InfrastructureService {
   /**
    * Compute real graph topology edges between discovered resources
    */
-  async getTopology(userId: string): Promise<InfrastructureTopology> {
-    const nodes = await this.discoverAllResources(userId);
+  async getTopology(userId: string, forceRefresh = false): Promise<InfrastructureTopology> {
+    const nodes = await this.discoverAllResources(userId, forceRefresh);
     const edges: InfrastructureRelationship[] = [];
     const nodeMap = new Map<string, InfrastructureResource>();
 
@@ -812,13 +867,22 @@ export class InfrastructureService {
       }
     };
 
-    // 1. Host -> Docker Container (HOSTED_ON / CONTAINS)
+    // 1. Docker Engine -> Containers -> Networks / Volumes / Images
     const hostNode = nodes.find(n => n.id === 'host:machine');
+    const dockerEngineNode = nodes.find(n => n.id === 'docker:engine');
     const containers = nodes.filter(n => n.type === 'docker_container');
     const dockerImages = nodes.filter(n => n.type === 'docker_image');
+    const dockerNetworks = nodes.filter(n => n.type === 'docker_network');
+    const dockerVolumes = nodes.filter(n => n.type === 'docker_volume');
+
+    if (dockerEngineNode && hostNode) {
+      addEdge(dockerEngineNode.id, hostNode.id, 'HOSTED_ON', 'hosted on host machine');
+    }
 
     for (const c of containers) {
-      if (hostNode) {
+      if (dockerEngineNode) {
+        addEdge(c.id, dockerEngineNode.id, 'HOSTED_ON', 'managed by Docker Engine');
+      } else if (hostNode) {
         addEdge(c.id, hostNode.id, 'HOSTED_ON', 'hosted on host machine');
       }
 
@@ -832,6 +896,20 @@ export class InfrastructureService {
         ) {
           addEdge(c.id, img.id, 'DEPLOYED_FROM', 'deployed from image');
           break;
+        }
+      }
+
+      // Connect container -> network
+      for (const net of dockerNetworks) {
+        if (net.name === 'bridge') {
+          addEdge(c.id, net.id, 'ROUTES_TO', `routed via ${net.name}`);
+        }
+      }
+
+      // Connect container -> volume
+      for (const vol of dockerVolumes) {
+        if (c.name.includes(vol.name)) {
+          addEdge(c.id, vol.id, 'DEPENDS_ON', `mounts volume ${vol.name}`);
         }
       }
     }
@@ -1077,25 +1155,88 @@ export class InfrastructureService {
       }
     }
 
-    // 2. Inspect Docker Containers
+    // 2. Inspect Docker Containers & Daemon
+    const hasDockerResources = resources.some(r => r.provider === 'docker');
+    if (!hasDockerResources) {
+      try {
+        const dockerHealth: any = await this.dockerService.getHealth().catch(() => ({ connected: false, error: undefined }));
+        if (!dockerHealth.connected) {
+          issues.push({
+            id: 'issue:docker:daemon:offline',
+            resourceId: 'docker:engine',
+            resourceName: 'Docker Engine',
+            resourceType: 'docker_engine',
+            provider: 'docker',
+            severity: 'critical',
+            title: 'Docker Engine is disconnected or offline',
+            description: dockerHealth.error || 'Docker daemon is stopped or unreachable on the host system.',
+            timestamp,
+            evidence: {
+              rawStatus: 'Unavailable',
+            },
+            recommendedAction: 'Start Docker Desktop or the system docker service.',
+            deepLinkApp: 'docker',
+          });
+        }
+      } catch {}
+    }
+
     const containers = resources.filter(r => r.type === 'docker_container');
     for (const c of containers) {
       const raw = (c.rawStatus || '').toLowerCase();
-      if (raw.includes('dead') || (raw.includes('exited') && !raw.includes('exited (0)'))) {
+      const isExitedError = raw.includes('dead') || (raw.includes('exited') && !raw.includes('exited (0)'));
+      const isRestarting = raw.includes('restarting');
+      const isStopped = c.status === 'stopped' || raw.includes('exited (0)') || raw.includes('created');
+
+      if (isExitedError) {
         issues.push({
-          id: `issue:docker:${c.id}`,
+          id: `issue:docker:${c.id}:error`,
           resourceId: c.id,
           resourceName: c.name,
           resourceType: c.type,
           provider: 'docker',
-          severity: 'warning',
+          severity: 'critical',
           title: `Container "${c.name}" terminated abnormally`,
-          description: `Docker container stopped with status "${c.rawStatus}".`,
+          description: `Docker container stopped with abnormal status "${c.rawStatus}".`,
           timestamp: c.lastUpdated || timestamp,
           evidence: {
             rawStatus: c.rawStatus,
           },
           recommendedAction: 'Check container logs in Docker app for stack traces.',
+          deepLinkApp: 'docker',
+        });
+      } else if (isRestarting) {
+        issues.push({
+          id: `issue:docker:${c.id}:restarting`,
+          resourceId: c.id,
+          resourceName: c.name,
+          resourceType: c.type,
+          provider: 'docker',
+          severity: 'warning',
+          title: `Container "${c.name}" is in a crash-restart loop`,
+          description: `Docker container is repeatedly restarting (${c.rawStatus}).`,
+          timestamp: c.lastUpdated || timestamp,
+          evidence: {
+            rawStatus: c.rawStatus,
+          },
+          recommendedAction: 'Check container logs to diagnose startup crash.',
+          deepLinkApp: 'docker',
+        });
+      } else if (isStopped) {
+        issues.push({
+          id: `issue:docker:${c.id}:stopped`,
+          resourceId: c.id,
+          resourceName: c.name,
+          resourceType: c.type,
+          provider: 'docker',
+          severity: 'warning',
+          title: `Container "${c.name}" is stopped`,
+          description: `Docker container "${c.name}" (${c.metadata?.image || 'image'}) is stopped (${c.rawStatus}).`,
+          timestamp: c.lastUpdated || timestamp,
+          evidence: {
+            rawStatus: c.rawStatus,
+          },
+          recommendedAction: `Start container with 'docker start ${c.name}' or manage via Docker Containerizer.`,
           deepLinkApp: 'docker',
         });
       }
@@ -1243,59 +1384,89 @@ export class InfrastructureService {
   /**
    * Collect chronological stream of real infrastructure events
    */
-  async getTimeline(userId: string): Promise<InfrastructureTimelineEvent[]> {
+  async getTimeline(userId: string, forceRefresh = false): Promise<InfrastructureTimelineEvent[]> {
     const events: InfrastructureTimelineEvent[] = [];
     const timestamp = new Date().toISOString();
-    const resources = await this.discoverAllResources(userId);
+    const resources = await this.discoverAllResources(userId, forceRefresh);
 
     // 1. K8s events
     const hasK8s = resources.some(r => r.provider === 'kubernetes');
     if (hasK8s) {
       try {
         const k8sEvents = await this.kubernetesService.listEvents('all').catch(() => []);
-      for (const ev of k8sEvents) {
-        events.push({
-          id: `k8s:ev:${ev.name}:${ev.lastTimestamp || Date.now()}`,
-          timestamp: ev.lastTimestamp || timestamp,
-          provider: 'kubernetes',
-          resourceId: `k8s:pod:${ev.namespace}/${ev.name}`,
-          resourceName: ev.name,
-          resourceType: 'k8s_event',
-          type: 'k8s_event',
-          severity: ev.type === 'Warning' ? 'warning' : 'info',
-          message: `[${ev.reason}] ${ev.message}`,
-          details: {
-            namespace: ev.namespace,
-            count: ev.count,
-            reason: ev.reason,
-          },
-        });
+        for (const ev of k8sEvents) {
+          events.push({
+            id: `k8s:ev:${ev.name}:${ev.lastTimestamp || Date.now()}`,
+            timestamp: ev.lastTimestamp || timestamp,
+            provider: 'kubernetes',
+            resourceId: `k8s:pod:${ev.namespace}/${ev.name}`,
+            resourceName: ev.name,
+            resourceType: 'k8s_event',
+            type: 'k8s_event',
+            severity: ev.type === 'Warning' ? 'warning' : 'info',
+            message: `[${ev.reason}] ${ev.message}`,
+            details: {
+              namespace: ev.namespace,
+              count: ev.count,
+              reason: ev.reason,
+            },
+          });
         }
       } catch {}
     }
 
-    // 2. Docker container events (creation / running)
+    // 2. Real Docker daemon events stream
     try {
       const dockerHealth = await this.dockerService.getHealth().catch(() => ({ connected: false }));
       if (dockerHealth.connected) {
-        const containers = await this.dockerService.listContainers().catch(() => []);
-        for (const c of containers) {
-          const isUp = c.state === 'running';
+        const realEvents = await this.dockerService.getRealEvents('24h').catch(() => []);
+        for (const ev of realEvents) {
+          const action = ev.Action || 'event';
+          const type = ev.Type || 'container';
+          const name = ev.Actor?.Attributes?.name || ev.Actor?.ID?.substring(0, 12) || 'Docker';
+          const isStart = action === 'start' || action === 'create';
+          const isStop = action === 'stop' || action === 'die' || action === 'kill';
+
+          const evTime = ev.time ? new Date(ev.time * 1000).toISOString() : timestamp;
           events.push({
-            id: `docker:ev:${c.id}`,
-            timestamp: c.created || timestamp,
+            id: `docker:ev:${ev.timeNano || ev.time || Math.random()}`,
+            timestamp: evTime,
             provider: 'docker',
-            resourceId: `docker:container:${c.id}`,
-            resourceName: c.name,
-            resourceType: 'docker_container',
-            type: 'state_change',
-            severity: isUp ? 'success' : 'info',
-            message: `Container ${c.name} is in state: ${c.status || c.state}`,
+            resourceId: `docker:${type}:${ev.Actor?.ID?.substring(0, 12) || ''}`,
+            resourceName: name,
+            resourceType: `docker_${type}`,
+            type: action,
+            severity: isStart ? 'success' : (isStop ? 'warning' : 'info'),
+            message: `Docker ${type} "${name}" ${action}ed (image: ${ev.Actor?.Attributes?.image || 'unknown'})`,
             details: {
-              image: c.image,
-              ports: c.ports,
+              action,
+              type,
+              actor: ev.Actor?.Attributes,
             },
           });
+        }
+
+        // Snapshot fallback if no historical daemon events in last 24h
+        if (realEvents.length === 0) {
+          const containers = await this.dockerService.listContainers().catch(() => []);
+          for (const c of containers) {
+            const isUp = c.state === 'running';
+            events.push({
+              id: `docker:ev:${c.id}`,
+              timestamp: c.created || timestamp,
+              provider: 'docker',
+              resourceId: `docker:container:${c.id}`,
+              resourceName: c.name,
+              resourceType: 'docker_container',
+              type: 'state_change',
+              severity: isUp ? 'success' : 'info',
+              message: `Container "${c.name}" is in state: ${c.status || c.state}`,
+              details: {
+                image: c.image,
+                ports: c.ports,
+              },
+            });
+          }
         }
       }
     } catch {}

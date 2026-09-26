@@ -30,32 +30,33 @@ export class InfrastructureController {
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   @ApiOperation({ summary: 'Get aggregated infrastructure overview across all providers' })
   @ApiResponse({ status: 200, description: 'Infrastructure overview retrieved successfully.' })
-  async getOverview(@GetUser('id') userId: string) {
-    return this.infrastructureService.getOverview(userId);
+  async getOverview(@GetUser('id') userId: string, @Query('force') force?: string) {
+    return this.infrastructureService.getOverview(userId, force === 'true');
   }
 
   @Get('resources')
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   @ApiOperation({ summary: 'Discover and list all real infrastructure resources' })
   @ApiResponse({ status: 200, description: 'All discovered infrastructure resources.' })
-  async getResources(@GetUser('id') userId: string) {
-    return this.infrastructureService.discoverAllResources(userId);
+  async getResources(@GetUser('id') userId: string, @Query('force') force?: string) {
+    return this.infrastructureService.discoverAllResources(userId, force === 'true');
   }
 
   @Get('topology')
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   @ApiOperation({ summary: 'Get unified multi-provider infrastructure graph topology' })
   @ApiResponse({ status: 200, description: 'Unified topology nodes and relationships.' })
-  async getTopology(@GetUser('id') userId: string) {
-    return this.infrastructureService.getTopology(userId);
+  async getTopology(@GetUser('id') userId: string, @Query('force') force?: string) {
+    return this.infrastructureService.getTopology(userId, force === 'true');
   }
 
   @Get('issues')
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   @ApiOperation({ summary: 'Get active issues detected across connected infrastructure' })
   @ApiResponse({ status: 200, description: 'List of active issues and warnings.' })
-  async getIssues(@GetUser('id') userId: string) {
-    return this.infrastructureService.getIssues(userId);
+  async getIssues(@GetUser('id') userId: string, @Query('force') force?: string) {
+    const resources = await this.infrastructureService.discoverAllResources(userId, force === 'true');
+    return this.infrastructureService.getIssues(userId, resources);
   }
 
   @Get('diagnose/:id')
@@ -74,8 +75,8 @@ export class InfrastructureController {
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   @ApiOperation({ summary: 'Get chronological timeline of infrastructure events' })
   @ApiResponse({ status: 200, description: 'Chronological events stream.' })
-  async getTimeline(@GetUser('id') userId: string) {
-    return this.infrastructureService.getTimeline(userId);
+  async getTimeline(@GetUser('id') userId: string, @Query('force') force?: string) {
+    return this.infrastructureService.getTimeline(userId, force === 'true');
   }
 
   @Get('search')
@@ -95,8 +96,8 @@ export class InfrastructureController {
   @ApiResponse({ status: 200, description: 'Fresh discovery overview and topology.' })
   async refresh(@GetUser('id') userId: string) {
     const [overview, topology] = await Promise.all([
-      this.infrastructureService.getOverview(userId),
-      this.infrastructureService.getTopology(userId),
+      this.infrastructureService.getOverview(userId, true),
+      this.infrastructureService.getTopology(userId, true),
     ]);
     return {
       success: true,
