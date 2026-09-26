@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as net from 'net';
 import { CreateDeploymentDto, CreateServiceDto } from './dto/create-k8s.dto';
 
 @Injectable()
@@ -104,9 +105,37 @@ export class KubernetesService {
 
       let server = 'unknown';
       try {
-        const s = this.runKubectl(['config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}'], 5000).trim();
+        const s = this.runKubectl(['config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}'], 3000).trim();
         if (s) server = s;
       } catch {}
+
+      // Ultra-fast TCP socket probe: if minikube / API server is down, fail in <50ms instead of 30s
+      if (server && server.startsWith('http')) {
+        try {
+          const u = new URL(server);
+          const isReachable = await new Promise<boolean>((resolve) => {
+            const socket = net.createConnection({ host: u.hostname, port: parseInt(u.port, 10) || 443, timeout: 800 });
+            socket.on('connect', () => { socket.destroy(); resolve(true); });
+            socket.on('error', () => { socket.destroy(); resolve(false); });
+            socket.on('timeout', () => { socket.destroy(); resolve(false); });
+          });
+          if (!isReachable) {
+            return {
+              connected: false,
+              context: context || 'minikube',
+              server,
+              status: 'unavailable',
+              error: 'Kubernetes cluster is not running or unreachable.',
+              nodeCount: 0,
+              podCount: 0,
+              deploymentCount: 0,
+              statefulSetCount: 0,
+              serviceCount: 0,
+              namespaceCount: 0,
+            };
+          }
+        } catch {}
+      }
 
       const [nodes, namespaces, pods, deployments, statefulsets, services] = await Promise.all([
         this.listNodes().catch(() => []),

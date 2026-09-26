@@ -36,8 +36,11 @@ export class DockerService {
   }
 
   private checkConnection(): boolean {
+    if (process.platform === 'win32' && !fs.existsSync('\\\\.\\pipe\\docker_engine')) {
+      return false;
+    }
     try {
-      const output = this.runDocker(['version'], 8000);
+      const output = this.runDocker(['version'], 5000);
       return output.includes('Server:');
     } catch {
       return false;
@@ -56,8 +59,18 @@ export class DockerService {
   }
 
   async getHealth() {
+    if (process.platform === 'win32' && !fs.existsSync('\\\\.\\pipe\\docker_engine')) {
+      return {
+        connected: false,
+        version: '',
+        context: '',
+        engine: '',
+        status: 'unavailable',
+        error: 'Docker daemon is not running or unreachable. Please start Docker Desktop or the Docker service.',
+      };
+    }
     try {
-      const output = this.runDocker(['version'], 10000);
+      const output = this.runDocker(['version'], 5000);
       const connected = output.includes('Server:');
       
       let version = '29.8.0';

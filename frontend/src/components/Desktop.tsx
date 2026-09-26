@@ -24,7 +24,8 @@ import {
   Settings as SettingsIcon,
   FolderIcon,
   HardDrive,
-  Lock
+  Lock,
+  Network
 } from 'lucide-react';
 import WindowFrame from './WindowFrame';
 import TerminalApp from './apps/TerminalApp';
@@ -43,6 +44,7 @@ import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
 import GrafanaApp from './apps/GrafanaApp';
 import TaskManagerApp from './apps/TaskManagerApp';
+import InfrastructureIntelligenceApp from './apps/InfrastructureIntelligenceApp';
 import LockScreen from './LockScreen';
 import { AuthUser, getStoredUser, clearStoredAuth, ensureAuthenticated } from '../lib/api';
 
@@ -216,6 +218,7 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
     { id: 'terraform', title: 'Terraform Provisioner', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 840, height: 520 },
     { id: 'settings', title: 'Settings', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 920, height: 580 },
     { id: 'taskmanager', title: 'Task Manager (CaelumOS)', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 840, height: 540 },
+    { id: 'infrastructure', title: 'Infrastructure Intelligence', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 960, height: 620 },
   ]);
 
   const [topZIndex, setTopZIndex] = useState(11);
@@ -562,6 +565,15 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
       icon: () => (
         <div className="w-9 h-9 bg-neutral-900 border border-neutral-700/60 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
           <Activity className="w-5.5 h-5.5 text-emerald-400" />
+        </div>
+      ) 
+    },
+    { 
+      id: 'infrastructure', 
+      name: 'Infrastructure', 
+      icon: () => (
+        <div className="w-9 h-9 bg-indigo-950/40 border border-indigo-500/40 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs text-indigo-400">
+          <Network className="w-5.5 h-5.5" />
         </div>
       ) 
     },
@@ -1175,6 +1187,28 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
               />
             </WindowFrame>
           )}
+
+          {/* Infrastructure Intelligence Application */}
+          {windows.find(w => w.id === 'infrastructure')?.isOpen && (
+            <WindowFrame
+              id="infrastructure"
+              title="Infrastructure Intelligence"
+              icon={<Network className="w-4.5 h-4.5 text-indigo-400" />}
+              isOpen={windows.find(w => w.id === 'infrastructure')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'infrastructure')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'infrastructure')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'infrastructure')?.zIndex || 10}
+              onClose={() => closeWindow('infrastructure')}
+              onMinimize={() => toggleWindowMinimize('infrastructure')}
+              onMaximize={() => toggleWindowMaximize('infrastructure')}
+              onFocus={() => focusWindow('infrastructure')}
+              theme="dark"
+              defaultWidth={960}
+              defaultHeight={620}
+            >
+              <InfrastructureIntelligenceApp onOpenApp={openApp} />
+            </WindowFrame>
+          )}
         </div>
       </div>
 
@@ -1314,6 +1348,17 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
           >
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
             <span>Task Manager</span>
+          </div>
+
+          <div 
+            onClick={() => {
+              setDesktopContextMenu(prev => ({ ...prev, visible: false }));
+              openApp('infrastructure');
+            }}
+            className="px-3 py-1.5 hover:bg-sky-600 hover:text-white rounded-md mx-1 flex items-center space-x-2 cursor-pointer text-indigo-400 font-semibold"
+          >
+            <Network className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Infrastructure Intelligence</span>
           </div>
 
           <div 

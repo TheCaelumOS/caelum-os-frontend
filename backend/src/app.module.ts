@@ -10,6 +10,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { FilesystemModule } from './filesystem/filesystem.module';
 import { TerminalModule } from './terminal/terminal.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { InfrastructureModule } from './infrastructure/infrastructure.module';
 
 import * as path from 'path';
 
@@ -35,6 +36,7 @@ import * as path from 'path';
     FilesystemModule,
     TerminalModule,
     IntegrationsModule,
+    InfrastructureModule,
   ],
 })
 export class AppModule {}
