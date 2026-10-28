@@ -197,11 +197,11 @@ export default function LockScreen({
         >
           {/* CaelumOS Logo with subtle breathing pulse */}
           <div className="relative">
-            <div className="absolute -inset-4 bg-purple-500/20 rounded-full blur-xl animate-pulse" />
+            <div className="absolute -inset-4 bg-cyan-500/25 rounded-full blur-xl animate-pulse" />
             <img
               src="/branding/caelumos-icon.png"
               alt="CaelumOS Logo"
-              className="relative w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl drop-shadow-[0_0_25px_rgba(168,85,247,0.4)]"
+              className="relative w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl drop-shadow-[0_0_25px_rgba(6,182,212,0.45)]"
             />
           </div>
 
@@ -331,13 +331,13 @@ export default function LockScreen({
               <div 
                 className="w-20 h-20 sm:w-22 sm:h-22 rounded-3xl border border-white/20 p-2 bg-neutral-900/90 shadow-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-105 backdrop-blur-xl"
                 style={{
-                  boxShadow: '0 0 35px rgba(168, 85, 247, 0.4), 0 0 15px rgba(56, 189, 248, 0.25)'
+                  boxShadow: '0 0 35px rgba(6, 182, 212, 0.4), 0 0 15px rgba(56, 189, 248, 0.25)'
                 }}
               >
                 <img
                   src="/branding/caelumos-icon.png"
                   alt="CaelumOS Logo"
-                  className="w-full h-full object-contain rounded-2xl drop-shadow-[0_0_16px_rgba(168,85,247,0.5)]"
+                  className="w-full h-full object-contain rounded-2xl drop-shadow-[0_0_16px_rgba(6,182,212,0.5)]"
                 />
               </div>
 

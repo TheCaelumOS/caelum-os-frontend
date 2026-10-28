@@ -428,8 +428,8 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
       id: 'launcher', 
       name: 'Dashboard', 
       icon: () => (
-        <div className="w-9 h-9 bg-[#321768]/80 border border-purple-500/30 rounded-xl flex items-center justify-center overflow-hidden shadow-xs hover:scale-105 transition-transform">
-          <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-6.5 h-6.5 object-contain" />
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden shadow-xs hover:scale-105 transition-transform">
+          <img src="/branding/caelumos-icon.png" alt="CaelumOS" className="w-full h-full object-contain rounded-xl" />
         </div>
       ) 
     },
