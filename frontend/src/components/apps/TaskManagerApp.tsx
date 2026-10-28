@@ -40,7 +40,8 @@ import {
   GrafanaLogo, 
   AiAssistantLogo, 
   FirefoxLogo, 
-  SettingsLogo 
+  SettingsLogo,
+  JenkinsLogo
 } from '../icons/RealBrandLogos';
 
 export interface AppWindow {
@@ -238,6 +239,7 @@ export default function TaskManagerApp({
       case 'vscode': return <VscodeLogo className="w-4 h-4" />;
       case 'monitoring':
       case 'grafana': return <GrafanaLogo className="w-4 h-4" />;
+      case 'jenkins': return <JenkinsLogo className="w-4 h-4" />;
       case 'aiassistant': return <AiAssistantLogo className="w-4 h-4" />;
       case 'browser': return <FirefoxLogo className="w-4 h-4" />;
       case 'settings': return <SettingsLogo className="w-4 h-4" />;
@@ -371,6 +373,28 @@ export default function TaskManagerApp({
         logo: GrafanaLogo,
       });
     }
+
+    // Jenkins CI/CD
+    try {
+      const jenkins = await apiRequest('/jenkins/status');
+      const isConnected = jenkins?.status === 'CONNECTED';
+      list.push({
+        name: 'Jenkins CI/CD',
+        category: 'Automation & Build',
+        status: isConnected ? 'Connected' : jenkins?.status === 'UNAVAILABLE' ? 'Unavailable' : 'Disconnected',
+        details: isConnected ? `v${jenkins?.version || 'Active'} (${jenkins?.name || 'Controller'})` : 'Not configured',
+        logo: JenkinsLogo,
+      });
+    } catch {
+      list.push({
+        name: 'Jenkins CI/CD',
+        category: 'Automation & Build',
+        status: 'Disconnected',
+        details: 'Server offline',
+        logo: JenkinsLogo,
+      });
+    }
+
 
     // AWS
     try {

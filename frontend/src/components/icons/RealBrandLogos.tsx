@@ -422,3 +422,15 @@ export const GoogleLogo = ({ className = "w-6 h-6" }: { className?: string }) =>
   </svg>
 );
 
+/**
+ * Jenkins - Official Butler Mark (Jenkins Project: https://www.jenkins.io/)
+ */
+export const JenkinsLogo = ({ className = "w-6 h-6", alt = "Jenkins" }: { className?: string; alt?: string }) => (
+  <img
+    src="/branding/jenkins.svg"
+    alt={alt}
+    className={`${className} object-contain`}
+  />
+);
+
+

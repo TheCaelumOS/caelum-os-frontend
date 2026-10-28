@@ -43,6 +43,7 @@ import AiAssistantApp from './apps/AiAssistantApp';
 import TerraformApp from './apps/TerraformApp';
 import SettingsApp, { OsSettings, DEFAULT_OS_SETTINGS } from './apps/SettingsApp';
 import GrafanaApp from './apps/GrafanaApp';
+import JenkinsApp from './apps/JenkinsApp';
 import TaskManagerApp from './apps/TaskManagerApp';
 import InfrastructureIntelligenceApp from './apps/InfrastructureIntelligenceApp';
 import LockScreen from './LockScreen';
@@ -52,6 +53,7 @@ import {
   DockerLogo,
   KubernetesLogo,
   GrafanaLogo,
+  JenkinsLogo,
   VscodeLogo,
   AwsLogo,
   AzureLogo,
@@ -64,6 +66,7 @@ import {
   AiAssistantLogo,
   SettingsLogo,
 } from './icons/RealBrandLogos';
+
 
 interface AppWindow {
   id: string;
@@ -211,6 +214,7 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
     { id: 'kubernetes', title: 'Kubernetes Orchestrator', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 820, height: 520 },
     { id: 'monitoring', title: 'Grafana Observability', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
     { id: 'grafana', title: 'Grafana Observability', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
+    { id: 'jenkins', title: 'Jenkins CI/CD', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 940, height: 600 },
     { id: 'aiassistant', title: 'AI Assistant Co-Pilot', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 720, height: 480 },
     { id: 'github', title: 'GitHub Workspace', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 880, height: 560 },
     { id: 'vscode', title: 'VS Code Editor', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 900, height: 560 },
@@ -533,8 +537,18 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
       ) 
     },
     { 
+      id: 'jenkins', 
+      name: 'Jenkins', 
+      icon: () => (
+        <div className="w-9 h-9 bg-[#d33833]/15 border border-[#d33833]/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <JenkinsLogo className="w-6 h-6" />
+        </div>
+      ) 
+    },
+    { 
       id: 'aiassistant', 
       name: 'AI Copilot', 
+
       icon: () => (
         <div className="w-9 h-9 bg-purple-600/15 border border-purple-500/30 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
           <AiAssistantLogo className="w-6 h-6" />
@@ -1019,8 +1033,31 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
             </WindowFrame>
           )}
 
+          {/* Jenkins CI/CD */}
+          {windows.find(w => w.id === 'jenkins')?.isOpen && (
+            <WindowFrame
+              id="jenkins"
+              title="Jenkins CI/CD"
+              icon={<JenkinsLogo className="w-4.5 h-4.5" />}
+              isOpen={windows.find(w => w.id === 'jenkins')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'jenkins')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'jenkins')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'jenkins')?.zIndex || 2}
+              onClose={() => closeWindow('jenkins')}
+              onMinimize={() => toggleWindowMinimize('jenkins')}
+              onMaximize={() => toggleWindowMaximize('jenkins')}
+              onFocus={() => focusWindow('jenkins')}
+              theme="dark"
+              defaultWidth={940}
+              defaultHeight={600}
+            >
+              <JenkinsApp />
+            </WindowFrame>
+          )}
+
           {/* AI Assistant */}
           {windows.find(w => w.id === 'aiassistant')?.isOpen && (
+
             <WindowFrame
               id="aiassistant"
               title="AI Assistant Co-Pilot"

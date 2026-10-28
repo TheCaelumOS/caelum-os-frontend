@@ -11,10 +11,11 @@ import { TerraformController } from './terraform/terraform.controller';
 import { TerraformService } from './terraform/terraform.service';
 import { GithubModule } from './github/github.module';
 import { GrafanaModule } from './grafana/grafana.module';
+import { JenkinsModule } from './jenkins/jenkins.module';
 import { TerminalModule } from '../terminal/terminal.module';
 
 @Module({
-  imports: [TerminalModule, GithubModule, GrafanaModule],
+  imports: [TerminalModule, GithubModule, GrafanaModule, JenkinsModule],
   controllers: [
     DockerController,
     KubernetesController,
@@ -37,6 +38,8 @@ import { TerminalModule } from '../terminal/terminal.module';
     TerraformService,
     GithubModule,
     GrafanaModule,
+    JenkinsModule,
   ],
 })
 export class IntegrationsModule {}
+

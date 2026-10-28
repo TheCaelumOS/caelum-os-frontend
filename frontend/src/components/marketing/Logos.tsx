@@ -41,13 +41,9 @@ export {
   GitLogo,
   LinuxLogo,
   CloudflareLogo,
+  JenkinsLogo,
 } from '../icons/RealBrandLogos';
 
-export const JenkinsLogo = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 4.5a2.5 2.5 0 0 1 2.5 2.5v.5h-5V9A2.5 2.5 0 0 1 13 6.5zm-3 4.5h6v2.5a3 3 0 0 1-6 0zm-2 7a4 4 0 0 1 8 0H8z" />
-  </svg>
-);
 
 export const PostgreSqlLogo = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
