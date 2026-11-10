@@ -46,6 +46,7 @@ import GrafanaApp from './apps/GrafanaApp';
 import JenkinsApp from './apps/JenkinsApp';
 import TaskManagerApp from './apps/TaskManagerApp';
 import InfrastructureIntelligenceApp from './apps/InfrastructureIntelligenceApp';
+import DmeApp from './apps/DmeApp';
 import LockScreen from './LockScreen';
 import { AuthUser, getStoredUser, clearStoredAuth, ensureAuthenticated } from '../lib/api';
 
@@ -54,6 +55,7 @@ import {
   KubernetesLogo,
   GrafanaLogo,
   JenkinsLogo,
+  DmeLogo,
   VscodeLogo,
   AwsLogo,
   AzureLogo,
@@ -223,6 +225,7 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
     { id: 'settings', title: 'Settings', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 2, theme: 'dark', width: 920, height: 580 },
     { id: 'taskmanager', title: 'Task Manager (CaelumOS)', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 840, height: 540 },
     { id: 'infrastructure', title: 'Infrastructure Intelligence', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 960, height: 620 },
+    { id: 'dme', title: 'DevOps Management Engine (DME)', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 10, theme: 'dark', width: 980, height: 640 },
   ]);
 
   const [topZIndex, setTopZIndex] = useState(11);
@@ -583,6 +586,15 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
       ) 
     },
     { 
+      id: 'dme',
+      name: 'DME Engine',
+      icon: () => (
+        <div className="w-9 h-9 bg-cyan-950/40 border border-cyan-500/40 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shadow-xs">
+          <DmeLogo className="w-6 h-6" />
+        </div>
+      )
+    },
+    {
       id: 'infrastructure', 
       name: 'Infrastructure', 
       icon: () => (
@@ -1244,6 +1256,28 @@ export default function Desktop({ initialApp }: DesktopProps = {}) {
               defaultHeight={620}
             >
               <InfrastructureIntelligenceApp onOpenApp={openApp} />
+            </WindowFrame>
+          )}
+
+          {/* DevOps Management Engine (DME) */}
+          {windows.find(w => w.id === 'dme')?.isOpen && (
+            <WindowFrame
+              id="dme"
+              title="DevOps Management Engine (DME)"
+              icon={<DmeLogo className="w-4.5 h-4.5" />}
+              isOpen={windows.find(w => w.id === 'dme')?.isOpen || false}
+              isMinimized={windows.find(w => w.id === 'dme')?.isMinimized || false}
+              isMaximized={windows.find(w => w.id === 'dme')?.isMaximized || false}
+              zIndex={windows.find(w => w.id === 'dme')?.zIndex || 10}
+              onClose={() => closeWindow('dme')}
+              onMinimize={() => toggleWindowMinimize('dme')}
+              onMaximize={() => toggleWindowMaximize('dme')}
+              onFocus={() => focusWindow('dme')}
+              theme="dark"
+              defaultWidth={980}
+              defaultHeight={640}
+            >
+              <DmeApp />
             </WindowFrame>
           )}
         </div>

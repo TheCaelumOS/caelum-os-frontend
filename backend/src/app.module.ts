@@ -11,6 +11,7 @@ import { FilesystemModule } from './filesystem/filesystem.module';
 import { TerminalModule } from './terminal/terminal.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { DmeModule } from './dme/dme.module';
 
 import * as path from 'path';
 
@@ -37,6 +38,7 @@ import * as path from 'path';
     TerminalModule,
     IntegrationsModule,
     InfrastructureModule,
+    DmeModule,
   ],
 })
 export class AppModule {}

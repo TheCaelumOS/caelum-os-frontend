@@ -433,4 +433,60 @@ export const JenkinsLogo = ({ className = "w-6 h-6", alt = "Jenkins" }: { classN
   />
 );
 
+/**
+ * CaelumOS DME (DevOps Management Engine) Brand Logo
+ * Geometric orbital core with tri-gradient validation rings
+ */
+export const DmeLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="dme-grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#06B6D4" />
+        <stop offset="50%" stopColor="#3B82F6" />
+        <stop offset="100%" stopColor="#8B5CF6" />
+      </linearGradient>
+      <linearGradient id="dme-grad2" x1="100%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#38BDF8" />
+        <stop offset="100%" stopColor="#6366F1" />
+      </linearGradient>
+      <filter id="dme-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+    </defs>
+    {/* Outer Hex Shield Ring */}
+    <path
+      d="M50 6 L88 28 L88 72 L50 94 L12 72 L12 28 Z"
+      stroke="url(#dme-grad1)"
+      strokeWidth="4"
+      strokeLinejoin="round"
+      fill="rgba(15, 23, 42, 0.7)"
+      filter="url(#dme-glow)"
+    />
+    {/* Inner Precision Hexagon */}
+    <path
+      d="M50 20 L76 35 L76 65 L50 80 L24 65 L24 35 Z"
+      stroke="url(#dme-grad2)"
+      strokeWidth="2.5"
+      strokeLinejoin="round"
+      fill="rgba(6, 182, 212, 0.12)"
+    />
+    {/* Core Kinetic Nodes */}
+    <circle cx="50" cy="50" r="10" fill="url(#dme-grad1)" />
+    <circle cx="50" cy="50" r="4" fill="#FFFFFF" />
+    {/* Tri-Spoke Pulse Connectors */}
+    <line x1="50" y1="20" x2="50" y2="40" stroke="#38BDF8" strokeWidth="2.5" strokeLinecap="round" />
+    <line x1="76" y1="65" x2="59" y2="55" stroke="#818CF8" strokeWidth="2.5" strokeLinecap="round" />
+    <line x1="24" y1="65" x2="41" y2="55" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round" />
+    {/* Satellite Orbs */}
+    <circle cx="50" cy="6" r="3.5" fill="#38BDF8" />
+    <circle cx="88" cy="28" r="3.5" fill="#60A5FA" />
+    <circle cx="88" cy="72" r="3.5" fill="#818CF8" />
+    <circle cx="50" cy="94" r="3.5" fill="#A78BFA" />
+    <circle cx="12" cy="72" r="3.5" fill="#C084FC" />
+    <circle cx="12" cy="28" r="3.5" fill="#38BDF8" />
+  </svg>
+);
+
+
 

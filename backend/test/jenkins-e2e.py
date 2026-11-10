@@ -390,10 +390,12 @@ def api_call(endpoint, method="GET", data=None):
 
 def run_all_tests():
     print("=" * 70)
-    print(">>> CAELUMOS JENKINS INTEGRATION AUTOMATED END-TO-END TEST SUITE")
+    print(">>> CAELUMOS JENKINS INTEGRATION SIMULATED / MOCK TEST SUITE")
+    print(">>> (Verifies CaelumOS backend logic against simulated mock responses)")
     print("=" * 70)
 
     server = start_mock_jenkins()
+
     time.sleep(1) # Allow server to bind
 
     passed = 0
@@ -583,15 +585,18 @@ def run_all_tests():
     server.shutdown()
 
     print("\n" + "=" * 70)
-    print(f"AUTOMATED TEST RESULTS: {passed} PASSED / {failed} FAILED (TOTAL {passed + failed})")
+    print(f"MOCK TEST RESULTS: {passed} PASSED / {failed} FAILED (TOTAL {passed + failed})")
     print("=" * 70)
 
     if failed == 0:
-        print("SUCCESS: ALL TESTS PASSED! Jenkins integration is 100% verified.")
+        print("SUCCESS: ALL MOCK TESTS PASSED!")
+        print("Note: These tests verified backend parsing against an in-memory mock Jenkins server.")
+        print("For real server verification, run: python backend/test/jenkins-real-e2e.py")
         return 0
     else:
-        print("FAILURE: Some tests failed.")
+        print("FAILURE: Some mock tests failed.")
         return 1
+
 
 
 if __name__ == "__main__":

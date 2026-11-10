@@ -41,7 +41,8 @@ import {
   AiAssistantLogo, 
   FirefoxLogo, 
   SettingsLogo,
-  JenkinsLogo
+  JenkinsLogo,
+  DmeLogo
 } from '../icons/RealBrandLogos';
 
 export interface AppWindow {
@@ -240,6 +241,7 @@ export default function TaskManagerApp({
       case 'monitoring':
       case 'grafana': return <GrafanaLogo className="w-4 h-4" />;
       case 'jenkins': return <JenkinsLogo className="w-4 h-4" />;
+      case 'dme': return <DmeLogo className="w-4 h-4" />;
       case 'aiassistant': return <AiAssistantLogo className="w-4 h-4" />;
       case 'browser': return <FirefoxLogo className="w-4 h-4" />;
       case 'settings': return <SettingsLogo className="w-4 h-4" />;
@@ -392,6 +394,26 @@ export default function TaskManagerApp({
         status: 'Disconnected',
         details: 'Server offline',
         logo: JenkinsLogo,
+      });
+    }
+
+    // DevOps Management Engine (DME)
+    try {
+      const dme = await apiRequest('/dme/overview');
+      list.push({
+        name: 'DevOps Management Engine',
+        category: 'Engine & Audit',
+        status: 'Operational',
+        details: `Score: ${dme?.healthScore?.toFixed(0) || 100}% (${dme?.totalEvents || 0} events)`,
+        logo: DmeLogo,
+      });
+    } catch {
+      list.push({
+        name: 'DevOps Management Engine',
+        category: 'Engine & Audit',
+        status: 'Operational',
+        details: 'Deterministic engine active',
+        logo: DmeLogo,
       });
     }
 

@@ -22,6 +22,8 @@ model User {
   preferences   UserPreference?
   conversations AIConversation[]
   githubConnection GithubConnection?
+  dmeEvents     DmeEvent[]
+  dmeValidationRuns DmeValidationRun[]
 }
 
 model Workspace {
@@ -140,3 +142,55 @@ model GithubConnection {
   connectedAt           DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }
+
+model DmeEvent {
+  id        String   @id @default(uuid())
+  source    String
+  eventType String
+  severity  String
+  title     String
+  message   String   @db.Text
+  metadata  Json?
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([source])
+  @@index([severity])
+  @@index([timestamp])
+}
+
+model DmeValidationRun {
+  id          String   @id @default(uuid())
+  status      String
+  score       Float
+  summary     String   @db.Text
+  details     Json
+  durationMs  Int
+  triggeredBy String   @default("manual")
+  createdAt   DateTime @default(now())
+
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DmeRule {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  category    String
+  severity    String
+  description String   @db.Text
+  enabled     Boolean  @default(true)
+  remediation String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
